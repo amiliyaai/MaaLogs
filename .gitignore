@@ -15,8 +15,8 @@ src-tauri/target
 src-tauri/target/**
 
 # Editor directories and files
-.vscode/*
-!.vscode/extensions.json
+.vscode/
+.trae/
 .idea
 .DS_Store
 *.suo
@@ -24,3 +24,4 @@ src-tauri/target/**
 *.njsproj
 *.sln
 *.sw?
+
