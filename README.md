@@ -1,174 +1,140 @@
 # MaaLogs
 
-MaaLogs 是一个基于 Tauri + Vue 3 的桌面日志分析工具，用于解析 Maa 日志并以任务、节点、搜索与统计视图展示结果。
-
-## 项目简介
-
-MaaLogs 面向 Maa 生态日志排查场景，支持解析 `maa.log` 与 `go-service.log`，并在前端建立“任务 - 节点 - 辅助日志”的统一视图，帮助快速定位任务异常与识别偏差。
+MaaLogs 是一个用于解析和可视化 MaaFramework 日志的桌面应用程序。它能够解析 MaaFramework 运行时产生的日志文件，提取任务执行信息、节点详情和 Custom 日志，并提供直观的可视化界面进行分析。
 
 ## 功能特性
 
-- 任务分析：解析任务与节点时间线，展示节点详情与耗时
-- 辅助日志关联：关联 go-service 日志与任务/节点上下文
-- 文本搜索：支持大小写与正则搜索，跨文件高亮结果
-- 节点统计：按节点维度统计次数、成功率与耗时
-- 桌面体验：支持拖拽导入日志文件
-- 结构化日志：统一日志格式，支持等级、归档与清理
+- **日志解析**：支持解析 `maa.log` 和 `go-service.log` 格式的日志文件
+- **任务可视化**：以树形结构展示任务执行流程，包括节点状态、识别详情和动作信息
+- **Custom 日志关联**：自动关联 Custom 日志与对应的 Pipeline 节点
+- **文本搜索**：支持正则表达式搜索，快速定位日志内容
+- **统计分析**：统计节点执行次数、耗时分布和成功率
 
-## 系统架构图
+## 技术栈
 
-```mermaid
-flowchart LR
-  User[用户] --> UI[Vue 3 UI]
-  UI --> Parser[日志解析器]
-  Parser --> TaskModel[任务/节点模型]
-  Parser --> AuxLog[辅助日志模型]
-  TaskModel --> Views[任务/节点/统计视图]
-  AuxLog --> Views
-  UI --> Logger[结构化日志模块]
+- **前端框架**：Vue 3 + TypeScript
+- **UI 组件库**：Naive UI
+- **桌面框架**：Tauri 2.0
+- **构建工具**：Vite
+
+## 项目结构
+
+```
+src/
+├── App.vue                 # 主应用组件
+├── main.ts                 # 应用入口
+├── components/             # Vue 组件
+│   ├── AppTopBar.vue       # 顶部导航栏
+│   ├── HeroPanel.vue       # 文件选择和解析控制面板
+│   ├── FileListPanel.vue   # 已选文件列表
+│   ├── AnalysisPanel.vue   # 任务分析面板
+│   ├── SearchPanel.vue     # 日志搜索面板
+│   └── StatisticsPanel.vue # 统计分析面板
+├── composables/            # Vue Composables
+│   ├── index.ts            # 导出入口
+│   ├── useLogParser.ts     # 日志解析逻辑
+│   ├── useSearch.ts        # 搜索功能
+│   ├── useStatistics.ts    # 统计计算
+│   └── useFileSelection.ts # 文件选择管理
+├── parsers/                # 日志解析器
+│   ├── index.ts            # 解析器注册表
+│   ├── types.ts            # 解析器类型定义
+│   ├── base.ts             # 基础解析器
+│   ├── loguru.ts           # Loguru 格式解析器
+│   ├── maaend.ts           # MaaEnd 格式解析器
+│   ├── correlate.ts        # Custom 日志关联
+│   └── registry.ts         # 解析器注册逻辑
+├── types/                  # TypeScript 类型定义
+│   └── logTypes.ts         # 日志相关类型
+└── utils/                  # 工具函数
+    ├── logger.ts           # 日志记录器
+    ├── format.ts           # 格式化工具
+    ├── parse.ts            # 解析工具
+    └── file.ts             # 文件处理工具
 ```
 
-## 架构说明
+## 核心模块说明
 
-- 解析模块：将 `maa.log` 和 `go-service.log` 解析为统一结构
-- 关联模块：通过时间窗、ID、业务标识对齐辅助日志
-- 视图层：任务、节点、搜索、统计四大视图
-- 日志模块：统一日志等级、上下文与归档逻辑
+### Composables
 
-## 适用日志
+Composables 是 Vue 3 的组合式函数，用于封装和复用有状态的逻辑：
 
-- `.log`、`.json` 文件
-- 必需文件名：`maa.log`、`go-service.log`
-- 允许 `.zip` 包内包含上述文件
+- **useLogParser**：核心日志解析逻辑，包括任务构建、节点提取和 Custom 日志关联
+- **useSearch**：文本搜索功能，支持正则表达式和大小写敏感选项
+- **useStatistics**：节点统计计算，包括执行次数、耗时分布和成功率
+- **useFileSelection**：文件选择和拖拽处理，支持 Tauri 文件系统 API
 
-## 环境要求
+### Parsers
+
+日志解析器模块实现了可扩展的解析器架构：
+
+- **BaseParser**：基础解析器类，提供通用的解析方法
+- **LoguruParser**：解析 Loguru 格式的日志（Go 服务日志）
+- **MaaEndParser**：解析 MaaEnd 格式的日志
+- **correlateAuxLogs**：将 Custom 日志与 Pipeline 节点关联
+
+### Utils
+
+工具函数模块提供纯函数，无副作用：
+
+- **format.ts**：格式化函数，如时间、大小、状态等
+- **parse.ts**：解析函数，如日志行解析、任务构建等
+- **file.ts**：文件处理函数，如文件类型判断、路径处理等
+
+## 开发指南
+
+### 环境要求
 
 - Node.js >= 18
-- npm >= 9
-- Rust 与 Tauri 环境（仅桌面版开发或构建需要）
+- Rust >= 1.70
+- pnpm 或 npm
 
-## 安装与部署指南
-
-### 依赖安装
+### 安装依赖
 
 ```bash
 npm install
 ```
 
-### 前端开发
-
-```bash
-npm run dev
-```
-
-### 前端构建
-
-```bash
-npm run build
-```
-
-### Tauri 开发
+### 开发模式
 
 ```bash
 npm run tauri dev
 ```
 
-### Tauri 构建
+### 构建发布
 
 ```bash
 npm run tauri build
 ```
 
-### 配置说明
+### 类型检查
 
-- Tauri 配置入口：`src-tauri/tauri.conf.json`
-- 解析逻辑入口：`src/App.vue`
-- 日志模块入口：`src/utils/logger.ts`
+```bash
+npm run build
+```
 
-## 使用流程
+## 使用说明
 
-1. 拖拽 `.log`/`.json`/`.zip` 文件到窗口，或点击选择文件
-2. 点击“开始解析”
-3. 切换顶部视图查看分析结果
+1. **选择日志文件**：点击"选择日志文件"按钮或直接拖拽文件到窗口
+2. **选择解析器**：根据日志类型选择合适的解析器（默认 MaaEnd）
+3. **开始解析**：点击"开始解析"按钮
+4. **查看结果**：
+   - **分析视图**：查看任务列表、节点详情和 Custom 日志
+   - **搜索视图**：在原始日志中搜索关键字
+   - **统计视图**：查看节点执行统计信息
 
-## 使用示例
+## 日志格式支持
 
-- 解析日志：拖拽 `maa.log` 与 `go-service.log`，点击“开始解析”
-- 搜索异常：输入 `Tasker.Task.Failed` 并启用大小写匹配
-- 正则定位：启用正则，输入 `Node\\.(Recognition|Action)Node\\.(Failed)` 过滤失败节点
+### maa.log 格式
 
-## 最佳实践
+```
+[时间戳][等级][进程ID][线程ID][源文件][行号][函数名] 消息内容
+```
 
-- 同时加载 `maa.log` 与 `go-service.log` 提升关联准确性
-- 对大日志优先使用拖拽方式，避免浏览器限制
-- 正则搜索时加上范围词，提高定位效率
+### go-service.log 格式
 
-## API 文档（供二次开发）
+支持 Loguru 和 MaaEnd 两种格式的 JSON 结构化日志。
 
-### 解析模块
+## 许可证
 
-| 接口 | 说明 | 入参 | 出参 |
-| --- | --- | --- | --- |
-| parseLine | 解析 maa.log 单行 | `line: string`, `lineNum: number` | `LogLine \| null` |
-| parseGoServiceLogLine | 解析 go-service JSON 行 | `line: string`, `lineNum: number`, `fileName: string` | `AuxLogEntry \| null` |
-| buildTasks | 生成任务列表 | `events: EventNotification[]`, `stringPool: StringPool` | `TaskInfo[]` |
-| correlateAuxLogs | 关联辅助日志 | `auxEntries: AuxLogEntry[]`, `tasks: TaskInfo[]` | `AuxLogEntry[]` |
-
-### 日志模块
-
-| 接口 | 说明 | 入参 | 出参 |
-| --- | --- | --- | --- |
-| createLogger | 创建模块日志器 | `module: string` | `{ debug/info/warn/error/fatal }` |
-| setLoggerContext | 更新上下文 | `userId?: string`, `threadId?: string` | `void` |
-| flushLogs | 立即刷盘 | 无 | `void` |
-
-### 数据结构（简要）
-
-- TaskInfo：任务 ID、入口、开始/结束时间、节点列表、进程/线程信息
-- NodeInfo：节点 ID、名称、状态、时间戳、识别/动作详情
-- AuxLogEntry：时间戳、等级、消息、任务/节点关联结果
-
-## 错误码定义
-
-> 当前前端直接展示提示语，以下错误码用于排障归档与后续扩展。
-
-| 错误码 | 场景 | 对应提示 |
-| --- | --- | --- |
-| ERR_NO_FILES | 未选择解析文件 | 请先选择日志/配置文件 |
-| ERR_INVALID_REGEX | 正则表达式非法 | 正则表达式无效 |
-| ERR_PARSE_FAILED | 解析失败 | 解析失败，请检查日志内容 |
-| ERR_NO_LOG_FOUND | 未发现日志 | 未发现 maa.log / go-service.log |
-
-## 测试方法
-
-- 构建校验：`npm run build`（包含 TypeScript 类型检查）
-- 桌面调试：`npm run tauri dev`
-- 手动回归：拖拽示例日志，验证任务、节点、搜索与统计视图
-
-## 性能指标与策略
-
-- 指标口径：解析吞吐量（行/秒）、内存峰值、搜索延迟
-- 优化策略：分块解析（默认 1000 行/批）、字符串池复用、虚拟滚动
-- 日志控制：结构化日志缓冲写入，支持归档与清理
-
-## 已知问题
-
-- 仅支持指定文件名的日志文件（`maa.log`、`go-service.log`）
-- 超大日志解析时间随文件大小增长，建议分批分析
-
-## 目录结构
-
-- src/App.vue：核心解析逻辑与 UI
-- src/utils/logger.ts：结构化日志模块
-- src-tauri/：Tauri 配置与入口
-- public/：前端静态资源
-
-## 贡献指南
-
-1. Fork 本仓库并创建分支
-2. 提交功能变更与说明
-3. 发起 Pull Request 并补充测试说明
-
-## 联系方式
-
-- 建议通过仓库 Issue / Pull Request 交流问题与需求
+MIT License
