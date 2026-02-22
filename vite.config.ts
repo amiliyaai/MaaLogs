@@ -29,4 +29,20 @@ export default defineConfig(async () => ({
       ignored: ["**/src-tauri/**"],
     },
   },
+  build: {
+    chunkSizeWarningLimit: 800,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("node_modules")) {
+            if (id.includes("naive-ui")) return "naive-ui";
+            if (id.includes("@vicons")) return "vicons";
+            if (id.includes("vue-virtual-scroller")) return "virtual-scroller";
+            if (id.includes("fflate")) return "fflate";
+            return "vendor";
+          }
+        },
+      },
+    },
+  },
 }));

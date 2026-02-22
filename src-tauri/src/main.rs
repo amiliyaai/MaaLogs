@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    maalogs_lib::run()
+    maalogs_lib::run(tauri::generate_context!())
 }

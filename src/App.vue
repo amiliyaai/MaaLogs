@@ -1,165 +1,37 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
-import {
-  NConfigProvider,
-  NButton,
-  NCard,
-  NInput,
-  NCheckbox,
-  NSelect,
-  NProgress,
-  NTag,
-  NCollapse,
-  NCollapseItem,
-  NCode,
-  NDivider
-} from "naive-ui";
-import { DynamicScroller, DynamicScrollerItem } from "vue-virtual-scroller";
-import { convertFileSrc } from "@tauri-apps/api/core";
+import { NConfigProvider } from "naive-ui";
+import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { readDir, readTextFile, readFile } from "@tauri-apps/plugin-fs";
+import { join, appDataDir, appLogDir } from "@tauri-apps/api/path";
+import { unzipSync } from "fflate";
 import "vue-virtual-scroller/dist/vue-virtual-scroller.css";
+import AppTopBar from "./components/AppTopBar.vue";
+import HeroPanel from "./components/HeroPanel.vue";
+import FileListPanel from "./components/FileListPanel.vue";
+import AnalysisPanel from "./components/AnalysisPanel.vue";
+import SearchPanel from "./components/SearchPanel.vue";
+import StatisticsPanel from "./components/StatisticsPanel.vue";
+import type {
+  ActionDetail,
+  ActionAttempt,
+  AuxLogEntry,
+  EventNotification,
+  LogLine,
+  NextListItem,
+  NodeInfo,
+  NodeStat,
+  PipelineCustomActionInfo,
+  RecognitionAttempt,
+  RawLine,
+  SearchResult,
+  SelectedFile,
+  TaskInfo
+} from "./types/logTypes";
+import { createLogger, init, setLoggerContext, flushLogs } from "./utils/logger";
 
-type SelectedFile = {
-  name: string;
-  size: number;
-  type: string;
-  file: File;
-};
-
-type LogLine = {
-  timestamp: string;
-  level: "DBG" | "INF" | "TRC" | "WRN" | "ERR";
-  processId: string;
-  threadId: string;
-  sourceFile?: string;
-  lineNumber?: string;
-  functionName?: string;
-  message: string;
-  params: Record<string, any>;
-  status?: "enter" | "leave";
-  duration?: number;
-  _lineNumber?: number;
-};
-
-type EventNotification = {
-  timestamp: string;
-  level: string;
-  message: string;
-  details: Record<string, any>;
-  fileName: string;
-  processId: string;
-  threadId: string;
-  _lineNumber?: number;
-};
-
-type NextListItem = {
-  name: string;
-  anchor: boolean;
-  jump_back: boolean;
-};
-
-type RecognitionAttempt = {
-  reco_id: number;
-  name: string;
-  timestamp: string;
-  status: "success" | "failed";
-  reco_details?: RecognitionDetail;
-  nested_nodes?: RecognitionAttempt[];
-};
-
-type ActionAttempt = {
-  action_id: number;
-  name: string;
-  timestamp: string;
-  status: "success" | "failed";
-  action_details?: ActionDetail;
-  nested_actions?: ActionAttempt[];
-};
-
-type NodeInfo = {
-  node_id: number;
-  name: string;
-  timestamp: string;
-  status: "success" | "failed";
-  task_id: number;
-  reco_details?: RecognitionDetail;
-  action_details?: ActionDetail;
-  focus?: any;
-  next_list: NextListItem[];
-  recognition_attempts: RecognitionAttempt[];
-  nested_action_nodes?: ActionAttempt[];
-  nested_recognition_in_action?: RecognitionAttempt[];
-  node_details?: {
-    action_id: number;
-    completed: boolean;
-    name: string;
-    node_id: number;
-    reco_id: number;
-  };
-};
-
-type RecognitionDetail = {
-  reco_id: number;
-  algorithm: string;
-  box: [number, number, number, number] | null;
-  detail: any;
-  name: string;
-};
-
-type ActionDetail = {
-  action_id: number;
-  action: string;
-  box: [number, number, number, number];
-  detail: any;
-  name: string;
-  success: boolean;
-};
-
-type RawLine = {
-  fileName: string;
-  lineNumber: number;
-  line: string;
-};
-
-type SearchResult = {
-  fileName: string;
-  lineNumber: number;
-  line: string;
-  rawLine: string;
-  matchStart: number;
-  matchEnd: number;
-  key: string;
-};
-
-type NodeStat = {
-  name: string;
-  count: number;
-  totalDuration: number;
-  avgDuration: number;
-  minDuration: number;
-  maxDuration: number;
-  successCount: number;
-  failCount: number;
-  successRate: number;
-};
-
-type TaskInfo = {
-  key: string;
-  fileName: string;
-  task_id: number;
-  entry: string;
-  hash: string;
-  uuid: string;
-  start_time: string;
-  end_time?: string;
-  status: "running" | "succeeded" | "failed";
-  nodes: NodeInfo[];
-  processId: string;
-  threadId: string;
-  duration?: number;
-  _startEventIndex?: number;
-  _endEventIndex?: number;
-};
+const logger = createLogger("App");
 
 const selectedFiles = ref<SelectedFile[]>([]);
 const totalSize = ref(0);
@@ -185,13 +57,19 @@ const searchMessage = ref("");
 const statSort = ref<"avgDuration" | "count" | "failRate">("avgDuration");
 const statKeyword = ref("");
 const copyMessage = ref("");
-const taskItemHeight = 84;
+const auxLogs = ref<AuxLogEntry[]>([]);
+const pipelineCustomActions = ref<Record<string, PipelineCustomActionInfo[]>>({});
+const selectedAuxLevels = ref<string[]>(["error", "warn", "info", "debug", "other"]);
+const taskItemHeight = 120;
 const nodeItemHeight = 72;
 const searchItemHeight = 64;
 const parseProgress = ref(0);
 const selectedProcessId = ref("all");
 const selectedThreadId = ref("all");
 
+/**
+ * 根据进程/线程过滤任务列表。
+ */
 const filteredTasks = computed(() => {
   return tasks.value.filter(task => {
     const matchesProcess =
@@ -202,17 +80,70 @@ const filteredTasks = computed(() => {
   });
 });
 
+/**
+ * 当前选中的任务对象。
+ */
 const selectedTask = computed(() => {
   if (!selectedTaskKey.value) return null;
   return filteredTasks.value.find(task => task.key === selectedTaskKey.value) || null;
 });
 
+/**
+ * 当前选中的节点对象。
+ */
 const selectedNode = computed(() => {
   if (!selectedTask.value || selectedNodeId.value === null) return null;
   return selectedTask.value.nodes.find(node => node.node_id === selectedNodeId.value) || null;
 });
 
 const selectedTaskNodes = computed(() => selectedTask.value?.nodes || []);
+const selectedNodeAuxWindowLabel = computed(() => {
+  if (!selectedTask.value || !selectedNode.value) return "";
+  return "关联算法 · 节点区间";
+});
+const selectedNodeCustomActions = computed(() => {
+  if (!selectedNode.value) return [];
+  const name = selectedNode.value.name || selectedNode.value.node_details?.name;
+  const items = (name && pipelineCustomActions.value[name]) || [];
+  const fromLog = extractCustomActionFromActionDetails(selectedNode.value.action_details);
+  if (fromLog && !items.some(item => item.name === fromLog)) {
+    return [...items, { name: fromLog, fileName: "日志" }];
+  }
+  return items;
+});
+const selectedNodeAuxGroups = computed(() => {
+  if (!selectedTask.value) {
+    return { matched: [], unmatched: [], failed: [] } as {
+      matched: AuxLogEntry[];
+      unmatched: AuxLogEntry[];
+      failed: AuxLogEntry[];
+    };
+  }
+  const taskKey = selectedTask.value.key;
+  const matchesLevel = (log: AuxLogEntry) => {
+    const normalizedLevel = normalizeAuxLevel(log.level);
+    return selectedAuxLevels.value.includes(normalizedLevel);
+  };
+  const matched =
+    selectedNode.value === null
+      ? []
+      : auxLogs.value.filter(
+          log =>
+            log.correlation?.status === "matched" &&
+            log.correlation?.taskKey === taskKey &&
+            log.correlation?.nodeId === selectedNode.value?.node_id &&
+            matchesLevel(log)
+        );
+  const unmatched = auxLogs.value.filter(
+    log => log.correlation?.status === "unmatched" && log.correlation?.taskKey === taskKey && matchesLevel(log)
+  );
+  const failed = auxLogs.value.filter(
+    log => log.correlation?.status === "failed" && log.correlation?.taskKey === taskKey && matchesLevel(log)
+  );
+  return { matched, unmatched, failed };
+});
+
+const selectedNodeAuxLogs = computed(() => selectedNodeAuxGroups.value.matched);
 
 const processOptions = computed(() => {
   const ids = Array.from(new Set(tasks.value.map(task => task.processId).filter(Boolean)));
@@ -251,12 +182,22 @@ watch(filteredTasks, () => {
   }
 });
 
+/**
+ * 将字节数转为易读的字符串。
+ * @param value 字节数
+ * @returns 格式化后的大小字符串
+ */
 function formatSize(value: number) {
   if (value < 1024) return `${value} B`;
   if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
   return `${(value / 1024 / 1024).toFixed(1)} MB`;
 }
 
+/**
+ * 推断文件类型，优先使用浏览器提供的 MIME。
+ * @param file 目标文件
+ * @returns 文件类型字符串
+ */
 function getFileType(file: File) {
   if (file.type) return file.type;
   const parts = file.name.split(".");
@@ -265,6 +206,11 @@ function getFileType(file: File) {
   return extension ? extension.toLowerCase() : "unknown";
 }
 
+/**
+ * 组合 NextList 展示名称。
+ * @param item NextList 条目
+ * @returns 展示用字符串
+ */
 function formatNextName(item: NextListItem) {
   let prefix = "";
   if (item.jump_back) prefix += "[JumpBack] ";
@@ -272,6 +218,11 @@ function formatNextName(item: NextListItem) {
   return prefix + item.name;
 }
 
+/**
+ * 将毫秒时长转换为可读文本。
+ * @param value 毫秒数
+ * @returns 格式化后的时长
+ */
 function formatDuration(value: number) {
   if (!Number.isFinite(value)) return "-";
   if (value < 1000) return `${Math.round(value)} ms`;
@@ -282,23 +233,649 @@ function formatDuration(value: number) {
   return `${minutes}m ${rest.toFixed(1)}s`;
 }
 
+/**
+ * 任务状态中文化。
+ * @param status 任务状态
+ * @returns 中文文案
+ */
 function formatTaskStatus(status: TaskInfo["status"]) {
   if (status === "succeeded") return "成功";
   if (status === "failed") return "失败";
   return "运行中";
 }
 
+/**
+ * 任务时间拆分为日期和时间。
+ * @param value 时间字符串
+ * @returns 日期与时间片段
+ */
 function formatTaskTimeParts(value: string) {
   if (!value) return { date: "", time: "" };
-  const match = value.match(/^(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})/);
+  const match = value.match(/^(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})(?::(\d{2}))?/);
   if (match) {
-    return { date: match[1], time: match[2] };
+    const seconds = match[3] ?? "00";
+    return { date: match[1], time: `${match[2]}:${seconds}` };
   }
   return { date: value, time: "" };
 }
 
+/**
+ * 识别/动作状态中文化。
+ * @param status 状态值
+ * @returns 中文文案
+ */
 function formatResultStatus(status: "success" | "failed") {
   return status === "success" ? "成功" : "失败";
+}
+
+/**
+ * 将辅助日志等级映射为 UI 颜色类型。
+ * @param level 原始日志等级
+ * @returns Naive UI Tag 类型
+ */
+function formatAuxLevel(level: string): "default" | "primary" | "info" | "success" | "warning" | "error" {
+  const normalized = level.toLowerCase();
+  if (normalized === "error") return "error";
+  if (normalized === "warn" || normalized === "warning") return "warning";
+  if (normalized === "info") return "info";
+  if (normalized === "debug") return "default";
+  return "default";
+}
+
+/**
+ * 将辅助日志等级规范化为统一枚举。
+ * @param level 原始日志等级
+ * @returns 归一化等级
+ */
+function normalizeAuxLevel(level: string) {
+  const normalized = level.toLowerCase();
+  if (normalized === "error") return "error";
+  if (normalized === "warn" || normalized === "warning") return "warn";
+  if (normalized === "info") return "info";
+  if (normalized === "debug") return "debug";
+  return "other";
+}
+
+/**
+ * 从动作详情中提取 Custom Action 名称。
+ * @param details 动作详情
+ * @returns Custom Action 名称或 null
+ */
+function extractCustomActionFromActionDetails(details?: ActionDetail) {
+  if (!details || details.action !== "Custom") return null;
+  const detail = details.detail as Record<string, any> | undefined;
+  if (!detail || typeof detail !== "object") return null;
+  const custom =
+    detail.custom_action || detail.customAction || detail.param?.custom_action || detail.param?.customAction;
+  return typeof custom === "string" ? custom : null;
+}
+
+/**
+ * 解析日志时间戳为毫秒时间。
+ * @param value 时间戳字符串
+ * @returns 毫秒时间或 null
+ */
+function parseTimestampToMs(value?: string) {
+  if (!value) return null;
+  const direct = Date.parse(value);
+  if (!Number.isNaN(direct)) return direct;
+  const normalized = value.replace(" ", "T").replace(",", ".");
+  const fallback = Date.parse(normalized);
+  if (!Number.isNaN(fallback)) return fallback;
+  return null;
+}
+
+/**
+ * 计算并对齐 go-service 日志与任务时间轴的偏移量。
+ * @param auxLogs 辅助日志
+ * @param tasks 任务列表
+ * @returns 带对齐时间戳的辅助日志
+ */
+function alignAuxLogsToTasks(auxLogs: AuxLogEntry[], tasks: TaskInfo[]) {
+  logger.debug("开始对齐辅助日志时间轴", { auxLogCount: auxLogs.length, taskCount: tasks.length });
+  const tasksById = new Map<number, { task: TaskInfo; startMs: number }[]>();
+  const tasksByEntry = new Map<string, { task: TaskInfo; startMs: number }[]>();
+  const tasksByKey = new Map<string, { task: TaskInfo; startMs: number }>();
+  for (const task of tasks) {
+    const startMs = parseTimestampToMs(task.start_time);
+    if (startMs === null) continue;
+    const item = { task, startMs };
+    tasksByKey.set(`${task.task_id}::${task.entry}`, item);
+    const idList = tasksById.get(task.task_id) || [];
+    idList.push(item);
+    tasksById.set(task.task_id, idList);
+    const entryList = tasksByEntry.get(task.entry) || [];
+    entryList.push(item);
+    tasksByEntry.set(task.entry, entryList);
+  }
+  const offsetByTaskKey = new Map<string, number>();
+  let lastContext: { task_id?: number; entry?: string } | null = null;
+  for (const log of auxLogs) {
+    if (log.source !== "go-service") continue;
+    const timestampMs = log.timestampMs;
+    if (timestampMs === undefined) continue;
+    // 维护最近一次出现的 task_id/entry 上下文，便于后续日志归属
+    if (log.task_id !== undefined || log.entry !== undefined) {
+      const prevContext: { task_id?: number; entry?: string } = lastContext ?? {};
+      lastContext = {
+        task_id: log.task_id ?? prevContext.task_id,
+        entry: log.entry ?? prevContext.entry
+      };
+    }
+    const contextTaskId = log.task_id ?? (lastContext ? lastContext.task_id : undefined);
+    const contextEntry = log.entry ?? (lastContext ? lastContext.entry : undefined);
+    if (contextTaskId === undefined || !contextEntry) continue;
+    const key = `${contextTaskId}::${contextEntry}`;
+    if (offsetByTaskKey.has(key)) continue;
+    const direct = tasksByKey.get(key);
+    if (direct) {
+      offsetByTaskKey.set(key, direct.startMs - timestampMs);
+      continue;
+    }
+    const candidates = tasksById.get(contextTaskId) || [];
+    if (candidates.length === 0) continue;
+    // 从相同 task_id 的候选中选择最接近的开始时间作为对齐基准
+    let best = candidates[0];
+    let bestDelta = best.startMs - timestampMs;
+    let bestAbs = Math.abs(bestDelta);
+    for (let i = 1; i < candidates.length; i++) {
+      const candidate = candidates[i];
+      const delta = candidate.startMs - timestampMs;
+      const abs = Math.abs(delta);
+      if (abs < bestAbs) {
+        best = candidate;
+        bestDelta = delta;
+        bestAbs = abs;
+      }
+    }
+    offsetByTaskKey.set(`${best.task.task_id}::${best.task.entry}`, bestDelta);
+    logger.debug("计算时间偏移", {
+      taskId: best.task.task_id,
+      entry: best.task.entry,
+      offsetMs: bestDelta
+    });
+  }
+  logger.info("辅助日志偏移计算完成", { offsetCount: offsetByTaskKey.size });
+  lastContext = null;
+  return auxLogs.map(log => {
+    if (log.source !== "go-service") return log;
+    const timestampMs = log.timestampMs;
+    if (timestampMs === undefined) return log;
+    if (log.task_id !== undefined || log.entry !== undefined) {
+      const prevContext: { task_id?: number; entry?: string } = lastContext ?? {};
+      lastContext = {
+        task_id: log.task_id ?? prevContext.task_id,
+        entry: log.entry ?? prevContext.entry
+      };
+    }
+    const contextTaskId = log.task_id ?? (lastContext ? lastContext.task_id : undefined);
+    const contextEntry = log.entry ?? (lastContext ? lastContext.entry : undefined);
+    if (contextTaskId === undefined || !contextEntry) return log;
+    const key = `${contextTaskId}::${contextEntry}`;
+    const offset = offsetByTaskKey.get(key);
+    if (offset === undefined) return log;
+    return {
+      ...log,
+      task_id: log.task_id ?? contextTaskId,
+      entry: log.entry ?? contextEntry,
+      alignedTimestampMs: timestampMs + offset
+    };
+  });
+}
+
+type TaskWindow = {
+  key: string;
+  task: TaskInfo;
+  startMs: number | null;
+  endMs: number | null;
+  tokens: Set<string>;
+};
+
+type NodeWindow = {
+  key: string;
+  taskKey: string;
+  nodeId: number;
+  startMs: number | null;
+  endMs: number | null;
+  tokens: Set<string>;
+};
+
+const tokenKeyMap = new Map<string, string>([
+  ["traceid", "trace_id"],
+  ["trace", "trace_id"],
+  ["requestid", "request_id"],
+  ["request", "request_id"],
+  ["reqid", "request_id"],
+  ["req", "request_id"],
+  ["spanid", "span_id"],
+  ["span", "span_id"],
+  ["correlationid", "correlation_id"],
+  ["correlation", "correlation_id"],
+  ["bizid", "biz_id"],
+  ["businessid", "biz_id"],
+  ["biz", "biz_id"],
+  ["taskid", "task_id"],
+  ["nodeid", "node_id"],
+  ["actionid", "action_id"],
+  ["recoid", "reco_id"],
+  ["uuid", "uuid"],
+  ["entry", "entry"],
+  ["hash", "hash"]
+]);
+
+const tokenPairRegex = /(?:^|[\s,{[(<"])([a-zA-Z][\w.-]*)\s*[:=]\s*["']?([^\s"'`,}\]>]+)/g;
+
+function normalizeTokenKey(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function resolveTokenKey(key: string) {
+  const normalized = normalizeTokenKey(key);
+  return tokenKeyMap.get(normalized) || null;
+}
+
+function addToken(tokens: Set<string>, type: string, value: unknown) {
+  if (value === undefined || value === null) return;
+  const text = String(value).trim();
+  if (!text) return;
+  tokens.add(`${type}:${text}`);
+}
+
+function extractTokensFromString(input: string | undefined, tokens: Set<string>) {
+  if (!input) return;
+  for (const match of input.matchAll(tokenPairRegex)) {
+    const key = resolveTokenKey(match[1]);
+    if (!key) continue;
+    addToken(tokens, key, match[2]);
+  }
+}
+
+function collectTokensFromObject(value: unknown, tokens: Set<string>, depth = 0, maxDepth = 4) {
+  if (depth > maxDepth) return;
+  if (value === null || value === undefined) return;
+  if (typeof value === "string") {
+    extractTokensFromString(value, tokens);
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      collectTokensFromObject(item, tokens, depth + 1, maxDepth);
+    }
+    return;
+  }
+  if (typeof value !== "object") return;
+  for (const [key, detail] of Object.entries(value as Record<string, unknown>)) {
+    const mappedKey = resolveTokenKey(key);
+    if (mappedKey) {
+      addToken(tokens, mappedKey, detail);
+    }
+    if (typeof detail === "string") {
+      extractTokensFromString(detail, tokens);
+    } else if (typeof detail === "object" && detail !== null) {
+      collectTokensFromObject(detail, tokens, depth + 1, maxDepth);
+    }
+  }
+}
+
+function collectTaskTokens(task: TaskInfo) {
+  const tokens = new Set<string>();
+  addToken(tokens, "task_id", task.task_id);
+  addToken(tokens, "entry", task.entry);
+  addToken(tokens, "uuid", task.uuid);
+  addToken(tokens, "hash", task.hash);
+  return tokens;
+}
+
+function collectNodeTokens(node: NodeInfo) {
+  const tokens = new Set<string>();
+  addToken(tokens, "node_id", node.node_id);
+  addToken(tokens, "reco_id", node.reco_details?.reco_id ?? node.node_details?.reco_id);
+  addToken(tokens, "action_id", node.action_details?.action_id ?? node.node_details?.action_id);
+  collectTokensFromObject(node.action_details?.detail, tokens);
+  collectTokensFromObject(node.reco_details?.detail, tokens);
+  collectTokensFromObject(node.node_details, tokens);
+  collectTokensFromObject(node.focus, tokens);
+  return tokens;
+}
+
+function collectAuxLogTokens(log: AuxLogEntry) {
+  const tokens = new Set<string>();
+  addToken(tokens, "task_id", log.task_id);
+  addToken(tokens, "entry", log.entry);
+  collectTokensFromObject(log.details, tokens);
+  extractTokensFromString(log.message, tokens);
+  extractTokensFromString(log.caller, tokens);
+  return tokens;
+}
+
+function buildCorrelationIndex(tasks: TaskInfo[]) {
+  const taskWindows: TaskWindow[] = [];
+  const taskByKey = new Map<string, TaskWindow>();
+  const tasksById = new Map<number, TaskWindow[]>();
+  const tasksByEntry = new Map<string, TaskWindow[]>();
+  const tokenToTasks = new Map<string, Set<string>>();
+  const nodeWindowsByTask = new Map<string, NodeWindow[]>();
+  for (const task of tasks) {
+    const taskKey = task.key;
+    const startMs = parseTimestampToMs(task.start_time);
+    const lastNodeTimestamp = task.nodes[task.nodes.length - 1]?.timestamp;
+    const endMs = parseTimestampToMs(task.end_time || lastNodeTimestamp || "");
+    const tokens = collectTaskTokens(task);
+    const taskWindow: TaskWindow = {
+      key: taskKey,
+      task,
+      startMs,
+      endMs,
+      tokens
+    };
+    taskWindows.push(taskWindow);
+    taskByKey.set(taskKey, taskWindow);
+    const idList = tasksById.get(task.task_id) || [];
+    idList.push(taskWindow);
+    tasksById.set(task.task_id, idList);
+    const entryList = tasksByEntry.get(task.entry) || [];
+    entryList.push(taskWindow);
+    tasksByEntry.set(task.entry, entryList);
+    for (const token of tokens) {
+      const set = tokenToTasks.get(token) || new Set<string>();
+      set.add(taskKey);
+      tokenToTasks.set(token, set);
+    }
+    const nodeWindows: NodeWindow[] = [];
+    for (let i = 0; i < task.nodes.length; i++) {
+      const node = task.nodes[i];
+      const nextNode = task.nodes[i + 1];
+      const start = parseTimestampToMs(node.timestamp);
+      let end = nextNode ? parseTimestampToMs(nextNode.timestamp) : endMs;
+      if (start !== null && end !== null && end < start) {
+        end = null;
+      }
+      const nodeKey = `${taskKey}::${node.node_id}`;
+      nodeWindows.push({
+        key: nodeKey,
+        taskKey,
+        nodeId: node.node_id,
+        startMs: start,
+        endMs: end,
+        tokens: collectNodeTokens(node)
+      });
+    }
+    nodeWindowsByTask.set(taskKey, nodeWindows);
+  }
+  return {
+    taskWindows,
+    taskByKey,
+    tasksById,
+    tasksByEntry,
+    tokenToTasks,
+    nodeWindowsByTask
+  };
+}
+
+/**
+ * 基于时间、ID、业务标识进行辅助日志与任务/节点的关联。
+ * @param auxEntries 辅助日志
+ * @param tasks 任务列表
+ * @returns 带关联状态的辅助日志
+ */
+function correlateAuxLogs(auxEntries: AuxLogEntry[], tasks: TaskInfo[]) {
+  logger.debug("开始关联辅助日志", { auxLogCount: auxEntries.length, taskCount: tasks.length });
+  const {
+    taskWindows,
+    taskByKey,
+    tasksById,
+    tasksByEntry,
+    tokenToTasks,
+    nodeWindowsByTask
+  } = buildCorrelationIndex(tasks);
+  const results: AuxLogEntry[] = [];
+  for (const log of auxEntries) {
+    const tokens = collectAuxLogTokens(log);
+    const timestampMs = log.alignedTimestampMs ?? log.timestampMs;
+    const candidateScores = new Map<string, number>();
+    const candidateKeys = new Map<string, Set<string>>();
+    const addCandidate = (taskKey: string, score: number, key?: string) => {
+      candidateScores.set(taskKey, (candidateScores.get(taskKey) || 0) + score);
+      if (!key) return;
+      const keys = candidateKeys.get(taskKey) || new Set<string>();
+      keys.add(key);
+      candidateKeys.set(taskKey, keys);
+    };
+    if (log.task_id !== undefined) {
+      const list = tasksById.get(log.task_id) || [];
+      for (const item of list) {
+        addCandidate(item.key, 6, `task_id:${log.task_id}`);
+      }
+    }
+    if (log.entry) {
+      const list = tasksByEntry.get(log.entry) || [];
+      for (const item of list) {
+        addCandidate(item.key, 4, `entry:${log.entry}`);
+      }
+    }
+    for (const token of tokens) {
+      const taskKeys = tokenToTasks.get(token);
+      if (!taskKeys) continue;
+      for (const taskKey of taskKeys) {
+        addCandidate(taskKey, 2, token);
+      }
+    }
+    if (timestampMs !== undefined) {
+      for (const taskWindow of taskWindows) {
+        if (taskWindow.startMs === null || taskWindow.endMs === null) continue;
+        if (timestampMs >= taskWindow.startMs && timestampMs <= taskWindow.endMs) {
+          addCandidate(taskWindow.key, 2, "time:in-window");
+        }
+      }
+    }
+    let bestTaskKey: string | null = null;
+    let bestScore = 0;
+    let tie = false;
+    for (const [taskKey, score] of candidateScores) {
+      if (score > bestScore) {
+        bestScore = score;
+        bestTaskKey = taskKey;
+        tie = false;
+      } else if (score === bestScore && bestScore > 0) {
+        tie = true;
+      }
+    }
+    if (tie && bestScore > 0 && timestampMs !== undefined) {
+      let selectedKey: string | null = null;
+      let bestDistance = Number.POSITIVE_INFINITY;
+      for (const [taskKey, score] of candidateScores) {
+        if (score !== bestScore) continue;
+        const taskWindow = taskByKey.get(taskKey);
+        if (!taskWindow || taskWindow.startMs === null) continue;
+        const startMs = taskWindow.startMs;
+        const endMs = taskWindow.endMs;
+        let distance = 0;
+        if (endMs === null) {
+          distance = Math.abs(timestampMs - startMs);
+        } else if (timestampMs < startMs) {
+          distance = startMs - timestampMs;
+        } else if (timestampMs > endMs) {
+          distance = timestampMs - endMs;
+        } else {
+          distance = 0;
+        }
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          selectedKey = taskKey;
+        }
+      }
+      if (selectedKey) {
+        bestTaskKey = selectedKey;
+        tie = false;
+      }
+    }
+    const minScore = 4;
+    if (!bestTaskKey || bestScore < minScore) {
+      let reason = "";
+      if (log.task_id !== undefined || log.entry) {
+        reason = "任务ID不一致";
+      } else if (tokens.size > 0) {
+        reason = "未匹配到任务";
+      } else {
+        reason = "缺少关联线索";
+      }
+      results.push({
+        ...log,
+        correlation: {
+          status: log.task_id !== undefined || tokens.size > 0 ? "failed" : "unmatched",
+          reason,
+          score: bestScore,
+          keys: Array.from(tokens)
+        }
+      });
+      continue;
+    }
+    if (tie) {
+      results.push({
+        ...log,
+        correlation: {
+          status: "failed",
+          reason: "匹配到多个任务",
+          taskKey: bestTaskKey,
+          score: bestScore,
+          keys: Array.from(candidateKeys.get(bestTaskKey) || [])
+        }
+      });
+      continue;
+    }
+    const taskWindow = taskByKey.get(bestTaskKey) || null;
+    let driftMs: number | undefined;
+    if (taskWindow && timestampMs !== undefined && taskWindow.startMs !== null && taskWindow.endMs !== null) {
+      if (timestampMs < taskWindow.startMs) {
+        driftMs = taskWindow.startMs - timestampMs;
+      } else if (timestampMs > taskWindow.endMs) {
+        driftMs = timestampMs - taskWindow.endMs;
+      } else {
+        driftMs = 0;
+      }
+    }
+    if (driftMs !== undefined && driftMs > 0 && (log.task_id !== undefined || log.entry)) {
+      results.push({
+        ...log,
+        correlation: {
+          status: "failed",
+          reason: "时间漂移",
+          taskKey: bestTaskKey,
+          score: bestScore,
+          keys: Array.from(candidateKeys.get(bestTaskKey) || []),
+          driftMs
+        }
+      });
+      continue;
+    }
+    const nodeCandidates = nodeWindowsByTask.get(bestTaskKey) || [];
+    let bestNode: NodeWindow | null = null;
+    let bestNodeScore = -1;
+    let bestNodeKeys: string[] = [];
+    for (const nodeWindow of nodeCandidates) {
+      let score = 0;
+      const matchedKeys: string[] = [];
+      if (timestampMs !== undefined && nodeWindow.startMs !== null) {
+        const inWindow =
+          nodeWindow.endMs === null
+            ? timestampMs >= nodeWindow.startMs
+            : timestampMs >= nodeWindow.startMs && timestampMs < nodeWindow.endMs;
+        if (inWindow) {
+          score += 3;
+          matchedKeys.push("time:node-window");
+        }
+      }
+      for (const token of tokens) {
+        if (nodeWindow.tokens.has(token)) {
+          score += 2;
+          matchedKeys.push(token);
+        }
+      }
+      if (score > bestNodeScore) {
+        bestNodeScore = score;
+        bestNode = nodeWindow;
+        bestNodeKeys = matchedKeys;
+      } else if (score === bestNodeScore && score > 0) {
+        bestNode = null;
+      }
+    }
+    const hasNodeToken = Array.from(tokens).some(token =>
+      token.startsWith("node_id:") || token.startsWith("action_id:") || token.startsWith("reco_id:")
+    );
+    if (!bestNode || bestNodeScore <= 0) {
+      const reason = hasNodeToken ? "节点ID不一致" : "未找到节点窗口";
+      results.push({
+        ...log,
+        correlation: {
+          status: hasNodeToken ? "failed" : "unmatched",
+          reason,
+          taskKey: bestTaskKey,
+          score: bestScore,
+          keys: Array.from(candidateKeys.get(bestTaskKey) || [])
+        }
+      });
+      continue;
+    }
+    results.push({
+      ...log,
+      correlation: {
+        status: "matched",
+        reason: "关联成功",
+        taskKey: bestTaskKey,
+        nodeId: bestNode.nodeId,
+        score: bestScore + bestNodeScore,
+        keys: Array.from(new Set([...bestNodeKeys, ...(candidateKeys.get(bestTaskKey) || [])]))
+      }
+    });
+  }
+  return results;
+}
+
+/**
+ * 从 pipeline 节点提取 Custom Action 名称。
+ * @param node pipeline 节点对象
+ * @returns Custom Action 名称或 null
+ */
+function extractCustomActionFromPipeline(node: any) {
+  if (!node || typeof node !== "object") return null;
+  const action = node.action;
+  const actionType =
+    typeof action === "string"
+      ? action
+      : typeof action === "object"
+        ? action.type || action.action
+        : null;
+  if (actionType !== "Custom") return null;
+  if (action && typeof action === "object") {
+    const custom =
+      action.custom_action || action.customAction || action.param?.custom_action || action.param?.customAction;
+    if (typeof custom === "string") return custom;
+  }
+  const fallback = node.custom_action || node.customAction;
+  return typeof fallback === "string" ? fallback : null;
+}
+
+/**
+ * 解析 pipeline 配置并提取 Custom Action。
+ * @param content 配置文件内容
+ * @param fileName 文件名
+ * @returns 节点名与 Custom Action 的映射
+ */
+function parsePipelineCustomActions(content: string, fileName: string) {
+  try {
+    const data = JSON.parse(content);
+    if (!data || typeof data !== "object") return {};
+    const mapping: Record<string, PipelineCustomActionInfo[]> = {};
+    for (const [key, value] of Object.entries(data)) {
+      const customAction = extractCustomActionFromPipeline(value);
+      if (!customAction) continue;
+      if (!mapping[key]) mapping[key] = [];
+      mapping[key].push({ name: customAction, fileName });
+    }
+    return mapping;
+  } catch {
+    return {};
+  }
 }
 
 function formatBox(box: [number, number, number, number] | null | undefined) {
@@ -347,6 +924,10 @@ function splitMatch(line: string, start: number, end: number) {
   };
 }
 
+/**
+ * 将 JSON 内容复制到剪贴板。
+ * @param data 任意可序列化对象
+ */
 async function copyJson(data: unknown) {
   if (data === undefined || data === null) return;
   const text = JSON.stringify(data, null, 2);
@@ -373,6 +954,11 @@ async function copyJson(data: unknown) {
   }, 1500);
 }
 
+/**
+ * 将字符串解析为更合理的类型。
+ * @param value 原始文本
+ * @returns 解析后的值
+ */
 function parseValue(value: string) {
   if (value.startsWith("{") || value.startsWith("[")) {
     try {
@@ -391,6 +977,19 @@ function parseValue(value: string) {
   return value;
 }
 
+/**
+ * 规范化数字 ID，支持字符串数字。
+ * @param value 原始值
+ * @returns 数字 ID 或 undefined
+ */
+function normalizeId(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && /^-?\d+$/.test(value.trim())) {
+    return parseInt(value.trim(), 10);
+  }
+  return undefined;
+}
+
 const quickSearchOptions = [
   "reco hit",
   "Version",
@@ -400,11 +999,21 @@ const quickSearchOptions = [
 
 const debugInfoPattern = /\[P[xX]\d+\]|\[T[xX]\d+\]|\[L\d+\]|\[[^\]]+\.(cpp|h|hpp|c)\]/gi;
 
+/**
+ * 根据调试隐藏开关规范化搜索文本。
+ * @param line 原始文本
+ * @returns 处理后的文本
+ */
 function normalizeSearchLine(line: string) {
   if (!hideDebugInfo.value) return line;
   return line.replace(debugInfoPattern, "").replace(/\s{2,}/g, " ").trim();
 }
 
+/**
+ * 解析日志行中的消息、参数、状态与耗时。
+ * @param message 日志消息文本
+ * @returns 解析结果
+ */
 function parseMessageAndParams(message: string) {
   const params: Record<string, any> = {};
   let status: "enter" | "leave" | undefined;
@@ -464,6 +1073,12 @@ function parseMessageAndParams(message: string) {
   return { message: cleanMessage, params, status, duration };
 }
 
+/**
+ * 解析 maa.log 单行结构。
+ * @param line 原始行内容
+ * @param lineNum 行号
+ * @returns 解析后的日志对象或 null
+ */
 function parseLine(line: string, lineNum: number): LogLine | null {
   const regex = /^\[([^\]]+)\]\[([^\]]+)\]\[([^\]]+)\]\[([^\]]+)\](?:\[([^\]]+)\])?(?:\[([^\]]+)\])?(?:\[([^\]]+)\])?\s*(.*)$/;
   const match = line.match(regex);
@@ -504,6 +1119,89 @@ function parseLine(line: string, lineNum: number): LogLine | null {
   };
 }
 
+/**
+ * 解析 go-service.log 的 JSON 日志行。
+ * @param line 原始行内容
+ * @param lineNumber 行号
+ * @param fileName 文件名
+ * @returns 辅助日志或 null
+ */
+function parseGoServiceLogLine(
+  line: string,
+  lineNumber: number,
+  fileName: string
+): AuxLogEntry | null {
+  const startIndex = line.indexOf("{");
+  const endIndex = line.lastIndexOf("}");
+  if (startIndex < 0 || endIndex <= startIndex) return null;
+  try {
+    const jsonText = line.slice(startIndex, endIndex + 1);
+    const data = JSON.parse(jsonText);
+    if (!data || typeof data !== "object") return null;
+    const time = typeof data.time === "string" ? data.time : typeof data.timestamp === "string" ? data.timestamp : "";
+    const message =
+      typeof data.message === "string" ? data.message : typeof data.msg === "string" ? data.msg : "";
+    const level = typeof data.level === "string" ? data.level : typeof data.lvl === "string" ? data.lvl : "";
+    if (!time || !message || !level) return null;
+    const knownKeys = new Set([
+      "time",
+      "timestamp",
+      "message",
+      "msg",
+      "level",
+      "lvl",
+      "caller",
+      "task_id",
+      "taskId",
+      "entry",
+      "task_entry",
+      "identifier"
+    ]);
+    const extra: Record<string, any> = {};
+    for (const [key, value] of Object.entries(data)) {
+      if (!knownKeys.has(key)) {
+        extra[key] = value;
+      }
+    }
+    const details = Object.keys(extra).length > 0 ? extra : undefined;
+    const timestampMs = parseTimestampToMs(time);
+    const rawTaskId =
+      typeof data.task_id === "number"
+        ? data.task_id
+        : typeof data.taskId === "number"
+          ? data.taskId
+          : typeof data.task_id === "string" && /^\d+$/.test(data.task_id)
+            ? parseInt(data.task_id, 10)
+            : typeof data.taskId === "string" && /^\d+$/.test(data.taskId)
+              ? parseInt(data.taskId, 10)
+              : undefined;
+    const entry =
+      typeof data.entry === "string" ? data.entry : typeof data.task_entry === "string" ? data.task_entry : undefined;
+    return {
+      key: `${fileName}-${lineNumber}`,
+      source: "go-service",
+      timestamp: time,
+      timestampMs: timestampMs ?? undefined,
+      level,
+      message,
+      task_id: rawTaskId,
+      entry,
+      caller: typeof data.caller === "string" ? data.caller : undefined,
+      details,
+      fileName,
+      lineNumber
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 从日志行中提取 OnEventNotify 事件。
+ * @param parsed 已解析的日志行
+ * @param fileName 文件名
+ * @returns 事件对象或 null
+ */
 function parseEventNotification(parsed: LogLine, fileName: string): EventNotification | null {
   const { message, params } = parsed;
   if (!message.includes("!!!OnEventNotify!!!")) return null;
@@ -522,6 +1220,9 @@ function parseEventNotification(parsed: LogLine, fileName: string): EventNotific
   };
 }
 
+/**
+ * 字符串池，用于减少重复字符串带来的内存占用。
+ */
 class StringPool {
   private pool = new Map<string, string>();
 
@@ -538,30 +1239,59 @@ class StringPool {
   }
 }
 
+/**
+ * 根据事件通知构建任务列表，并补齐任务生命周期信息。
+ * @param events 事件通知列表
+ * @param stringPool 字符串池
+ * @returns 任务列表
+ */
 function buildTasks(events: EventNotification[], stringPool: StringPool) {
   const tasks: TaskInfo[] = [];
+  const runningTaskMap = new Map<string, TaskInfo>();
   const taskProcessMap = new Map<number, { processId: string; threadId: string }>();
   const taskUuidMap = new Map<string, { processId: string; threadId: string }>();
+  const firstSeenIndexMap = new Map<number, number>();
+  const buildTaskKey = (taskId: number, uuid: string, processId: string) =>
+    `${processId || "proc"}:${uuid || "uuid"}:${taskId}`;
   for (let i = 0; i < events.length; i++) {
     const event = events[i];
     const { message, details, fileName } = event;
+    const eventTaskId = normalizeId(details?.task_id ?? details?.taskId);
     const processThread = { processId: event.processId, threadId: event.threadId };
-    if (details?.task_id) {
-      taskProcessMap.set(details.task_id, processThread);
+    if (eventTaskId !== undefined) {
+      taskProcessMap.set(eventTaskId, processThread);
+      if (!firstSeenIndexMap.has(eventTaskId)) {
+        firstSeenIndexMap.set(eventTaskId, i);
+      }
     }
     if (details?.uuid) {
       taskUuidMap.set(details.uuid, processThread);
     }
     if (message === "Tasker.Task.Starting") {
-      const taskId = details.task_id;
+      const taskId = eventTaskId;
+      if (taskId === undefined) {
+        continue;
+      }
       const uuid = details.uuid || "";
-      const isDuplicate = tasks.some(
-        t => t.uuid === uuid && t.task_id === taskId && !t.end_time
-      );
-      if (taskId && !isDuplicate) {
+      const taskKey = buildTaskKey(taskId, uuid, event.processId);
+      if (taskId && runningTaskMap.has(taskKey)) {
+        const prevTask = runningTaskMap.get(taskKey);
+        if (prevTask && !prevTask.end_time) {
+          prevTask.status = "failed";
+          prevTask.end_time = stringPool.intern(event.timestamp);
+          prevTask._endEventIndex = Math.max(i - 1, prevTask._startEventIndex ?? i - 1);
+          if (prevTask.start_time && prevTask.end_time) {
+            const start = new Date(prevTask.start_time).getTime();
+            const end = new Date(prevTask.end_time).getTime();
+            prevTask.duration = end - start;
+          }
+        }
+        runningTaskMap.delete(taskKey);
+      }
+      if (taskId && !runningTaskMap.has(taskKey)) {
         const processInfo =
           (uuid && taskUuidMap.get(uuid)) || taskProcessMap.get(taskId) || processThread;
-        tasks.push({
+        const task: TaskInfo = {
           key: `${fileName}-${taskId}-${event.timestamp}`,
           fileName,
           task_id: taskId,
@@ -574,16 +1304,26 @@ function buildTasks(events: EventNotification[], stringPool: StringPool) {
           processId: stringPool.intern(processInfo.processId || ""),
           threadId: stringPool.intern(processInfo.threadId || ""),
           _startEventIndex: i
-        });
+        };
+        tasks.push(task);
+        runningTaskMap.set(taskKey, task);
       }
     } else if (message === "Tasker.Task.Succeeded" || message === "Tasker.Task.Failed") {
-      const taskId = details.task_id;
+      const taskId = eventTaskId;
+      if (taskId === undefined) {
+        continue;
+      }
       const uuid = details.uuid || "";
-      let matchedTask = null;
-      if (uuid && uuid.trim() !== "") {
-        matchedTask = tasks.find(t => t.uuid === uuid && !t.end_time);
-      } else {
-        matchedTask = tasks.find(t => t.task_id === taskId && !t.end_time);
+      const taskKey = buildTaskKey(taskId, uuid, event.processId);
+      let matchedTask = runningTaskMap.get(taskKey) || null;
+      if (!matchedTask) {
+        matchedTask = tasks.find(
+          t =>
+            t.task_id === taskId &&
+            t.processId === event.processId &&
+            !t.end_time &&
+            (!uuid || t.uuid === uuid)
+        ) || null;
       }
       if (matchedTask) {
         matchedTask.status = message === "Tasker.Task.Succeeded" ? "succeeded" : "failed";
@@ -600,6 +1340,7 @@ function buildTasks(events: EventNotification[], stringPool: StringPool) {
           const end = new Date(matchedTask.end_time).getTime();
           matchedTask.duration = end - start;
         }
+        runningTaskMap.delete(taskKey);
       }
     }
   }
@@ -615,12 +1356,21 @@ function buildTasks(events: EventNotification[], stringPool: StringPool) {
   return tasks.filter(task => task.entry !== "MaaTaskerPostStop");
 }
 
+/**
+ * 从事件流中构建单个任务的节点列表。
+ * @param task 目标任务
+ * @param events 事件通知列表
+ * @param stringPool 字符串池
+ * @returns 节点列表
+ */
 function buildTaskNodes(task: TaskInfo, events: EventNotification[], stringPool: StringPool) {
   const nodes: NodeInfo[] = [];
   const nodeIdSet = new Set<number>();
   const startIndex = task._startEventIndex ?? 0;
   const endIndex = task._endEventIndex ?? events.length - 1;
-  const taskEvents = events.slice(startIndex, endIndex + 1);
+  const taskEvents = events
+    .slice(startIndex, endIndex + 1)
+    .filter(event => event.processId === task.processId);
   const recognitionAttempts: RecognitionAttempt[] = [];
   const nestedNodes: RecognitionAttempt[] = [];
   const nestedActionNodes: ActionAttempt[] = [];
@@ -629,9 +1379,11 @@ function buildTaskNodes(task: TaskInfo, events: EventNotification[], stringPool:
   const actionsByTaskId = new Map<number, ActionAttempt[]>();
   for (const event of taskEvents) {
     const { message, details } = event;
+    const eventTaskId = normalizeId(details?.task_id ?? details?.taskId);
     if (
       (message === "Node.NextList.Starting" || message === "Node.NextList.Succeeded") &&
-      details.task_id === task.task_id
+      eventTaskId === task.task_id &&
+      event.processId === task.processId
     ) {
       if (message === "Node.NextList.Starting") {
         const list = Array.isArray(details.list) ? details.list : [];
@@ -644,11 +1396,17 @@ function buildTaskNodes(task: TaskInfo, events: EventNotification[], stringPool:
     }
 
     if (message === "Node.RecognitionNode.Succeeded" || message === "Node.RecognitionNode.Failed") {
-      const taskId = details.task_id;
-      if (taskId !== task.task_id) {
+      const taskId = eventTaskId;
+      if (taskId === undefined) {
+        continue;
+      }
+      if (taskId !== task.task_id && event.processId === task.processId) {
         const nestedRecognitions = recognitionsByTaskId.get(taskId) || [];
         nestedNodes.push({
-          reco_id: details.reco_details?.reco_id || details.node_id,
+          reco_id:
+            normalizeId(details.reco_details?.reco_id ?? details.node_id ?? details.nodeId) ??
+            details.reco_details?.reco_id ??
+            details.node_id,
           name: stringPool.intern(details.name || ""),
           timestamp: stringPool.intern(event.timestamp),
           status: message === "Node.RecognitionNode.Succeeded" ? "success" : "failed",
@@ -660,11 +1418,17 @@ function buildTaskNodes(task: TaskInfo, events: EventNotification[], stringPool:
     }
 
     if (message === "Node.ActionNode.Succeeded" || message === "Node.ActionNode.Failed") {
-      const taskId = details.task_id;
-      if (taskId !== task.task_id) {
+      const taskId = eventTaskId;
+      if (taskId === undefined) {
+        continue;
+      }
+      if (taskId !== task.task_id && event.processId === task.processId) {
         const nestedActions = actionsByTaskId.get(taskId) || [];
         nestedActionNodes.push({
-          action_id: details.action_details?.action_id || details.node_id,
+          action_id:
+            normalizeId(details.action_details?.action_id ?? details.node_id ?? details.nodeId) ??
+            details.action_details?.action_id ??
+            details.node_id,
           name: stringPool.intern(details.name || ""),
           timestamp: stringPool.intern(event.timestamp),
           status: message === "Node.ActionNode.Succeeded" ? "success" : "failed",
@@ -677,10 +1441,11 @@ function buildTaskNodes(task: TaskInfo, events: EventNotification[], stringPool:
 
     if (
       (message === "Node.Recognition.Succeeded" || message === "Node.Recognition.Failed") &&
-      details.task_id === task.task_id
+      eventTaskId === task.task_id &&
+      event.processId === task.processId
     ) {
       recognitionAttempts.push({
-        reco_id: details.reco_id,
+        reco_id: normalizeId(details.reco_id) ?? details.reco_id,
         name: stringPool.intern(details.name || details.node_name || ""),
         timestamp: stringPool.intern(event.timestamp),
         status: message === "Node.Recognition.Succeeded" ? "success" : "failed",
@@ -692,25 +1457,33 @@ function buildTaskNodes(task: TaskInfo, events: EventNotification[], stringPool:
       message === "Node.Recognition.Succeeded" ||
       message === "Node.Recognition.Failed"
     ) {
-      const taskId = details.task_id;
+      const taskId = eventTaskId;
+      if (taskId === undefined) {
+        continue;
+      }
       const attempt: RecognitionAttempt = {
-        reco_id: details.reco_id,
+        reco_id: normalizeId(details.reco_id) ?? details.reco_id,
         name: stringPool.intern(details.name || details.node_name || ""),
         timestamp: stringPool.intern(event.timestamp),
         status: message === "Node.Recognition.Succeeded" ? "success" : "failed",
         reco_details: details.reco_details
       };
-      if (!recognitionsByTaskId.has(taskId)) {
-        recognitionsByTaskId.set(taskId, []);
+      if (event.processId === task.processId) {
+        if (!recognitionsByTaskId.has(taskId)) {
+          recognitionsByTaskId.set(taskId, []);
+        }
+        recognitionsByTaskId.get(taskId)!.push(attempt);
       }
-      recognitionsByTaskId.get(taskId)!.push(attempt);
     }
 
     if (message === "Node.Action.Succeeded" || message === "Node.Action.Failed") {
-      const taskId = details.task_id;
-      if (taskId !== task.task_id) {
+      const taskId = eventTaskId;
+      if (taskId === undefined) {
+        continue;
+      }
+      if (taskId !== task.task_id && event.processId === task.processId) {
         const actionAttempt: ActionAttempt = {
-          action_id: details.action_id,
+          action_id: normalizeId(details.action_id) ?? details.action_id,
           name: stringPool.intern(details.name || ""),
           timestamp: stringPool.intern(event.timestamp),
           status: message === "Node.Action.Succeeded" ? "success" : "failed",
@@ -725,9 +1498,10 @@ function buildTaskNodes(task: TaskInfo, events: EventNotification[], stringPool:
 
     if (
       (message === "Node.PipelineNode.Succeeded" || message === "Node.PipelineNode.Failed") &&
-      details.task_id === task.task_id
+      eventTaskId === task.task_id &&
+      event.processId === task.processId
     ) {
-      const nodeId = details.node_id ?? details.nodeId;
+      const nodeId = normalizeId(details.node_id ?? details.nodeId);
       if (typeof nodeId !== "number" || nodeIdSet.has(nodeId)) {
         currentNextList = [];
         recognitionAttempts.length = 0;
@@ -764,6 +1538,11 @@ function buildTaskNodes(task: TaskInfo, events: EventNotification[], stringPool:
   return nodes;
 }
 
+/**
+ * 统计节点成功率与耗时分布。
+ * @param tasks 任务列表
+ * @returns 节点统计数组
+ */
 function computeNodeStatistics(tasks: TaskInfo[]) {
   const statsMap = new Map<
     string,
@@ -857,15 +1636,20 @@ const nodeSummary = computed(() => {
   };
 });
 
+/**
+ * 执行文本搜索并更新结果列表。
+ */
 function performSearch() {
   if (!searchText.value.trim()) {
     searchResults.value = [];
     searchMessage.value = "请输入搜索内容";
+    logger.warn("搜索关键字为空");
     return;
   }
   if (rawLines.value.length === 0) {
     searchResults.value = [];
     searchMessage.value = "请先解析日志";
+    logger.warn("搜索前未解析日志");
     return;
   }
   let regex: RegExp | null = null;
@@ -875,6 +1659,7 @@ function performSearch() {
     } catch {
       searchResults.value = [];
       searchMessage.value = "正则表达式无效";
+      logger.error("正则表达式无效", { pattern: searchText.value });
       return;
     }
   }
@@ -920,8 +1705,13 @@ function performSearch() {
     results.length > 0
       ? `找到 ${results.length} 条结果${results.length >= searchMaxResults.value ? "（已达上限）" : ""}`
       : "未找到匹配结果";
+  logger.info("搜索完成", { resultCount: results.length });
 }
 
+/**
+ * 应用用户选择的文件并重置解析状态。
+ * @param fileList 文件列表
+ */
 function applySelectedFiles(fileList: File[]) {
   const files = fileList.map(file => ({
     name: file.name,
@@ -933,6 +1723,9 @@ function applySelectedFiles(fileList: File[]) {
   totalSize.value = files.reduce((sum, file) => sum + file.size, 0);
   tasks.value = [];
   rawLines.value = [];
+  auxLogs.value = [];
+  pipelineCustomActions.value = {};
+  selectedAuxLevels.value = ["error", "warn", "info", "debug", "other"];
   selectedTaskKey.value = null;
   selectedNodeId.value = null;
   searchResults.value = [];
@@ -943,12 +1736,23 @@ function applySelectedFiles(fileList: File[]) {
   if (files.length > 0) {
     parseState.value = "ready";
     statusMessage.value = `已选择 ${files.length} 个文件`;
+    logger.info("已选择日志文件", { count: files.length, names: files.map(file => file.name) });
   } else {
     parseState.value = "idle";
-    statusMessage.value = "请先选择日志文件";
+    statusMessage.value = "请先选择日志/配置文件";
+    logger.warn("未选择日志文件");
   }
 }
 
+function handleRemoveSelectedFile(index: number) {
+  const next = selectedFiles.value.filter((_, i) => i !== index);
+  applySelectedFiles(next.map(item => item.file));
+}
+
+/**
+ * 判断是否处于 Tauri 环境。
+ * @returns 是否为 Tauri 环境
+ */
 function isTauriEnv() {
   const win = window as Window & {
     __TAURI__?: unknown;
@@ -957,38 +1761,186 @@ function isTauriEnv() {
   return !!win.__TAURI__ || !!win.__TAURI_INTERNALS__;
 }
 
+async function openDevtools() {
+  if (!isTauriEnv()) return;
+  try {
+    await invoke("open_devtools");
+  } catch (error) {
+    logger.warn("打开开发者工具失败", { error: String(error) });
+  }
+}
+
+/**
+ * 从路径中提取文件名。
+ * @param path 文件路径
+ * @returns 文件名
+ */
 function getFileNameFromPath(path: string) {
   const segments = path.split(/[\\/]/);
   return segments[segments.length - 1] || path;
 }
 
+/**
+ * 处理 Tauri 拖拽路径，支持文件夹、zip 与单文件。
+ * @param paths 选中的路径列表
+ */
 async function applySelectedPaths(paths: string[]) {
-  const logPaths = paths.filter(path => path.toLowerCase().endsWith(".log"));
-  if (logPaths.length === 0) {
-    statusMessage.value = "仅支持 .log 文件";
+  const allowFile = (name: string) => {
+    const lower = name.toLowerCase();
+    return lower.endsWith(".log") || lower.endsWith(".json") || lower.endsWith(".jsonc");
+  };
+  const allowDirectoryFile = (name: string) => {
+    const lower = name.toLowerCase();
+    return lower === "maa.log" || lower === "go-service.log";
+  };
+  const decoder = new TextDecoder("utf-8");
+  const outFiles: File[] = [];
+  const errors: string[] = [];
+  let hasDirectory = false;
+
+  async function collectDir(dirPath: string) {
+    try {
+      const rootEntries = await readDir(dirPath);
+      hasDirectory = true;
+      async function walk(current: string) {
+        const entries = await readDir(current);
+        for (const entry of entries) {
+          if (entry.isDirectory) {
+            const next = await join(current, entry.name);
+            await walk(next);
+          } else if (entry.isFile && allowDirectoryFile(entry.name)) {
+            const filePath = await join(current, entry.name);
+            const text = await readTextFile(filePath);
+            outFiles.push(new File([text], entry.name, { type: "text/plain" }));
+          }
+        }
+      }
+      await walk(dirPath);
+      return rootEntries.length >= 0;
+    } catch (error) {
+      if (error) errors.push(String(error));
+      return false;
+    }
+  }
+
+  async function collectFile(filePath: string) {
+    const name = getFileNameFromPath(filePath);
+    if (name.toLowerCase().endsWith(".zip")) {
+      try {
+        const buf = await readFile(filePath);
+        const zip = unzipSync(buf);
+        for (const [entryName, data] of Object.entries(zip)) {
+          const entryBaseName = getFileNameFromPath(entryName);
+          if (!allowDirectoryFile(entryBaseName)) continue;
+          const text = decoder.decode(data as Uint8Array);
+          outFiles.push(new File([text], entryBaseName, { type: "text/plain" }));
+        }
+        return;
+      } catch (error) {
+        if (error) errors.push(String(error));
+      }
+    }
+    if (allowFile(name)) {
+      try {
+        const text = await readTextFile(filePath);
+        outFiles.push(new File([text], name, { type: "text/plain" }));
+        return;
+      } catch (error) {
+        if (error) errors.push(String(error));
+        try {
+          const url = convertFileSrc(filePath);
+          const response = await fetch(url);
+          const blob = await response.blob();
+          outFiles.push(new File([blob], name, { type: "text/plain" }));
+          return;
+        } catch (fallbackError) {
+          if (fallbackError) errors.push(String(fallbackError));
+        }
+      }
+    }
+  }
+
+  for (const p of paths) {
+    const isDir = await collectDir(p);
+    if (!isDir) {
+      await collectFile(p);
+    }
+  }
+  if (outFiles.length === 0) {
+    if (errors.length > 0) {
+      statusMessage.value = errors[errors.length - 1];
+    } else {
+      statusMessage.value = hasDirectory ? "未发现 maa.log / go-service.log" : "未发现可解析的 .log / .json 文件";
+    }
+    logger.error("拖拽路径未解析到文件", { errors, hasDirectory, pathCount: paths.length });
     return;
   }
-  const files: File[] = [];
-  for (const path of logPaths) {
-    const url = convertFileSrc(path);
-    const response = await fetch(url);
-    const blob = await response.blob();
-    const name = getFileNameFromPath(path);
-    files.push(new File([blob], name, { type: "text/plain" }));
-  }
-  applySelectedFiles(files);
+  logger.info("拖拽路径解析成功", { fileCount: outFiles.length });
+  applySelectedFiles(outFiles);
 }
 
+/**
+ * 过滤支持的日志/配置文件。
+ * @param fileList 原始文件列表
+ * @returns 可解析的文件列表
+ */
 function filterLogFiles(fileList: File[]) {
-  return fileList.filter(file => file.name.toLowerCase().endsWith(".log"));
+  return fileList.filter(file => {
+    const lower = file.name.toLowerCase();
+    return lower.endsWith(".log") || lower.endsWith(".json") || lower.endsWith(".jsonc");
+  });
 }
 
-function handleFileChange(event: Event) {
+/**
+ * 展开拖拽/选择的文件，处理 zip 里的日志。
+ * @param fileList 文件列表
+ * @returns 展开后的文件列表
+ */
+async function expandSelectedFiles(fileList: File[]) {
+  const allowFile = (name: string) => {
+    const lower = name.toLowerCase();
+    return lower.endsWith(".log") || lower.endsWith(".json") || lower.endsWith(".jsonc");
+  };
+  const allowZipEntry = (name: string) => {
+    const lower = name.toLowerCase();
+    return lower === "maa.log" || lower === "go-service.log";
+  };
+  const outFiles: File[] = [];
+  for (const file of fileList) {
+    const lowerName = file.name.toLowerCase();
+    if (lowerName.endsWith(".zip")) {
+      try {
+        const buf = new Uint8Array(await file.arrayBuffer());
+        const zip = unzipSync(buf);
+        const decoder = new TextDecoder("utf-8");
+        for (const [entryName, data] of Object.entries(zip)) {
+          const entryBaseName = getFileNameFromPath(entryName);
+          if (!allowZipEntry(entryBaseName)) continue;
+          const text = decoder.decode(data as Uint8Array);
+          outFiles.push(new File([text], entryBaseName, { type: "text/plain" }));
+        }
+      } catch {
+        continue;
+      }
+      continue;
+    }
+    if (allowFile(file.name)) {
+      outFiles.push(file);
+    }
+  }
+  return outFiles;
+}
+
+/**
+ * 处理文件选择输入框变更。
+ * @param event 选择事件
+ */
+async function handleFileChange(event: Event) {
   const input = event.target as HTMLInputElement;
   if (!input.files || input.files.length === 0) return;
-  const logFiles = filterLogFiles(Array.from(input.files));
+  const logFiles = await expandSelectedFiles(Array.from(input.files));
   if (logFiles.length === 0) {
-    statusMessage.value = "仅支持 .log 文件";
+    statusMessage.value = "仅支持 .log / .json / .zip 文件";
     input.value = "";
     return;
   }
@@ -1001,18 +1953,26 @@ function isFileDrag(event: DragEvent) {
   return types.includes("Files");
 }
 
+/**
+ * 处理拖拽释放事件。
+ * @param event 拖拽事件
+ */
 function handleDrop(event: DragEvent) {
   event.preventDefault();
   event.stopPropagation();
   isDragging.value = false;
   const files = filterLogFiles(Array.from(event.dataTransfer?.files || []));
   if (files.length === 0) {
-    statusMessage.value = "仅支持 .log 文件";
+    statusMessage.value = "仅支持 .log / .json 文件";
     return;
   }
   applySelectedFiles(files);
 }
 
+/**
+ * 处理拖拽悬停事件。
+ * @param event 拖拽事件
+ */
 function handleDragOver(event: DragEvent) {
   if (!isFileDrag(event)) return;
   event.preventDefault();
@@ -1024,6 +1984,10 @@ function handleDragOver(event: DragEvent) {
   isDragging.value = true;
 }
 
+/**
+ * 处理拖拽离开事件。
+ * @param event 拖拽事件
+ */
 function handleDragLeave(event: DragEvent) {
   event.stopPropagation();
   if (event.currentTarget !== event.target) return;
@@ -1032,9 +1996,29 @@ function handleDragLeave(event: DragEvent) {
 
 let unlistenDragDrop: (() => void) | null = null;
 
+async function resolveLogPath() {
+  try {
+    return await appLogDir();
+  } catch {
+    return await join(await appDataDir(), "logs");
+  }
+}
+
 onMounted(() => {
   if (isTauriEnv()) {
     const setup = async () => {
+      try {
+        const logPath = await resolveLogPath();
+        await init({
+          logLevel: "INFO",
+          logPath,
+          rotationSize: 10 * 1024 * 1024,
+          rotationCount: 5
+        });
+        logger.info("日志系统已初始化", { logPath });
+      } catch (error) {
+        logger.error("日志系统初始化失败", { error: String(error) });
+      }
       unlistenDragDrop = await getCurrentWindow().onDragDropEvent(event => {
         const payload = event.payload as { type: string; paths?: string[] };
         if (payload.type === "over") {
@@ -1057,16 +2041,26 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   unlistenDragDrop?.();
+  void flushLogs();
 });
 
+/**
+ * 执行日志解析主流程。
+ */
 async function handleParse() {
   if (selectedFiles.value.length === 0) return;
+  setLoggerContext({
+    threadId: selectedThreadId.value === "all" ? "ui" : selectedThreadId.value
+  });
   parseState.value = "parsing";
   statusMessage.value = "解析中…";
   parseProgress.value = 0;
+  logger.info("开始解析日志", { fileCount: selectedFiles.value.length });
   try {
     const events: EventNotification[] = [];
     const allLines: RawLine[] = [];
+    const auxEntries: AuxLogEntry[] = [];
+    let pipelineActions: Record<string, PipelineCustomActionInfo[]> = {};
     let totalLines = 0;
     const fileLines: { file: SelectedFile; lines: string[] }[] = [];
     for (const file of selectedFiles.value) {
@@ -1079,6 +2073,23 @@ async function handleParse() {
     let processed = 0;
     for (const entry of fileLines) {
       const { file, lines } = entry;
+      const lowerName = file.name.toLowerCase();
+      if (lowerName.endsWith(".json") || lowerName.endsWith(".jsonc")) {
+        const content = lines.join("\n");
+        const mapping = parsePipelineCustomActions(content, file.name);
+        for (const [key, value] of Object.entries(mapping)) {
+          if (!pipelineActions[key]) {
+            pipelineActions[key] = [];
+          }
+          pipelineActions[key] = pipelineActions[key].concat(value);
+        }
+        processed += lines.length;
+        const percentage = totalLines > 0 ? Math.round((processed / totalLines) * 100) : 0;
+        parseProgress.value = percentage;
+        statusMessage.value = `解析中… ${percentage}%`;
+        await new Promise(resolve => setTimeout(resolve, 0));
+        continue;
+      }
       for (let startIdx = 0; startIdx < lines.length; startIdx += chunkSize) {
         const endIdx = Math.min(startIdx + chunkSize, lines.length);
         for (let i = startIdx; i < endIdx; i++) {
@@ -1087,6 +2098,10 @@ async function handleParse() {
           allLines.push({ fileName: file.name, lineNumber, line: originalLine });
           const rawLine = originalLine.trim();
           if (!rawLine) continue;
+          const auxLog = parseGoServiceLogLine(rawLine, lineNumber, file.name);
+          if (auxLog) {
+            auxEntries.push(auxLog);
+          }
           const parsed = parseLine(rawLine, lineNumber);
           if (!parsed) continue;
           if (rawLine.includes("!!!OnEventNotify!!!")) {
@@ -1105,18 +2120,28 @@ async function handleParse() {
     const stringPool = new StringPool();
     tasks.value = buildTasks(events, stringPool);
     stringPool.clear();
+    const alignedAuxLogs = alignAuxLogsToTasks(auxEntries, tasks.value);
+    auxLogs.value = correlateAuxLogs(alignedAuxLogs, tasks.value);
+    logger.info("辅助日志关联完成", {
+      total: auxLogs.value.length,
+      matched: auxLogs.value.filter(item => item.correlation?.status === "matched").length
+    });
+    pipelineCustomActions.value = pipelineActions;
     selectedTaskKey.value = filteredTasks.value.length > 0 ? filteredTasks.value[0].key : null;
     selectedNodeId.value =
       filteredTasks.value.length > 0 && filteredTasks.value[0].nodes.length > 0
         ? filteredTasks.value[0].nodes[0].node_id
         : null;
     parseState.value = "done";
-    statusMessage.value =
+    const taskMessage =
       tasks.value.length > 0 ? `解析完成，共 ${tasks.value.length} 个任务` : "解析完成，未识别到任务";
-  } catch {
+    statusMessage.value =
+      auxLogs.value.length > 0 ? `${taskMessage}，辅助日志 ${auxLogs.value.length} 条` : taskMessage;
+  } catch (error) {
     parseState.value = "ready";
     statusMessage.value = "解析失败，请检查日志内容";
     parseProgress.value = 0;
+    logger.error("解析失败", { error: String(error) });
   }
 }
 </script>
@@ -1124,620 +2149,126 @@ async function handleParse() {
 <template>
   <n-config-provider>
     <div class="app" @dragover.prevent @drop.prevent="handleDrop">
-      <header class="topbar">
-        <div class="brand">
-          <div class="subtitle">日志解析 · 任务与节点可视化</div>
-        </div>
-        <div class="top-actions">
-          <div class="view-tabs">
-            <n-button
-              size="small"
-              :type="viewMode === 'analysis' ? 'primary' : 'default'"
-              @click="viewMode = 'analysis'"
-            >
-              日志分析
-            </n-button>
-            <n-button
-              size="small"
-              :type="viewMode === 'search' ? 'primary' : 'default'"
-              @click="viewMode = 'search'"
-            >
-              文本搜索
-            </n-button>
-            <n-button
-              size="small"
-              :type="viewMode === 'statistics' ? 'primary' : 'default'"
-              @click="viewMode = 'statistics'"
-            >
-              节点统计
-            </n-button>
-          </div>
-        </div>
-      </header>
+      <AppTopBar
+        :view-mode="viewMode"
+        :is-tauri="isTauriEnv()"
+        @change-view="viewMode = $event"
+        @open-devtools="openDevtools"
+      />
       <div v-if="isDragging" class="drop-mask" @drop="handleDrop" @dragover="handleDragOver">
-        松手导入日志文件
+        松手导入日志/配置文件
       </div>
       <div v-if="copyMessage" class="copy-toast">{{ copyMessage }}</div>
-
-      <section
-        class="hero"
-        :class="{ 'drop-active': isDragging }"
-        @dragover="handleDragOver"
-        @dragenter="handleDragOver"
-        @dragleave="handleDragLeave"
+      <HeroPanel
+        :selected-files="selectedFiles"
+        :total-size="totalSize"
+        :parse-state="parseState"
+        :parse-progress="parseProgress"
+        :status-message="statusMessage"
+        :is-dragging="isDragging"
+        :format-size="formatSize"
+        @file-change="handleFileChange"
+        @parse="handleParse"
+        @drag-over="handleDragOver"
+        @drag-enter="handleDragOver"
+        @drag-leave="handleDragLeave"
         @drop="handleDrop"
-      >
-        <div class="hero-text">
-          <h1>快速定位任务节点与异常</h1>
-          <div class="actions">
-            <label class="upload">
-              <n-button size="small">选择日志文件</n-button>
-              <input type="file" multiple accept=".log" @change="handleFileChange" />
-            </label>
-            <n-button
-              type="primary"
-              size="small"
-              :disabled="parseState === 'parsing' || selectedFiles.length === 0"
-              @click="handleParse"
-            >
-              {{ parseState === "parsing" ? "解析中…" : "开始解析" }}
-            </n-button>
-          </div>
-          <div class="drag-hint">导入 maa.log，支持拖拽导入 .log</div>
-        </div>
-        <n-card class="hero-card" size="small">
-          <template #header>当前选择</template>
-          <div class="card-stat">
-            <span>文件数量</span>
-            <strong>{{ selectedFiles.length }}</strong>
-          </div>
-          <div class="card-stat">
-            <span>总大小</span>
-            <strong>{{ formatSize(totalSize) }}</strong>
-          </div>
-          <n-progress v-if="parseState === 'parsing'" :percentage="parseProgress" processing />
-          <div class="card-hint">{{ statusMessage }}</div>
-        </n-card>
-      </section>
+      />
 
-      <n-card class="panel" size="small">
-        <template #header>文件列表</template>
-        <div v-if="selectedFiles.length === 0" class="empty">请先选择日志文件</div>
-        <div v-else class="file-list">
-          <div v-for="file in selectedFiles" :key="file.name" class="file-row">
-            <div class="file-name">{{ file.name }}</div>
-            <div class="file-meta">{{ formatSize(file.size) }}</div>
-            <div class="file-meta">{{ file.type }}</div>
-          </div>
-        </div>
-      </n-card>
+      <FileListPanel
+        :selected-files="selectedFiles"
+        :format-size="formatSize"
+        @remove="handleRemoveSelectedFile"
+      />
 
-      <n-card class="panel" size="small" v-if="viewMode === 'analysis'">
-        <template #header>任务与节点</template>
-        <div v-if="tasks.length === 0" class="empty">解析后将在此显示任务与节点</div>
-        <div v-else class="task-layout">
-          <div class="task-list">
-            <div class="node-header">任务列表</div>
-            <div class="task-filters">
-              <n-select
-                size="small"
-                :options="processOptions"
-                v-model:value="selectedProcessId"
-                placeholder="进程"
-              />
-              <n-select
-                size="small"
-                :options="threadOptions"
-                v-model:value="selectedThreadId"
-                placeholder="线程"
-              />
-            </div>
-            <div class="task-list-content">
-              <DynamicScroller
-                class="virtual-scroller"
-                :items="filteredTasks"
-                key-field="key"
-                :min-item-size="taskItemHeight"
-              >
-                <template #default="{ item, active }">
-                  <DynamicScrollerItem
-                    :item="item"
-                    :active="active"
-                    :size-dependencies="[item.nodes.length, item.status, item.entry]"
-                  >
-                    <div
-                      class="task-row"
-                      :class="{ active: item.key === selectedTaskKey }"
-                      @click="
-                        selectedTaskKey = item.key;
-                        selectedNodeId = item.nodes[0]?.node_id ?? null;
-                      "
-                    >
-                      <div class="task-main">
-                        <div class="task-title">{{ item.entry || "未命名任务" }}</div>
-                        <div class="task-tags">
-                          <n-tag size="small" type="info">进程ID：{{ item.processId || "P?" }}</n-tag>
-                          <n-tag size="small">线程ID：{{ item.threadId || "T?" }}</n-tag>
-                        </div>
-                      </div>
-                      <div class="task-sub">
-                        <div>文件： {{ item.fileName }}</div>
-                        <div>节点： {{ item.nodes.length }}个</div>
-                      </div>
-                      <div class="task-side">
-                        <div>状态： {{ formatTaskStatus(item.status) }}</div>
-                        <div class="task-side-row">
-                          <div class="task-side-label">开始时间：</div>
-                          <div class="task-side-value">
-                            <span>{{ formatTaskTimeParts(item.start_time).date }}</span>
-                            <span v-if="formatTaskTimeParts(item.start_time).time">
-                              {{ formatTaskTimeParts(item.start_time).time }}
-                            </span>
-                          </div>
-                        </div>
-                        <div class="task-side-row">
-                          <div class="task-side-label">耗时：</div>
-                          <div class="task-side-value">
-                            {{ item.duration ? formatDuration(item.duration) : "-" }}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </DynamicScrollerItem>
-                </template>
-              </DynamicScroller>
-            </div>
-          </div>
-          <div class="node-list">
-            <div class="node-header">节点列表</div>
-            <div v-if="!selectedTaskKey" class="empty">请选择左侧任务</div>
-            <div v-else class="node-list-content">
-              <DynamicScroller
-                class="virtual-scroller"
-                :items="selectedTaskNodes"
-                key-field="node_id"
-                :min-item-size="nodeItemHeight"
-              >
-                <template #default="{ item, active }">
-                  <DynamicScrollerItem
-                    :item="item"
-                    :active="active"
-                    :size-dependencies="[item.name, item.status, item.recognition_attempts?.length]"
-                  >
-                    <div
-                      class="node-row"
-                      :class="{ active: item.node_id === selectedNodeId }"
-                      @click="selectedNodeId = item.node_id"
-                    >
-                      <div class="node-main">
-                        <div class="node-name">{{ item.name || item.node_id }}</div>
-                        <div class="node-sub">
-                          <div>时间： {{ item.timestamp }}</div>
-                          <div>状态： {{ formatResultStatus(item.status) }}</div>
-                        </div>
-                      </div>
-                      <div class="node-badges">
-                        <div class="node-badge">进行识别： {{ item.recognition_attempts?.length || 0 }}次</div>
-                        <div class="node-badge">Next列表： {{ item.next_list?.length || 0 }}个</div>
-                      </div>
-                    </div>
-                  </DynamicScrollerItem>
-                </template>
-              </DynamicScroller>
-              <div v-if="(selectedTask?.nodes || []).length === 0" class="empty">
-                未发现节点事件
-              </div>
-            </div>
-          </div>
-          <div class="detail-panel">
-            <div class="node-header">节点详情</div>
-            <div v-if="!selectedNode" class="empty">请选择节点</div>
-            <div v-else class="detail-content">
-              <div class="detail-section-card" v-if="selectedNode.reco_details">
-                <div class="detail-section-header">
-                  <div class="detail-section-title">识别详情</div>
-                  <n-button size="tiny" @click="copyJson(selectedNode.reco_details)">复制</n-button>
-                </div>
-                <div class="detail-section-grid">
-                  <div class="detail-section-cell">
-                    <div class="detail-section-label">识别 ID</div>
-                    <div class="detail-section-value">{{ selectedNode.reco_details.reco_id }}</div>
-                  </div>
-                  <div class="detail-section-cell">
-                    <div class="detail-section-label">识别算法</div>
-                    <div class="detail-section-value">
-                      <n-tag size="small" type="info">{{ selectedNode.reco_details.algorithm }}</n-tag>
-                    </div>
-                  </div>
-                  <div class="detail-section-cell">
-                    <div class="detail-section-label">节点名称</div>
-                    <div class="detail-section-value">{{ selectedNode.reco_details.name }}</div>
-                  </div>
-                  <div class="detail-section-cell">
-                    <div class="detail-section-label">识别位置</div>
-                    <div class="detail-section-value detail-section-box">
-                      {{ formatBox(selectedNode.reco_details.box) }}
-                    </div>
-                  </div>
-                </div>
-                <n-collapse class="detail-section-collapse" :default-expanded-names="[]">
-                  <n-collapse-item title="原始识别数据" name="reco-raw">
-                    <n-code
-                      :code="JSON.stringify(selectedNode.reco_details, null, 2)"
-                      language="json"
-                      word-wrap
-                      class="detail-code"
-                    />
-                  </n-collapse-item>
-                </n-collapse>
-              </div>
-              <div v-else class="detail-section-card">
-                <div class="detail-section-header">
-                  <div class="detail-section-title">识别详情</div>
-                </div>
-                <div class="empty">无 Recognition 详情</div>
-              </div>
-              <div class="detail-section-card" v-if="selectedNode.action_details">
-                <div class="detail-section-header">
-                  <div class="detail-section-title">动作详情</div>
-                  <n-button size="tiny" @click="copyJson(selectedNode.action_details)">复制</n-button>
-                </div>
-                <div class="detail-section-grid">
-                  <div class="detail-section-cell">
-                    <div class="detail-section-label">动作 ID</div>
-                    <div class="detail-section-value">{{ selectedNode.action_details.action_id }}</div>
-                  </div>
-                  <div class="detail-section-cell">
-                    <div class="detail-section-label">动作类型</div>
-                    <div class="detail-section-value">
-                      <n-tag size="small" type="success">{{ selectedNode.action_details.action }}</n-tag>
-                    </div>
-                  </div>
-                  <div class="detail-section-cell">
-                    <div class="detail-section-label">节点名称</div>
-                    <div class="detail-section-value">{{ selectedNode.action_details.name }}</div>
-                  </div>
-                  <div class="detail-section-cell">
-                    <div class="detail-section-label">执行结果</div>
-                    <div class="detail-section-value">
-                      <n-tag size="small" :type="selectedNode.action_details.success ? 'success' : 'error'">
-                        {{ selectedNode.action_details.success ? "成功" : "失败" }}
-                      </n-tag>
-                    </div>
-                  </div>
-                  <div class="detail-section-cell">
-                    <div class="detail-section-label">目标位置</div>
-                    <div class="detail-section-value detail-section-box">
-                      {{ formatBox(selectedNode.action_details.box) }}
-                    </div>
-                  </div>
-                </div>
-                <n-collapse class="detail-section-collapse" :default-expanded-names="[]">
-                  <n-collapse-item title="原始动作数据" name="action-raw">
-                    <n-code
-                      :code="JSON.stringify(selectedNode.action_details, null, 2)"
-                      language="json"
-                      word-wrap
-                      class="detail-code"
-                    />
-                  </n-collapse-item>
-                </n-collapse>
-              </div>
-              <div v-else class="detail-section-card">
-                <div class="detail-section-header">
-                  <div class="detail-section-title">动作详情</div>
-                </div>
-                <div class="empty">无 Action 详情</div>
-              </div>
-              <n-collapse :default-expanded-names="[]">
-                <n-collapse-item name="base">
-                  <template #header>
-                    <div class="collapse-header">
-                      <span>基础信息</span>
-                      <span class="collapse-summary">{{ summarizeBase(selectedNode) }}</span>
-                    </div>
-                  </template>
-                  <div class="detail-grid">
-                    <div>名称: {{ selectedNode.name }}</div>
-                    <div>时间: {{ selectedNode.timestamp }}</div>
-                    <div>
-                      状态:
-                      <n-tag size="small" :type="selectedNode.status === 'success' ? 'success' : 'error'">
-                        {{ formatResultStatus(selectedNode.status) }}
-                      </n-tag>
-                    </div>
-                    <div>任务: {{ selectedNode.task_id }}</div>
-                    <div>节点ID: {{ selectedNode.node_id }}</div>
-                  </div>
-                </n-collapse-item>
-                <n-collapse-item name="reco">
-                  <template #header>
-                    <div class="collapse-header">
-                      <span>识别尝试</span>
-                      <span class="collapse-summary">{{ summarizeRecognition(selectedNode) }}</span>
-                    </div>
-                  </template>
-                  <div v-if="(selectedNode.recognition_attempts || []).length === 0" class="empty">
-                    无识别尝试记录
-                  </div>
-                  <div v-else class="detail-list">
-                    <div
-                      v-for="(attempt, index) in selectedNode.recognition_attempts"
-                      :key="`${selectedNode.node_id}-${index}`"
-                      class="detail-item"
-                    >
-                      <div class="detail-item-title">
-                        {{ attempt.name || "Recognition" }} · {{ formatResultStatus(attempt.status) }} · {{ attempt.timestamp }}
-                      </div>
-                      <div v-if="attempt.reco_details" class="detail-actions">
-                        <n-button size="tiny" @click="copyJson(attempt.reco_details)">复制</n-button>
-                      </div>
-                      <n-code
-                        v-if="attempt.reco_details"
-                        :code="JSON.stringify(attempt.reco_details, null, 2)"
-                        language="json"
-                        word-wrap
-                        class="detail-code"
-                      />
-                      <div v-if="(attempt.nested_nodes || []).length > 0" class="nested-list">
-                        <div
-                          v-for="(nested, nestedIndex) in attempt.nested_nodes"
-                          :key="`${selectedNode.node_id}-${index}-nested-${nestedIndex}`"
-                          class="detail-item nested"
-                        >
-                          <div class="detail-item-title">
-                            {{ nested.name || "Nested" }} · {{ formatResultStatus(nested.status) }} · {{ nested.timestamp }}
-                          </div>
-                          <div v-if="nested.reco_details" class="detail-actions">
-                            <n-button size="tiny" @click="copyJson(nested.reco_details)">复制</n-button>
-                          </div>
-                          <n-code
-                            v-if="nested.reco_details"
-                            :code="JSON.stringify(nested.reco_details, null, 2)"
-                            language="json"
-                            word-wrap
-                            class="detail-code"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </n-collapse-item>
-                <n-collapse-item name="action-nested">
-                  <template #header>
-                    <div class="collapse-header">
-                      <span>嵌套动作节点</span>
-                      <span class="collapse-summary">{{ summarizeNestedActions(selectedNode) }}</span>
-                    </div>
-                  </template>
-                  <div v-if="(selectedNode.nested_action_nodes || []).length === 0" class="empty">
-                    无嵌套动作节点
-                  </div>
-                  <div v-else class="detail-list">
-                    <div
-                      v-for="(actionNode, actionIndex) in selectedNode.nested_action_nodes"
-                      :key="`${selectedNode.node_id}-action-${actionIndex}`"
-                      class="detail-item"
-                    >
-                      <div class="detail-item-title">
-                        {{ actionNode.name || "Action" }} · {{ formatResultStatus(actionNode.status) }} · {{ actionNode.timestamp }}
-                      </div>
-                      <div v-if="actionNode.action_details" class="detail-actions">
-                        <n-button size="tiny" @click="copyJson(actionNode.action_details)">复制</n-button>
-                      </div>
-                      <n-code
-                        v-if="actionNode.action_details"
-                        :code="JSON.stringify(actionNode.action_details, null, 2)"
-                        language="json"
-                        word-wrap
-                        class="detail-code"
-                      />
-                    </div>
-                  </div>
-                </n-collapse-item>
-                <n-collapse-item name="next">
-                  <template #header>
-                    <div class="collapse-header">
-                      <span>Next List</span>
-                      <span class="collapse-summary">{{ summarizeNextList(selectedNode) }}</span>
-                    </div>
-                  </template>
-                  <div v-if="(selectedNode.next_list || []).length === 0" class="empty">无 Next List</div>
-                  <div v-else class="next-list">
-                    <n-tag
-                      v-for="(item, idx) in selectedNode.next_list"
-                      :key="`${selectedNode.node_id}-next-${idx}`"
-                      size="small"
-                      type="info"
-                    >
-                      {{ formatNextName(item) }}
-                    </n-tag>
-                  </div>
-                </n-collapse-item>
-                <n-collapse-item name="node-detail">
-                  <template #header>
-                    <div class="collapse-header">
-                      <span>节点配置</span>
-                      <span class="collapse-summary">{{ summarizeNodeDetail(selectedNode) }}</span>
-                    </div>
-                  </template>
-                  <div v-if="selectedNode.node_details" class="detail-actions">
-                    <n-button size="tiny" @click="copyJson(selectedNode.node_details)">复制</n-button>
-                  </div>
-                  <n-code
-                    v-if="selectedNode.node_details"
-                    :code="JSON.stringify(selectedNode.node_details, null, 2)"
-                    language="json"
-                    word-wrap
-                    class="detail-code"
-                  />
-                  <div v-else class="empty">无节点配置</div>
-                </n-collapse-item>
-                <n-collapse-item name="focus">
-                  <template #header>
-                    <div class="collapse-header">
-                      <span>Focus</span>
-                      <span class="collapse-summary">{{ summarizeFocus(selectedNode) }}</span>
-                    </div>
-                  </template>
-                  <div v-if="selectedNode.focus" class="detail-actions">
-                    <n-button size="tiny" @click="copyJson(selectedNode.focus)">复制</n-button>
-                  </div>
-                  <n-code
-                    v-if="selectedNode.focus"
-                    :code="JSON.stringify(selectedNode.focus, null, 2)"
-                    language="json"
-                    word-wrap
-                    class="detail-code"
-                  />
-                  <div v-else class="empty">无 Focus 信息</div>
-                </n-collapse-item>
-              </n-collapse>
-            </div>
-          </div>
-        </div>
-      </n-card>
+      <AnalysisPanel
+        v-if="viewMode === 'analysis'"
+        :tasks="tasks"
+        :filtered-tasks="filteredTasks"
+        :selected-task-key="selectedTaskKey"
+        :selected-node-id="selectedNodeId"
+        :selected-task="selectedTask"
+        :selected-task-nodes="selectedTaskNodes"
+        :selected-node="selectedNode"
+        :process-options="processOptions"
+        :thread-options="threadOptions"
+        :selected-process-id="selectedProcessId"
+        :selected-thread-id="selectedThreadId"
+        :task-item-height="taskItemHeight"
+        :node-item-height="nodeItemHeight"
+        :format-task-status="formatTaskStatus"
+        :format-task-time-parts="formatTaskTimeParts"
+        :format-duration="formatDuration"
+        :format-result-status="formatResultStatus"
+        :format-next-name="formatNextName"
+        :format-box="formatBox"
+        :summarize-base="summarizeBase"
+        :summarize-recognition="summarizeRecognition"
+        :summarize-nested-actions="summarizeNestedActions"
+        :summarize-next-list="summarizeNextList"
+        :summarize-node-detail="summarizeNodeDetail"
+        :summarize-focus="summarizeFocus"
+        :copy-json="copyJson"
+        :selected-node-aux-window-label="selectedNodeAuxWindowLabel"
+        :selected-node-custom-actions="selectedNodeCustomActions"
+        :selected-node-aux-logs="selectedNodeAuxLogs"
+        :selected-node-aux-groups="selectedNodeAuxGroups"
+        :format-aux-level="formatAuxLevel"
+        @select-task="
+          ({ taskKey, nodeId }) => {
+            selectedTaskKey = taskKey;
+            selectedNodeId = nodeId;
+          }
+        "
+        @select-node="selectedNodeId = $event"
+        @update:processId="selectedProcessId = $event"
+        @update:threadId="selectedThreadId = $event"
+      />
 
-      <n-card class="panel" size="small" v-if="viewMode === 'search'">
-        <template #header>文本搜索</template>
-        <div class="search-controls">
-          <n-input
-            v-model:value="searchText"
-            placeholder="输入搜索内容"
-            :disabled="rawLines.length === 0"
-          />
-          <n-checkbox v-model:checked="searchCaseSensitive">区分大小写</n-checkbox>
-          <n-checkbox v-model:checked="searchUseRegex">正则表达式</n-checkbox>
-          <n-checkbox v-model:checked="hideDebugInfo">隐藏调试信息</n-checkbox>
-          <n-select
-            size="small"
-            :options="[
-              { label: '200条', value: 200 },
-              { label: '500条', value: 500 },
-              { label: '1000条', value: 1000 }
-            ]"
-            v-model:value="searchMaxResults"
-          />
-          <n-button type="primary" size="small" @click="performSearch" :disabled="rawLines.length === 0">
-            搜索
-          </n-button>
-        </div>
-        <div class="search-quick">
-          <n-button
-            v-for="item in quickSearchOptions"
-            :key="item"
-            size="tiny"
-            @click="
-              searchText = item;
-              performSearch();
-            "
-          >
-            {{ item }}
-          </n-button>
-        </div>
-        <div class="search-message">{{ searchMessage || '输入关键字后点击搜索' }}</div>
-        <div v-if="searchResults.length === 0" class="empty">暂无搜索结果</div>
-        <div v-else class="search-results">
-          <DynamicScroller
-            class="virtual-scroller"
-            :items="searchResults"
-            key-field="key"
-            :min-item-size="searchItemHeight"
-          >
-            <template #default="{ item, active }">
-              <DynamicScrollerItem
-                :item="item"
-                :active="active"
-                :size-dependencies="[item.line, item.matchStart, item.matchEnd]"
-              >
-                <div class="search-row">
-                  <div class="search-meta">
-                    {{ item.fileName }} · L{{ item.lineNumber }}
-                  </div>
-                  <div class="search-line">
-                    <span>{{ splitMatch(item.line, item.matchStart, item.matchEnd).before }}</span>
-                    <span class="search-hit">{{ splitMatch(item.line, item.matchStart, item.matchEnd).match }}</span>
-                    <span>{{ splitMatch(item.line, item.matchStart, item.matchEnd).after }}</span>
-                  </div>
-                </div>
-              </DynamicScrollerItem>
-            </template>
-          </DynamicScroller>
-        </div>
-      </n-card>
+      <SearchPanel
+        v-if="viewMode === 'search'"
+        :search-text="searchText"
+        :search-case-sensitive="searchCaseSensitive"
+        :search-use-regex="searchUseRegex"
+        :hide-debug-info="hideDebugInfo"
+        :search-max-results="searchMaxResults"
+        :search-results="searchResults"
+        :search-message="searchMessage"
+        :quick-search-options="quickSearchOptions"
+        :has-raw-lines="rawLines.length > 0"
+        :search-item-height="searchItemHeight"
+        :split-match="splitMatch"
+        @update:searchText="searchText = $event"
+        @update:searchCaseSensitive="searchCaseSensitive = $event"
+        @update:searchUseRegex="searchUseRegex = $event"
+        @update:hideDebugInfo="hideDebugInfo = $event"
+        @update:searchMaxResults="searchMaxResults = $event"
+        @perform-search="performSearch"
+      />
 
-      <n-card class="panel" size="small" v-if="viewMode === 'statistics'">
-        <template #header>节点统计</template>
-        <div v-if="nodeStatistics.length === 0" class="empty">解析后将在此显示统计数据</div>
-        <div v-else>
-          <div class="stat-controls">
-            <n-input v-model:value="statKeyword" placeholder="按节点名过滤" />
-            <n-select
-              size="small"
-              :options="[
-                { label: '按平均耗时', value: 'avgDuration' },
-                { label: '按执行次数', value: 'count' },
-                { label: '按失败率', value: 'failRate' }
-              ]"
-              v-model:value="statSort"
-            />
-          </div>
-          <div v-if="nodeSummary" class="stat-summary">
-            <div>
-              <div class="stat-label">节点类型</div>
-              <div class="stat-value">{{ nodeSummary.uniqueNodes }}</div>
-            </div>
-            <div>
-              <div class="stat-label">总执行次数</div>
-              <div class="stat-value">{{ nodeSummary.totalNodes }}</div>
-            </div>
-            <div>
-              <div class="stat-label">平均耗时</div>
-              <div class="stat-value">{{ formatDuration(nodeSummary.avgDuration) }}</div>
-            </div>
-            <div>
-              <div class="stat-label">总耗时</div>
-              <div class="stat-value">{{ formatDuration(nodeSummary.totalDuration) }}</div>
-            </div>
-            <div>
-              <div class="stat-label">最慢节点</div>
-              <div class="stat-value">{{ nodeSummary.slowestNode.name }}</div>
-            </div>
-          </div>
-          <n-divider />
-          <div class="stat-table">
-            <div class="stat-row header">
-              <div>节点名称</div>
-              <div>次数</div>
-              <div>成功/失败</div>
-              <div>平均耗时</div>
-              <div>最大耗时</div>
-              <div>成功率</div>
-            </div>
-            <div v-for="stat in nodeStatistics" :key="stat.name" class="stat-row">
-              <div class="stat-name">{{ stat.name }}</div>
-              <div>{{ stat.count }}</div>
-              <div>{{ stat.successCount }}/{{ stat.failCount }}</div>
-              <div>{{ formatDuration(stat.avgDuration) }}</div>
-              <div>{{ formatDuration(stat.maxDuration) }}</div>
-              <div>{{ stat.successRate.toFixed(1) }}%</div>
-            </div>
-          </div>
-        </div>
-      </n-card>
+      <StatisticsPanel
+        v-if="viewMode === 'statistics'"
+        :node-statistics="nodeStatistics"
+        :node-summary="nodeSummary"
+        :stat-keyword="statKeyword"
+        :stat-sort="statSort"
+        :format-duration="formatDuration"
+        @update:statKeyword="statKeyword = $event"
+        @update:statSort="statSort = $event"
+      />
     </div>
   </n-config-provider>
 </template>
 
-<style scoped>
+<style>
 .app {
   min-height: 100vh;
   background: #f6f7fb;
   color: #1f2937;
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  padding: 24px 28px 40px;
+  gap: 16px;
+  padding: 16px 20px 24px;
   box-sizing: border-box;
   font-family: "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
 }
@@ -1751,7 +2282,7 @@ async function handleParse() {
 .brand {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .name {
@@ -1760,7 +2291,7 @@ async function handleParse() {
 }
 
 .subtitle {
-  font-size: 13px;
+  font-size: 12px;
   color: #6b7280;
 }
 
@@ -1776,7 +2307,7 @@ async function handleParse() {
 .top-actions {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
 }
 
 .copy-toast {
@@ -1793,13 +2324,13 @@ async function handleParse() {
 
 .view-tabs {
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 .hero {
   display: grid;
   grid-template-columns: 1.4fr 1fr;
-  gap: 24px;
+  gap: 16px;
   position: relative;
 }
 
@@ -1825,23 +2356,23 @@ async function handleParse() {
 }
 
 .hero-text h1 {
-  font-size: 28px;
-  margin: 0 0 8px;
+  font-size: 22px;
+  margin: 0 0 6px;
 }
 
 .hero-text p {
   color: #6b7280;
-  margin-bottom: 18px;
+  margin-bottom: 12px;
 }
 
 .actions {
   display: flex;
-  gap: 12px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
 .drag-hint {
-  margin-top: 8px;
+  margin-top: 4px;
   font-size: 12px;
   color: #9ca3af;
 }
@@ -1863,10 +2394,10 @@ async function handleParse() {
   background: #ffffff;
   border: 1px solid #e5e7eb;
   border-radius: 14px;
-  padding: 18px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
 .card-title {
@@ -1876,8 +2407,20 @@ async function handleParse() {
 
 .card-stat {
   display: flex;
-  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
   font-size: 14px;
+}
+
+.card-stat-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.card-stat-divider {
+  color: #9ca3af;
+  font-size: 12px;
 }
 
 .card-stat strong {
@@ -1893,6 +2436,13 @@ async function handleParse() {
   border-radius: 14px;
 }
 
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .empty {
   color: #9ca3af;
   padding: 12px 0;
@@ -1901,14 +2451,23 @@ async function handleParse() {
 .file-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.file-list-wrapper {
+  max-height: 140px;
+  overflow: auto;
+  padding-right: 4px;
 }
 
 .file-row {
   display: grid;
-  grid-template-columns: 1fr 120px 180px;
+  grid-template-columns: 1fr 120px 180px auto;
   gap: 12px;
-  padding: 10px 12px;
+  padding: 8px 10px;
   border-radius: 10px;
   background: #f9fafb;
   border: 1px solid #e5e7eb;
@@ -1925,10 +2484,18 @@ async function handleParse() {
   text-align: right;
 }
 
+.file-action {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+
 .task-layout {
   display: grid;
   grid-template-columns: 1fr 1.2fr 1.4fr;
   gap: 16px;
+  --panel-content-height: 520px;
+  --panel-top-gap: 8px;
 }
 
 .task-list,
@@ -1939,18 +2506,49 @@ async function handleParse() {
   gap: 10px;
 }
 
+.panel-top {
+  display: flex;
+  flex-direction: column;
+  gap: var(--panel-top-gap);
+}
+
+.panel-tools {
+  display: flex;
+  align-items: center;
+}
+
+.panel-filters {
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.filter-select {
+  width: 160px;
+}
+
+
 .task-list-content {
-  height: 520px;
+  height: var(--panel-content-height);
   display: block;
 }
 
+.task-list-scroll {
+  height: 100%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-right: 6px;
+  box-sizing: border-box;
+}
+
 .node-list-content {
-  height: 520px;
+  height: var(--panel-content-height);
   display: block;
 }
 
 .detail-panel .detail-content {
-  max-height: 520px;
+  height: var(--panel-content-height);
   overflow-y: auto;
   padding-right: 6px;
 }
@@ -1959,14 +2557,14 @@ async function handleParse() {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: 10px;
-  padding: 10px 12px;
+  padding: 8px 10px;
   border-radius: 10px;
   border: 1px solid #e5e7eb;
   background: #f9fafb;
   cursor: pointer;
   font-size: 13px;
-  align-items: center;
-  min-height: 84px;
+  align-items: flex-start;
+  min-height: 120px;
   box-sizing: border-box;
 }
 
@@ -1979,6 +2577,7 @@ async function handleParse() {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
 }
 
 .task-title {
@@ -1992,6 +2591,7 @@ async function handleParse() {
   gap: 4px;
   color: #6b7280;
   font-size: 12px;
+  min-width: 0;
 }
 
 .task-side {
@@ -2002,6 +2602,7 @@ async function handleParse() {
   font-size: 12px;
   text-align: right;
   align-items: flex-end;
+  min-width: 0;
 }
 
 .task-side-row {
@@ -2009,6 +2610,16 @@ async function handleParse() {
   flex-direction: column;
   gap: 2px;
   align-items: flex-end;
+}
+
+.task-side-row-inline {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+
+.task-side-row-inline .task-side-value {
+  flex-direction: row;
 }
 
 .task-side-label {
@@ -2233,6 +2844,68 @@ async function handleParse() {
   gap: 16px;
 }
 
+.aux-log-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.aux-log-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.aux-log-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.aux-log-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+  padding-top: 4px;
+}
+
+.aux-log-item {
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.aux-log-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.aux-log-time {
+  font-family: "Consolas", "Monaco", "Courier New", monospace;
+}
+
+.aux-log-message {
+  font-weight: 600;
+  color: #111827;
+  word-break: break-word;
+}
+
+.aux-log-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #6b7280;
+}
+
 .detail-actions {
   display: flex;
   justify-content: flex-end;
@@ -2273,6 +2946,18 @@ async function handleParse() {
   gap: 12px;
 }
 
+.detail-section-label {
+  color: #6b7280;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.detail-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .detail-section-header {
   display: flex;
   align-items: center;
@@ -2283,6 +2968,13 @@ async function handleParse() {
 .detail-section-title {
   font-weight: 600;
   color: #111827;
+}
+
+.detail-section-sub {
+  color: #6b7280;
+  font-size: 12px;
+  margin-left: auto;
+  white-space: nowrap;
 }
 
 .detail-section-grid {

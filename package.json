@@ -7,16 +7,19 @@
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri:dev": "node -e \"const { spawnSync } = require('child_process'); const path = require('path'); const tauriDir = path.join(process.cwd(), 'src-tauri'); const env = { ...process.env, TAURI_DIR: tauriDir, CARGO_TARGET_DIR: path.join(tauriDir, 'target') }; delete env.TAURI_CONFIG; const binName = process.platform === 'win32' ? 'tauri.cmd' : 'tauri'; const tauriPath = path.join(process.cwd(), 'node_modules', '.bin', binName); let result; if (process.platform === 'win32') { const quote = (value) => value.includes(' ') ? `\\\"${value.replace(/\\\"/g, '\\\\\\\"')}\\\"` : value; const cmdLine = [quote(tauriPath), 'dev'].join(' '); result = spawnSync('cmd.exe', ['/d', '/s', '/c', cmdLine], { stdio: 'inherit', env }); } else { result = spawnSync(tauriPath, ['dev'], { stdio: 'inherit', env }); } process.exit(result.status ?? 0);\"",
+    "tauri:build": "node -e \"const { spawnSync } = require('child_process'); const path = require('path'); const tauriDir = path.join(process.cwd(), 'src-tauri'); const env = { ...process.env, TAURI_DIR: tauriDir, CARGO_TARGET_DIR: path.join(tauriDir, 'target') }; delete env.TAURI_CONFIG; const binName = process.platform === 'win32' ? 'tauri.cmd' : 'tauri'; const tauriPath = path.join(process.cwd(), 'node_modules', '.bin', binName); let result; if (process.platform === 'win32') { const quote = (value) => value.includes(' ') ? `\\\"${value.replace(/\\\"/g, '\\\\\\\"')}\\\"` : value; const cmdLine = [quote(tauriPath), 'build'].join(' '); result = spawnSync('cmd.exe', ['/d', '/s', '/c', cmdLine], { stdio: 'inherit', env }); } else { result = spawnSync(tauriPath, ['build'], { stdio: 'inherit', env }); } process.exit(result.status ?? 0);\""
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-fs": "^2",
     "@tauri-apps/plugin-opener": "^2",
     "@vicons/antd": "^0.13.0",
+    "fflate": "^0.8.1",
     "naive-ui": "^2.43.2",
     "vue": "^3.5.13",
     "vue-virtual-scroller": "^2.0.0-beta.8"
-  },
+  }, 
   "devDependencies": {
     "@tauri-apps/cli": "^2",
     "@vitejs/plugin-vue": "^5.2.1",
