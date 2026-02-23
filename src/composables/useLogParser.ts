@@ -21,7 +21,8 @@ import type {
   AuxLogEntry,
   PipelineCustomActionInfo,
   SelectedFile,
-  EventNotification
+  EventNotification,
+  ControllerInfo
 } from "../types/logTypes";
 import { parserRegistry, correlateAuxLogs } from "../parsers";
 import type { AuxLogParserInfo } from "../parsers";
@@ -31,7 +32,9 @@ import {
   parseEventNotification,
   extractIdentifierFromLine,
   buildIdentifierRanges,
-  buildTasks
+  buildTasks,
+  parseControllerInfo,
+  associateControllersToTasks
 } from "../utils/parse";
 import { parsePipelineFile, isGoServiceLog, extractDateFromTimestamp } from "../utils/file";
 import { createLogger, setLoggerContext } from "../utils/logger";
@@ -262,6 +265,7 @@ export function useLogParser(config: LogParserConfig = {}): LogParserResult {
       const events: EventNotification[] = [];
       const allLines: RawLine[] = [];
       const auxEntries: AuxLogEntry[] = [];
+      const controllerInfos: ControllerInfo[] = [];
       const eventIdentifierMap = new Map<number, string>();
       let lastIdentifierForEvent: string | null = null;
       let pipelineActions: Record<string, PipelineCustomActionInfo[]> = {};
@@ -359,6 +363,11 @@ export function useLogParser(config: LogParserConfig = {}): LogParserResult {
               if (identifier) {
                 lastIdentifierForEvent = identifier;
               }
+              // 提取控制器信息
+              const controllerInfo = parseControllerInfo(parsed, file.name);
+              if (controllerInfo) {
+                controllerInfos.push(controllerInfo);
+              }
             }
           }
 
@@ -396,6 +405,9 @@ export function useLogParser(config: LogParserConfig = {}): LogParserResult {
       const stringPool = new StringPool();
       tasks.value = buildTasks(events, stringPool, identifierRanges);
       stringPool.clear();
+
+      // 关联控制器信息到任务
+      associateControllersToTasks(tasks.value, controllerInfos);
 
       // 关联辅助日志
       auxLogs.value = correlateAuxLogs(auxEntries, tasks.value, pipelineKeywords);

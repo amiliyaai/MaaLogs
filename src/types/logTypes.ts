@@ -471,6 +471,147 @@ export type TaskInfo = {
   threadId: string;
   duration?: number;
   identifier?: string;
+  controllerInfo?: ControllerInfo;
   _startEventIndex?: number;
   _endEventIndex?: number;
+};
+
+/**
+ * 控制器类型枚举
+ *
+ * 表示 Maa 框架支持的控制器类型。
+ *
+ * @property {'adb' | 'win32' | 'unknown'} type - 控制器类型
+ *   - adb: Android Debug Bridge 控制器（模拟器/真机）
+ *   - win32: Windows 窗口控制器（桌面应用）
+ *   - unknown: 未知类型
+ */
+export type ControllerType = "adb" | "win32" | "unknown";
+
+/**
+ * ADB 截图方式枚举
+ *
+ * 定义 ADB 控制器支持的截图方式。
+ *
+ * @see https://github.com/MaaXYZ/MaaFramework/blob/main/include/MaaFramework/MaaDef.h
+ */
+export type AdbScreencapMethod =
+  | "EncodeToFileAndPull"
+  | "Encode"
+  | "RawWithGzip"
+  | "RawByNetcat"
+  | "MinicapDirect"
+  | "MinicapStream"
+  | "EmulatorExtras"
+  | "Unknown";
+
+/**
+ * ADB 输入方式枚举
+ *
+ * 定义 ADB 控制器支持的输入方式。
+ *
+ * @see https://github.com/MaaXYZ/MaaFramework/blob/main/include/MaaFramework/MaaDef.h
+ */
+export type AdbInputMethod =
+  | "AdbShell"
+  | "MinitouchAndAdbKey"
+  | "Maatouch"
+  | "EmulatorExtras"
+  | "Unknown";
+
+/**
+ * Win32 截图方式枚举
+ *
+ * 定义 Win32 控制器支持的截图方式。
+ *
+ * @see https://github.com/MaaXYZ/MaaFramework/blob/main/source/MaaWin32ControlUnit/Screencap/Screencap.h
+ */
+export type Win32ScreencapMethod =
+  | "FramePool"
+  | "PrintWindow"
+  | "GDI"
+  | "DXGI_DesktopDup_Window"
+  | "ScreenDC"
+  | "DXGI_DesktopDup"
+  | "Unknown";
+
+/**
+ * Win32 输入方式枚举
+ *
+ * 定义 Win32 控制器支持的鼠标和键盘输入方式。
+ *
+ * @see https://github.com/MaaXYZ/MaaFramework/blob/main/source/MaaWin32ControlUnit/Input/Input.h
+ */
+export type Win32InputMethod =
+  | "Seize"
+  | "SendMessage"
+  | "PostMessage"
+  | "LegacyEvent"
+  | "PostThreadMessage"
+  | "SendMessageWithCursorPos"
+  | "PostMessageWithCursorPos"
+  | "SendMessageWithWindowPos"
+  | "PostMessageWithWindowPos"
+  | "Unknown";
+
+/**
+ * 控制器信息
+ *
+ * 表示从日志中解析出的控制器配置信息。
+ * 控制器负责截图和输入操作，是任务执行的基础。
+ *
+ * @property {ControllerType} type - 控制器类型（ADB/Win32）
+ * @property {string} [adbPath] - ADB 可执行文件路径（仅 ADB 控制器）
+ * @property {string} [address] - 设备地址（仅 ADB 控制器，如 127.0.0.1:16384）
+ * @property {AdbScreencapMethod[]} [screencapMethods] - 支持的截图方式列表（ADB）
+ * @property {AdbInputMethod[]} [inputMethods] - 支持的输入方式列表（ADB）
+ * @property {Record<string, unknown>} [config] - 额外配置（如 MuMu 模拟器配置）
+ * @property {Win32ScreencapMethod} [screencapMethod] - 当前使用的截图方式（Win32）
+ * @property {Win32InputMethod} [mouseMethod] - 鼠标输入方式（Win32）
+ * @property {Win32InputMethod} [keyboardMethod] - 键盘输入方式（Win32）
+ * @property {string} [agentPath] - Agent 二进制文件路径
+ * @property {string} timestamp - 控制器创建时间戳
+ * @property {string} fileName - 日志来源文件名
+ * @property {number} lineNumber - 日志所在行号
+ *
+ * @example
+ * // ADB 控制器信息
+ * const adbController: ControllerInfo = {
+ *   type: 'adb',
+ *   adbPath: 'C:/Program Files/.../adb.exe',
+ *   address: '127.0.0.1:16384',
+ *   screencapMethods: ['MuMuPlayer12'],
+ *   inputMethods: ['EmulatorExtras'],
+ *   config: { extras: { mumu: { enable: true, index: 0 } } },
+ *   timestamp: '2024-01-15 10:30:45.123',
+ *   fileName: 'maa.log',
+ *   lineNumber: 100
+ * };
+ *
+ * // Win32 控制器信息
+ * const win32Controller: ControllerInfo = {
+ *   type: 'win32',
+ *   screencapMethod: 'FramePool',
+ *   mouseMethod: 'PostMessage',
+ *   keyboardMethod: 'PostMessage',
+ *   timestamp: '2024-01-15 10:30:45.123',
+ *   fileName: 'maa.log',
+ *   lineNumber: 100
+ * };
+ */
+export type ControllerInfo = {
+  type: ControllerType;
+  processId: string;
+  adbPath?: string;
+  address?: string;
+  screencapMethods?: AdbScreencapMethod[];
+  inputMethods?: AdbInputMethod[];
+  config?: Record<string, unknown>;
+  screencapMethod?: Win32ScreencapMethod;
+  mouseMethod?: Win32InputMethod;
+  keyboardMethod?: Win32InputMethod;
+  agentPath?: string;
+  timestamp: string;
+  fileName: string;
+  lineNumber: number;
 };

@@ -408,27 +408,21 @@ export function applySelectedFiles(
     file
   }));
 
-  // 去重：排除已存在的文件
-  const existingNames = new Set(existingFiles.map(f => f.name));
-  const uniqueNewFiles = newFiles.filter(f => !existingNames.has(f.name));
-
-  // 如果没有新文件
-  if (uniqueNewFiles.length === 0) {
-    return {
-      files: existingFiles,
-      totalSize: existingFiles.reduce((sum, file) => sum + file.size, 0),
-      statusMessage: "所选文件已存在"
-    };
-  }
-
-  // 合并文件列表
-  const updatedFiles = [...existingFiles, ...uniqueNewFiles];
+  // 替换同名文件：移除旧的同名文件，添加新文件
+  const newFileNames = new Set(newFiles.map(f => f.name));
+  const remainingFiles = existingFiles.filter(f => !newFileNames.has(f.name));
+  const updatedFiles = [...remainingFiles, ...newFiles];
   const totalSize = updatedFiles.reduce((sum, file) => sum + file.size, 0);
+
+  const replacedCount = existingFiles.length - remainingFiles.length;
+  const statusMessage = replacedCount > 0
+    ? `已替换 ${replacedCount} 个同名文件，共 ${updatedFiles.length} 个文件`
+    : `已选择 ${updatedFiles.length} 个文件`;
 
   return {
     files: updatedFiles,
     totalSize,
-    statusMessage: `已选择 ${updatedFiles.length} 个文件`
+    statusMessage
   };
 }
 

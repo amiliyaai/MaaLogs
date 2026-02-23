@@ -69,9 +69,105 @@
  * - Naive UI 组件：按钮、卡片、折叠面板、代码显示、选择器、标签、复选框
  * - vue-virtual-scroller：虚拟滚动组件，用于优化大列表性能
  */
-import { NButton, NCard, NCollapse, NCollapseItem, NCode, NSelect, NTag, NCheckboxGroup, NCheckbox, NSpace } from "naive-ui";
+import { NButton, NCard, NCollapse, NCollapseItem, NCode, NSelect, NTag, NCheckboxGroup, NCheckbox, NSpace, NModal, NInput } from "naive-ui";
 import { DynamicScroller, DynamicScrollerItem } from "vue-virtual-scroller";
+import { ref, onMounted } from "vue";
 import type { AuxLogEntry, NodeInfo, NextListItem, PipelineCustomActionInfo, TaskInfo } from "../types/logTypes";
+
+/**
+ * 默认隐藏来源设置
+ *
+ * 用于管理用户预设的默认隐藏日志来源列表，设置保存在 localStorage 中。
+ */
+
+/** localStorage 存储键 */
+const DEFAULT_HIDDEN_CALLERS_KEY = "maa-logs-default-hidden-callers";
+
+/** 是否显示默认隐藏来源设置模态框 */
+const showDefaultHiddenModal = ref(false);
+
+/** 默认隐藏来源列表 */
+const defaultHiddenCallers = ref<string[]>([]);
+
+/** 新增隐藏来源的输入值 */
+const newHiddenCallerInput = ref("");
+
+/** 默认隐藏来源列表的初始值 */
+const DEFAULT_HIDDEN_CALLERS_INITIAL = ["main.go", "register.go", "checker.go"];
+
+/**
+ * 从 localStorage 加载默认隐藏来源列表
+ *
+ * 如果 localStorage 中没有保存过设置，则使用初始默认值。
+ */
+function loadDefaultHiddenCallers() {
+  try {
+    const saved = localStorage.getItem(DEFAULT_HIDDEN_CALLERS_KEY);
+    if (saved) {
+      defaultHiddenCallers.value = JSON.parse(saved);
+    } else {
+      defaultHiddenCallers.value = [...DEFAULT_HIDDEN_CALLERS_INITIAL];
+    }
+  } catch {
+    defaultHiddenCallers.value = [...DEFAULT_HIDDEN_CALLERS_INITIAL];
+  }
+}
+
+/**
+ * 保存默认隐藏来源列表到 localStorage
+ */
+function saveDefaultHiddenCallers() {
+  localStorage.setItem(DEFAULT_HIDDEN_CALLERS_KEY, JSON.stringify(defaultHiddenCallers.value));
+}
+
+/**
+ * 添加新的默认隐藏来源
+ *
+ * 验证输入值非空且不重复后添加到列表，并清空输入框。
+ */
+function addDefaultHiddenCaller() {
+  const value = newHiddenCallerInput.value.trim();
+  if (value && !defaultHiddenCallers.value.includes(value)) {
+    defaultHiddenCallers.value.push(value);
+    saveDefaultHiddenCallers();
+  }
+  newHiddenCallerInput.value = "";
+}
+
+/**
+ * 删除指定索引的默认隐藏来源
+ *
+ * @param {number} index - 要删除的来源索引
+ */
+function removeDefaultHiddenCaller(index: number) {
+  defaultHiddenCallers.value.splice(index, 1);
+  saveDefaultHiddenCallers();
+}
+
+/**
+ * 应用默认隐藏来源到当前隐藏列表
+ *
+ * 将默认隐藏来源合并到当前隐藏列表中（去重），然后关闭模态框。
+ */
+function applyDefaultHiddenCallers() {
+  const currentHidden = [...props.hiddenCallers];
+  for (const caller of defaultHiddenCallers.value) {
+    if (!currentHidden.includes(caller)) {
+      currentHidden.push(caller);
+    }
+  }
+  emit("update:hiddenCallers", currentHidden);
+  showDefaultHiddenModal.value = false;
+}
+
+/**
+ * 组件挂载时加载默认隐藏来源设置并自动应用
+ */
+onMounted(() => {
+  loadDefaultHiddenCallers();
+  // 自动应用默认隐藏来源到隐藏列表
+  applyDefaultHiddenCallers();
+});
 
 /**
  * 组件属性定义
@@ -341,6 +437,43 @@ const handleNodeSelect = (nodeId: number) => {
         <!-- 空状态：未选择任务 -->
         <div v-if="!selectedTask" class="empty">请选择左侧任务</div>
         <div v-else class="detail-content">
+          <!-- 控制器信息卡片 -->
+          <div class="detail-section-card" v-if="selectedTask.controllerInfo">
+            <div class="detail-section-header">
+              <div class="detail-section-title">控制器信息</div>
+            </div>
+            <div class="controller-info-list">
+              <div class="controller-info-item">
+                <n-tag size="small" :type="selectedTask.controllerInfo.type === 'adb' ? 'info' : 'success'">
+                  {{ selectedTask.controllerInfo.type === 'adb' ? 'ADB' : 'Win32' }}
+                </n-tag>
+                <div class="controller-info-details">
+                  <template v-if="selectedTask.controllerInfo.type === 'adb'">
+                    <span v-if="selectedTask.controllerInfo.address" class="controller-info-detail">
+                      <span class="controller-info-label">地址:</span> {{ selectedTask.controllerInfo.address }}
+                    </span>
+                    <span v-if="selectedTask.controllerInfo.screencapMethods && selectedTask.controllerInfo.screencapMethods.length > 0" class="controller-info-detail">
+                      <span class="controller-info-label">截图:</span> {{ selectedTask.controllerInfo.screencapMethods.join(', ') }}
+                    </span>
+                    <span v-if="selectedTask.controllerInfo.inputMethods && selectedTask.controllerInfo.inputMethods.length > 0" class="controller-info-detail">
+                      <span class="controller-info-label">输入:</span> {{ selectedTask.controllerInfo.inputMethods.join(', ') }}
+                    </span>
+                  </template>
+                  <template v-else-if="selectedTask.controllerInfo.type === 'win32'">
+                    <span v-if="selectedTask.controllerInfo.screencapMethod" class="controller-info-detail">
+                      <span class="controller-info-label">截图:</span> {{ selectedTask.controllerInfo.screencapMethod }}
+                    </span>
+                    <span v-if="selectedTask.controllerInfo.mouseMethod" class="controller-info-detail">
+                      <span class="controller-info-label">鼠标:</span> {{ selectedTask.controllerInfo.mouseMethod }}
+                    </span>
+                    <span v-if="selectedTask.controllerInfo.keyboardMethod" class="controller-info-detail">
+                      <span class="controller-info-label">键盘:</span> {{ selectedTask.controllerInfo.keyboardMethod }}
+                    </span>
+                  </template>
+                </div>
+              </div>
+            </div>
+          </div>
           <!-- 空状态：未选择节点 -->
           <div v-if="!selectedNode" class="empty">请选择节点</div>
           <template v-else>
@@ -636,7 +769,29 @@ const handleNodeSelect = (nodeId: number) => {
                 @update:value="emit('update:hiddenCallers', $event as string[])"
                 style="flex: 1; max-width: 400px;"
               />
+              <n-button size="small" @click="showDefaultHiddenModal = true">
+                默认设置
+              </n-button>
             </div>
+            <!-- 默认隐藏来源设置模态框 -->
+            <n-modal v-model:show="showDefaultHiddenModal" preset="card" title="默认隐藏来源" style="width: 400px;">
+              <div class="default-hidden-callers-modal">
+                <div class="default-hidden-callers-list">
+                  <div v-for="(caller, index) in defaultHiddenCallers" :key="index" class="default-hidden-caller-item">
+                    <span>{{ caller }}</span>
+                    <n-button size="tiny" type="error" @click="removeDefaultHiddenCaller(index)">删除</n-button>
+                  </div>
+                  <div v-if="defaultHiddenCallers.length === 0" class="empty">暂无默认隐藏来源</div>
+                </div>
+                <div class="default-hidden-callers-add">
+                  <n-input v-model:value="newHiddenCallerInput" placeholder="输入来源文件名（如 actions.go）" @keyup.enter="addDefaultHiddenCaller" />
+                  <n-button size="small" type="primary" @click="addDefaultHiddenCaller">添加</n-button>
+                </div>
+                <div class="default-hidden-callers-actions">
+                  <n-button type="primary" @click="applyDefaultHiddenCallers">应用并关闭</n-button>
+                </div>
+              </div>
+            </n-modal>
             <!-- 自定义动作标签 -->
             <div v-if="selectedNodeCustomActions.length > 0" class="detail-tag-list">
               <n-tag v-for="item in selectedNodeCustomActions" :key="`${item.name}-${item.fileName}`" size="small" type="info">
@@ -694,6 +849,75 @@ const handleNodeSelect = (nodeId: number) => {
   - Custom日志滚动区域高度限制
 -->
 <style scoped>
+.controller-info-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.controller-info-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px;
+  background: #f9fafb;
+  border-radius: 6px;
+}
+
+.controller-info-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+  flex: 1;
+}
+
+.controller-info-detail {
+  color: #374151;
+}
+
+.controller-info-label {
+  color: #6b7280;
+  margin-right: 2px;
+}
+
+.default-hidden-callers-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.default-hidden-callers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.default-hidden-caller-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #f3f4f6;
+  border-radius: 6px;
+}
+
+.default-hidden-callers-add {
+  display: flex;
+  gap: 8px;
+}
+
+.default-hidden-callers-add .n-input {
+  flex: 1;
+}
+
+.default-hidden-callers-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .aux-log-filters {
   display: flex;
   align-items: center;

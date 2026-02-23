@@ -13,7 +13,299 @@
  * @license MIT
  */
 
-import type { LogLine, EventNotification, ActionDetail, NodeInfo, TaskInfo, RecognitionAttempt, ActionAttempt, NextListItem } from "../types/logTypes";
+import type { LogLine, EventNotification, ActionDetail, NodeInfo, TaskInfo, RecognitionAttempt, ActionAttempt, NextListItem, ControllerInfo, AdbScreencapMethod, AdbInputMethod, Win32ScreencapMethod, Win32InputMethod } from "../types/logTypes";
+import { createLogger } from "./logger";
+
+const logger = createLogger("Parse");
+
+/**
+ * ADB 截图方式 Bitmask 映射
+ *
+ * 用于将日志中的数字 bitmask 转换为可读的截图方式名称。
+ *
+ * @see https://github.com/MaaXYZ/MaaFramework/blob/main/include/MaaFramework/MaaDef.h
+ */
+const ADB_SCREENCAP_METHOD_MAP: Record<number, AdbScreencapMethod> = {
+  1: "EncodeToFileAndPull",
+  2: "Encode",
+  4: "RawWithGzip",
+  8: "RawByNetcat",
+  16: "MinicapDirect",
+  32: "MinicapStream",
+  64: "EmulatorExtras"
+};
+
+/**
+ * ADB 输入方式 Bitmask 映射
+ *
+ * 用于将日志中的数字 bitmask 转换为可读的输入方式名称。
+ *
+ * @see https://github.com/MaaXYZ/MaaFramework/blob/main/include/MaaFramework/MaaDef.h
+ */
+const ADB_INPUT_METHOD_MAP: Record<number, AdbInputMethod> = {
+  1: "AdbShell",
+  2: "MinitouchAndAdbKey",
+  4: "Maatouch",
+  8: "EmulatorExtras"
+};
+
+/**
+ * Win32 截图方式映射
+ *
+ * 用于将日志中的数字值转换为可读的截图方式名称。
+ *
+ * @see https://github.com/MaaXYZ/MaaFramework/blob/main/include/MaaFramework/MaaDef.h
+ */
+const WIN32_SCREENCAP_METHOD_MAP: Record<number, Win32ScreencapMethod> = {
+  1: "GDI",
+  2: "FramePool",
+  4: "DXGI_DesktopDup",
+  8: "DXGI_DesktopDup_Window",
+  16: "PrintWindow",
+  32: "ScreenDC"
+};
+
+/**
+ * Win32 输入方式映射
+ *
+ * 用于将日志中的数字值转换为可读的输入方式名称。
+ *
+ * @see https://github.com/MaaXYZ/MaaFramework/blob/main/include/MaaFramework/MaaDef.h
+ */
+const WIN32_INPUT_METHOD_MAP: Record<number, Win32InputMethod> = {
+  1: "Seize",
+  2: "SendMessage",
+  4: "PostMessage",
+  8: "LegacyEvent",
+  16: "PostThreadMessage",
+  32: "SendMessageWithCursorPos",
+  64: "PostMessageWithCursorPos",
+  128: "SendMessageWithWindowPos",
+  256: "PostMessageWithWindowPos"
+};
+
+/**
+ * 解析 ADB 截图方式 bitmask
+ *
+ * 将 bitmask 数字转换为截图方式名称数组。
+ *
+ * @param {number} bitmask - 截图方式 bitmask
+ * @returns {AdbScreencapMethod[]} 截图方式名称数组
+ *
+ * @example
+ * parseAdbScreencapMethods(64); // ['ADB']
+ * parseAdbScreencapMethods(64 | 512); // ['ADB', 'MuMuPlayer12']
+ */
+export function parseAdbScreencapMethods(bitmask: number): AdbScreencapMethod[] {
+  const methods: AdbScreencapMethod[] = [];
+  for (const [bit, name] of Object.entries(ADB_SCREENCAP_METHOD_MAP)) {
+    if ((bitmask & parseInt(bit)) !== 0) {
+      methods.push(name);
+    }
+  }
+  return methods.length > 0 ? methods : ["Unknown"];
+}
+
+/**
+ * 解析 ADB 输入方式 bitmask
+ *
+ * 将 bitmask 数字转换为输入方式名称数组。
+ *
+ * @param {number} bitmask - 输入方式 bitmask
+ * @returns {AdbInputMethod[]} 输入方式名称数组
+ *
+ * @example
+ * parseAdbInputMethods(16); // ['EmulatorExtras']
+ * parseAdbInputMethods(1 | 2); // ['AdbShell', 'MaaTouch']
+ */
+export function parseAdbInputMethods(bitmask: number | bigint): AdbInputMethod[] {
+  const methods: AdbInputMethod[] = [];
+  const bigBitmask = typeof bitmask === "bigint" ? bitmask : BigInt(bitmask);
+  for (const [bit, name] of Object.entries(ADB_INPUT_METHOD_MAP)) {
+    if ((bigBitmask & BigInt(bit)) !== 0n) {
+      methods.push(name);
+    }
+  }
+  return methods.length > 0 ? methods : ["Unknown"];
+}
+
+/**
+ * 解析 Win32 截图方式值
+ *
+ * 将数字值转换为截图方式名称。
+ *
+ * @param {number} value - 截图方式值
+ * @returns {Win32ScreencapMethod} 截图方式名称
+ *
+ * @example
+ * parseWin32ScreencapMethod(1); // 'FramePool'
+ * parseWin32ScreencapMethod(2); // 'PrintWindow'
+ */
+export function parseWin32ScreencapMethod(value: number): Win32ScreencapMethod {
+  return WIN32_SCREENCAP_METHOD_MAP[value] || "Unknown";
+}
+
+/**
+ * 解析 Win32 输入方式值
+ *
+ * 将数字值转换为输入方式名称。
+ *
+ * @param {number} value - 输入方式值
+ * @returns {Win32InputMethod} 输入方式名称
+ *
+ * @example
+ * parseWin32InputMethod(1); // 'PostMessage'
+ * parseWin32InputMethod(4); // 'Seize'
+ */
+export function parseWin32InputMethod(value: number): Win32InputMethod {
+  return WIN32_INPUT_METHOD_MAP[value] || "Unknown";
+}
+
+/**
+ * 从日志行解析控制器信息
+ *
+ * 解析 MaaAdbControllerCreate 或 MaaWin32ControllerCreate 日志行，
+ * 提取控制器配置信息。
+ *
+ * 支持的日志格式：
+ * - ADB: [MaaAdbControllerCreate] [adb_path=...] [address=...] [screencap_methods=...] [input_methods=...] [config=...] [agent_path=...] | enter
+ * - Win32: [MaaWin32ControllerCreate] [hWnd=...] [screencap_method=...] [mouse_method=...] [keyboard_method=...] | enter
+ *
+ * @param {LogLine} parsed - 已解析的日志行
+ * @param {string} fileName - 文件名
+ * @returns {ControllerInfo | null} 控制器信息或 null（非控制器创建日志）
+ *
+ * @example
+ * const logLine = parseLine('[...][MaaAdbControllerCreate] [adb_path=...] ...', 1);
+ * parseControllerInfo(logLine, 'maa.log');
+ * // 返回 ControllerInfo 对象
+ */
+export function parseControllerInfo(parsed: LogLine, fileName: string): ControllerInfo | null {
+  const { functionName, params, timestamp, status, processId } = parsed;
+  
+  if (functionName !== "MaaAdbControllerCreate" && functionName !== "MaaWin32ControllerCreate") {
+    return null;
+  }
+
+  if (status !== "enter") {
+    return null;
+  }
+
+  if (functionName === "MaaAdbControllerCreate") {
+    const adbPath = params["adb_path"] as string | undefined;
+    const address = params["address"] as string | undefined;
+    const screencapMethodsBitmask = typeof params["screencap_methods"] === "number" ? params["screencap_methods"] : parseInt(String(params["screencap_methods"] || "0"));
+    const inputMethodsValue = params["input_methods"];
+    const inputMethodsBitmask = typeof inputMethodsValue === "bigint" ? inputMethodsValue : (typeof inputMethodsValue === "number" ? BigInt(inputMethodsValue) : 0n);
+    const config = params["config"] as Record<string, unknown> | undefined;
+    const agentPath = params["agent_path"] as string | undefined;
+
+    return {
+      type: "adb",
+      processId,
+      adbPath,
+      address,
+      screencapMethods: parseAdbScreencapMethods(screencapMethodsBitmask),
+      inputMethods: parseAdbInputMethods(inputMethodsBitmask),
+      config,
+      agentPath,
+      timestamp,
+      fileName,
+      lineNumber: parsed._lineNumber || 0
+    };
+  }
+
+  if (functionName === "MaaWin32ControllerCreate") {
+    const screencapMethodValue = typeof params["screencap_method"] === "number" ? params["screencap_method"] : parseInt(String(params["screencap_method"] || "0"));
+    const mouseMethodValue = typeof params["mouse_method"] === "number" ? params["mouse_method"] : parseInt(String(params["mouse_method"] || "0"));
+    const keyboardMethodValue = typeof params["keyboard_method"] === "number" ? params["keyboard_method"] : parseInt(String(params["keyboard_method"] || "0"));
+
+    return {
+      type: "win32",
+      processId,
+      screencapMethod: parseWin32ScreencapMethod(screencapMethodValue),
+      mouseMethod: parseWin32InputMethod(mouseMethodValue),
+      keyboardMethod: parseWin32InputMethod(keyboardMethodValue),
+      timestamp,
+      fileName,
+      lineNumber: parsed._lineNumber || 0
+    };
+  }
+
+  return null;
+}
+
+/**
+ * 从日志行数组中提取所有控制器信息
+ *
+ * 遍历日志行，提取所有控制器创建事件。
+ * 通常一个日志文件中只有一个控制器，但可能有多个（如切换设备）。
+ *
+ * @param {LogLine[]} lines - 已解析的日志行数组
+ * @param {string} fileName - 文件名
+ * @returns {ControllerInfo[]} 控制器信息数组
+ *
+ * @example
+ * const controllers = extractControllerInfos(logLines, 'maa.log');
+ * console.log(controllers[0].type); // 'adb' 或 'win32'
+ */
+export function extractControllerInfos(lines: LogLine[], fileName: string): ControllerInfo[] {
+  const controllers: ControllerInfo[] = [];
+  for (const line of lines) {
+    const info = parseControllerInfo(line, fileName);
+    if (info) {
+      controllers.push(info);
+    }
+  }
+  if (controllers.length > 0) {
+    logger.info("提取控制器信息", {
+      fileName,
+      count: controllers.length,
+      types: controllers.map(c => ({ type: c.type, processId: c.processId }))
+    });
+  }
+  return controllers;
+}
+
+/**
+ * 关联控制器信息到任务
+ *
+ * 根据进程 ID 将控制器信息关联到对应的任务。
+ * 控制器和任务在同一进程中创建，直接通过进程 ID 匹配。
+ *
+ * @param {TaskInfo[]} tasks - 任务列表
+ * @param {ControllerInfo[]} controllers - 控制器信息列表
+ *
+ * @example
+ * associateControllersToTasks(tasks, controllers);
+ * console.log(tasks[0].controllerInfo); // 关联的控制器信息
+ */
+export function associateControllersToTasks(tasks: TaskInfo[], controllers: ControllerInfo[]): void {
+  if (controllers.length === 0 || tasks.length === 0) {
+    return;
+  }
+
+  // 建立 processId -> ControllerInfo 的映射
+  const controllerMap = new Map<string, ControllerInfo>();
+  for (const controller of controllers) {
+    controllerMap.set(controller.processId, controller);
+  }
+
+  // 为每个任务匹配同进程的控制器
+  let matchedCount = 0;
+  for (const task of tasks) {
+    const controller = controllerMap.get(task.processId);
+    if (controller) {
+      task.controllerInfo = controller;
+      matchedCount++;
+    }
+  }
+  logger.debug("控制器关联完成", {
+    totalTasks: tasks.length,
+    totalControllers: controllers.length,
+    matchedTasks: matchedCount
+  });
+}
 
 /**
  * 字符串池（String Interning）
@@ -98,6 +390,10 @@ export function parseValue(value: string): unknown {
   // 布尔值
   if (value === "true") return true;
   if (value === "false") return false;
+  // 大整数（超过 JavaScript 安全整数范围）
+  if (/^\d+$/.test(value) && value.length > 15) {
+    return BigInt(value);
+  }
   // 整数
   if (/^-?\d+$/.test(value)) return parseInt(value);
   // 浮点数
@@ -656,6 +952,7 @@ export function buildTasks(
 
       const uuid = details.uuid || "";
       const taskKey = buildTaskKey(taskId, uuid, event.processId);
+      const entry = details.entry || "";
 
       // 如果已有相同键的运行中任务，先结束它
       if (taskId && runningTaskMap.has(taskKey)) {
@@ -683,7 +980,7 @@ export function buildTasks(
           key: `task-${taskKeyCounter++}`,
           fileName,
           task_id: taskId,
-          entry: stringPool.intern(details.entry || ""),
+          entry: stringPool.intern(entry),
           hash: stringPool.intern(details.hash || ""),
           uuid: stringPool.intern(uuid),
           start_time: stringPool.intern(event.timestamp),
@@ -752,7 +1049,13 @@ export function buildTasks(
   }
 
   // 过滤掉 MaaTaskerPostStop 任务（内部清理任务）
-  return tasks.filter(task => task.entry !== "MaaTaskerPostStop");
+  const filteredTasks = tasks.filter(task => task.entry !== "MaaTaskerPostStop");
+  logger.info("任务构建完成", {
+    totalTasks: tasks.length,
+    filteredTasks: filteredTasks.length,
+    entries: filteredTasks.map(t => t.entry)
+  });
+  return filteredTasks;
 }
 
 /**
