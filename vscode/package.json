@@ -1,0 +1,146 @@
+{
+  "name": "maa-logs",
+  "displayName": "MaaLogs - MAA日志分析器",
+  "description": "MAA Framework 日志分析工具，支持任务解析、节点追踪和Custom日志关联",
+  "version": "1.0.0",
+  "publisher": "maaxyz",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Other"
+  ],
+  "keywords": [
+    "maa",
+    "log",
+    "analyzer",
+    "automation"
+  ],
+  "main": "./out/extension.js",
+  "icon": "icon.png",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "maaLogs.openAnalysis",
+        "title": "MaaLogs: 打开分析面板",
+        "icon": "$(graph)"
+      },
+      {
+        "command": "maaLogs.openLog",
+        "title": "MaaLogs: 打开日志文件",
+        "icon": "$(file-text)"
+      },
+      {
+        "command": "maaLogs.analyzeCurrent",
+        "title": "MaaLogs: 分析当前文件",
+        "icon": "$(search)"
+      },
+      {
+        "command": "maaLogs.refreshTasks",
+        "title": "MaaLogs: 刷新任务",
+        "icon": "$(refresh)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "maa-logs",
+          "title": "MaaLogs 日志分析",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "maa-logs": [
+        {
+          "id": "maaLogs.main",
+          "name": "MaaLogs",
+          "type": "webview"
+        }
+      ]
+    },
+    "menus": {
+      "editor/context": [
+        {
+          "command": "maaLogs.analyzeCurrent",
+          "when": "resourceFilename =~ /\\.log$/",
+          "group": "maaLogs@1"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "maaLogs.openLog",
+          "when": "resourceFilename =~ /\\.log$/ || explorerResourceIsFolder",
+          "group": "maaLogs@1"
+        }
+      ]
+    },
+    "languages": [
+      {
+        "id": "maalog",
+        "extensions": [
+          ".maalog"
+        ],
+        "aliases": [
+          "MAA Log",
+          "maalog"
+        ],
+        "configuration": "./syntaxes/maalog.language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "maalog",
+        "scopeName": "source.maalog",
+        "path": "./syntaxes/maalog.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "title": "MaaLogs",
+      "properties": {
+        "maaLogs.defaultHiddenCallers": {
+          "type": "array",
+          "default": ["main.go", "register.go", "checker.go"],
+          "description": "默认隐藏的日志来源"
+        },
+        "maaLogs.chunkSize": {
+          "type": "number",
+          "default": 5000,
+          "description": "解析分块大小"
+        },
+        "maaLogs.autoAnalyze": {
+          "type": "boolean",
+          "default": false,
+          "description": "打开日志文件时自动分析"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "@vscode/test-electron": "^2.3.8",
+    "@vscode/vsce": "^2.22.0",
+    "eslint": "^8.54.0",
+    "typescript": "^5.3.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MaaXYZ/MaaLogs"
+  },
+  "license": "MIT"
+}
