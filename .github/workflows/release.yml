@@ -167,32 +167,28 @@ jobs:
           echo "Windows: ${WIN_SIG:0:50}..."
           echo "Linux: ${LINUX_SIG:0:50}..."
           
-          # 生成 latest.json
-          cat > release-files/latest.json << EOF
-          {
-            "version": "${VERSION}",
-            "notes": "${{ needs.changelog.outputs.release_body }}",
-            "pub_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-            "platforms": {
-              "darwin-x86_64": {
-                "signature": "${MAC_SIG}",
-                "url": "${BASE_URL}/MaaLogs.app.tar.gz"
-              },
-              "darwin-aarch64": {
-                "signature": "${MAC_SIG}",
-                "url": "${BASE_URL}/MaaLogs.app.tar.gz"
-              },
-              "linux-x86_64": {
-                "signature": "${LINUX_SIG}",
-                "url": "${BASE_URL}/MaaLogs_${VERSION}_amd64.AppImage"
-              },
-              "windows-x86_64": {
-                "signature": "${WIN_SIG}",
-                "url": "${BASE_URL}/MaaLogs_${VERSION}_x64-setup.exe"
+          # 生成 latest.json (使用 jq 确保 JSON 有效)
+          jq -n \
+            --arg version "$VERSION" \
+            --arg notes "See release notes for details" \
+            --arg pub_date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg mac_sig "$MAC_SIG" \
+            --arg win_sig "$WIN_SIG" \
+            --arg linux_sig "$LINUX_SIG" \
+            --arg mac_url "${BASE_URL}/MaaLogs.app.tar.gz" \
+            --arg win_url "${BASE_URL}/MaaLogs_${VERSION}_x64-setup.exe" \
+            --arg linux_url "${BASE_URL}/MaaLogs_${VERSION}_amd64.AppImage" \
+            '{
+              version: $version,
+              notes: $notes,
+              pub_date: $pub_date,
+              platforms: {
+                "darwin-x86_64": { signature: $mac_sig, url: $mac_url },
+                "darwin-aarch64": { signature: $mac_sig, url: $mac_url },
+                "linux-x86_64": { signature: $linux_sig, url: $linux_url },
+                "windows-x86_64": { signature: $win_sig, url: $win_url }
               }
-            }
-          }
-          EOF
+            }' > release-files/latest.json
           
           echo "Generated latest.json:"
           cat release-files/latest.json
