@@ -24,5 +24,7 @@ src-tauri/target/**
 *.njsproj
 *.sln
 *.sw?
+
+# Tauri keys
 src-tauri/keys
 src-tauri/keys.pub

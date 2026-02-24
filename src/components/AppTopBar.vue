@@ -23,48 +23,27 @@
 -->
 
 <script setup lang="ts">
-/**
- * 导入依赖
- * - NButton: Naive UI 按钮组件
- */
 import { NButton } from "naive-ui";
+import AboutModal from "./AboutModal.vue";
+import { ref } from "vue";
 
-/**
- * 视图模式类型定义
- * @typedef {'analysis' | 'search' | 'statistics'} ViewMode
- * - analysis: 日志分析视图，显示任务与节点详情
- * - search: 文本搜索视图，支持全文检索
- * - statistics: 节点统计视图，显示节点执行统计
- */
 type ViewMode = "analysis" | "search" | "statistics";
 
-/**
- * 组件属性定义
- * @property {ViewMode} viewMode - 当前激活的视图模式
- * @property {boolean} isTauri - 是否运行在 Tauri 环境中
- */
 defineProps<{
   viewMode: ViewMode;
   isTauri: boolean;
 }>();
 
-/**
- * 组件事件定义
- * @event change-view - 切换视图模式
- * @event open-devtools - 打开开发者工具（仅 Tauri）
- */
 const emit = defineEmits<{
   (e: "change-view", value: ViewMode): void;
   (e: "open-devtools"): void;
 }>();
 
-/**
- * 发送视图切换事件
- * @param {ViewMode} value - 目标视图模式
- */
 const emitView = (value: ViewMode) => {
   emit("change-view", value);
 };
+
+const showAbout = ref(false);
 </script>
 
 <!--
@@ -82,6 +61,10 @@ const emitView = (value: ViewMode) => {
     <!-- 操作区域 -->
     <div class="top-actions">
       <div class="view-tabs">
+        <!-- 关于按钮 -->
+        <n-button size="small" secondary @click="showAbout = true">
+          关于
+        </n-button>
         <!-- 开发者工具按钮（仅 Tauri 环境） -->
         <n-button v-if="isTauri" size="small" secondary @click="emit('open-devtools')">
           开发者工具
@@ -105,4 +88,7 @@ const emitView = (value: ViewMode) => {
       </div>
     </div>
   </header>
+
+  <!-- 关于弹窗 -->
+  <AboutModal v-model:show="showAbout" />
 </template>
