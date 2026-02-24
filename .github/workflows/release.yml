@@ -42,12 +42,22 @@ jobs:
         with:
           workspaces: ./src-tauri -> target
 
+      - name: Install git-cliff
+        uses: dawidd6/action-install-gh-release@v1
+        with:
+          tool: git-cliff
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Generate release notes
         id: git-cliff
-        uses: orhun/git-cliff-action@v2
-        with:
-          config: .github/cliff.toml
-          args: --latest
+        shell: bash
+        run: |
+          changelog="$(git-cliff -c .github/cliff.toml)"
+          {
+            echo "content<<EOF"
+            echo "$changelog"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
