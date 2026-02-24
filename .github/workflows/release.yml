@@ -55,7 +55,7 @@ jobs:
       - name: Generate changelog
         id: changelog
         run: |
-          changelog="$(git-cliff -c .github/cliff.toml --tag ${{ steps.tag.outputs.tag }} --strip header)"
+          changelog="$(git-cliff -c .github/cliff.toml --latest --strip header)"
           {
             echo "content<<EOF"
             echo "$changelog"
