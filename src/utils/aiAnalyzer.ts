@@ -95,7 +95,7 @@ export const PROVIDER_MODELS: Record<AIProvider, string[]> = {
   gemini: ["gemini-3-pro", "gemini-3-flash", "gemini-2.5-pro", "gemini-2.5-flash"],
   xai: ["grok-2-1212", "grok-2-vision-1212"],
   deepseek: ["deepseek-chat", "deepseek-reasoner"],
-  zhipu: ["glm-5", "glm-4-flash"],
+  zhipu: ["glm-5", "glm-4.7-flash"],
   minimax: ["MiniMax-M2.5"],
   moonshot: ["moonshot-v1-8k-vision-preview"],
   step: ["step-1v-8k"],
