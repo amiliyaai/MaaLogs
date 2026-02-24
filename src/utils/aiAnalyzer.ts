@@ -365,11 +365,15 @@ export function saveAIConfig(config: AIConfig): void {
 
 export async function analyzeWithAI(config: AIConfig, tasks: TaskInfo[], auxLogs?: AuxLogEntry[]): Promise<FailureAnalysis[]> {
   const failedNodes = tasks.flatMap(t => t.nodes).filter(n => n.status === "failed");
+  console.log(`[AI分析] 开始分析，失败节点数: ${failedNodes.length}, 任务数: ${tasks.length}, 日志数: ${auxLogs?.length || 0}`);
+  
   if (failedNodes.length === 0) return [];
 
   if (!config.apiKey) throw new Error("请先配置 AI API Key");
 
   const prompt = buildAnalysisPrompt(tasks, failedNodes, auxLogs);
+  console.log(`[AI分析] Prompt 长度: ${prompt.length} 字符`);
+  
   const baseUrl = config.baseUrl || PROVIDER_INFO[config.provider]?.defaultBaseUrl || "";
   const isClaude = config.provider === "anthropic";
 
@@ -386,17 +390,24 @@ export async function analyzeWithAI(config: AIConfig, tasks: TaskInfo[], auxLogs
   }
 
   const endpoint = isClaude ? `${baseUrl}/messages` : `${baseUrl}/chat/completions`;
+  console.log(`[AI分析] 发送请求到: ${endpoint}, 模型: ${config.model}`);
+  
   const response = await fetch(endpoint, { method: "POST", headers, body: JSON.stringify(requestBody) });
 
   if (!response.ok) {
     const errorText = await response.text();
+    console.error(`[AI分析] API 错误: ${response.status} - ${errorText}`);
     throw new Error(`API 错误: ${response.status} - ${errorText}`);
   }
 
   const result = await response.json();
   const content = isClaude ? result.content?.[0]?.text : result.choices?.[0]?.message?.content;
+  console.log(`[AI分析] 响应内容长度: ${content?.length || 0} 字符`);
 
-  return parseAIResponse(content || "", failedNodes);
+  const analysisResults = parseAIResponse(content || "", failedNodes);
+  console.log(`[AI分析] 解析出 ${analysisResults.length} 条分析结果`);
+  
+  return analysisResults;
 }
 
 function parseAIResponse(content: string, failedNodes: NodeInfo[]): FailureAnalysis[] {

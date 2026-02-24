@@ -69,7 +69,7 @@
  * - Naive UI 组件：按钮、卡片、折叠面板、代码显示、选择器、标签、复选框
  * - vue-virtual-scroller：虚拟滚动组件，用于优化大列表性能
  */
-import { NButton, NCard, NCollapse, NCollapseItem, NCode, NSelect, NTag } from "naive-ui";
+import { NButton, NCard, NCollapse, NCollapseItem, NCode, NSelect, NTag, NSpin } from "naive-ui";
 import { DynamicScroller, DynamicScrollerItem } from "vue-virtual-scroller";
 import { ref, watch } from "vue";
 import type { NodeInfo, NextListItem, TaskInfo, PipelineCustomActionInfo, AuxLogEntry } from "../types/logTypes";
@@ -95,23 +95,6 @@ function handleSaveAIConfig(config: AIConfig) {
   aiConfig.value = config;
   saveAIConfig(config);
 }
-
-/**
- * AI 分析结果缓存（按任务 key 存储）
- */
-const aiResultsCache = new Map<string, FailureAnalysis[]>();
-
-/**
- * 监听任务切换，恢复已分析任务的结果
- */
-watch(() => props.selectedTaskKey, (newKey) => {
-  if (newKey && aiResultsCache.has(newKey)) {
-    aiResults.value = aiResultsCache.get(newKey)!;
-  } else {
-    aiResults.value = [];
-  }
-  aiError.value = "";
-});
 
 /**
  * 执行 AI 分析
@@ -224,6 +207,23 @@ const props = withDefaults(defineProps<{
 });
 
 /**
+ * AI 分析结果缓存（按任务 key 存储）
+ */
+const aiResultsCache = new Map<string, FailureAnalysis[]>();
+
+/**
+ * 监听任务切换，恢复已分析任务的结果
+ */
+watch(() => props.selectedTaskKey, (newKey) => {
+  if (newKey && aiResultsCache.has(newKey)) {
+    aiResults.value = aiResultsCache.get(newKey)!;
+  } else {
+    aiResults.value = [];
+  }
+  aiError.value = "";
+});
+
+/**
  * 组件事件定义
  * @event select-task - 选择任务，参数包含 taskKey 和可选的 nodeId
  * @event select-node - 选择节点，参数为节点 ID
@@ -304,16 +304,14 @@ const handleNodeSelect = (nodeId: number) => {
         <div class="panel-top">
           <div class="node-header">
             <span>任务列表</span>
-            <n-button size="small" @click="showAISettings = true">设置</n-button>
-            <n-button 
-              size="small" 
-              type="primary" 
-              :loading="aiAnalyzing" 
-              :disabled="!selectedTask" 
-              @click="handleAIAnalyze"
-            >
-              AI 分析
-            </n-button>
+            <div class="ai-controls">
+              <n-spin :show="aiAnalyzing" size="small">
+                <n-button size="small" :disabled="!selectedTask" @click="handleAIAnalyze">
+                  AI 分析
+                </n-button>
+              </n-spin>
+              <n-button size="small" @click="showAISettings = true">设置</n-button>
+            </div>
           </div>
         </div>
         <div class="task-list-content">
@@ -719,4 +717,8 @@ const handleNodeSelect = (nodeId: number) => {
   样式部分
 -->
 <style scoped>
+.ai-controls {
+  display: flex;
+  gap: 8px;
+}
 </style>
