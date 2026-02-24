@@ -5,31 +5,33 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
 
 jobs:
-  release:
-    permissions:
-      contents: write
-      pull-requests: write
+  build:
     strategy:
       fail-fast: false
       matrix:
         include:
           - platform: 'macos-latest'
-            args: '--target x86_64-apple-darwin'
+            target: 'x86_64-apple-darwin'
+            bundle_path: 'src-tauri/target/x86_64-apple-darwin/release/bundle/**/*'
+            architecture: 'x86_64'
           - platform: 'macos-latest'
-            args: '--target aarch64-apple-darwin'
+            target: 'aarch64-apple-darwin'
+            bundle_path: 'src-tauri/target/aarch64-apple-darwin/release/bundle/**/*'
+            architecture: 'arm64'
           - platform: 'windows-latest'
-            args: ''
+            target: 'x86_64-pc-windows-msvc'
+            bundle_path: 'src-tauri/target/x86_64-pc-windows-msvc/release/bundle/**/*'
+            architecture: 'x86_64'
           - platform: 'ubuntu-latest'
-            args: ''
+            target: 'x86_64-unknown-linux-gnu'
+            bundle_path: 'src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/**/*'
+            architecture: 'x86_64'
     runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -40,53 +42,83 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+          targets: ${{ matrix.target }}
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: ./src-tauri -> target
 
-      - name: Install git-cliff
-        run: cargo install git-cliff --locked
-
-      - name: Generate release notes
-        id: git-cliff
-        shell: bash
-        run: |
-          changelog="$(git-cliff -c .github/cliff.toml)"
-          {
-            echo "content<<EOF"
-            echo "$changelog"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Install Linux dependencies
         if: matrix.platform == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev libgtk-3-dev
 
-      - name: Setup Rust target
-        if: matrix.args != ''
-        run: rustup target add ${{ matrix.args }}
+      - name: Install Windows dependencies
+        if: matrix.platform == 'windows-latest'
+        run: choco install vcredist2022 -y
 
       - name: Install npm dependencies
         run: npm ci
 
       - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0
+        run: npx tauri build --target ${{ matrix.target }}
+
+      - name: Verify bundle exists
+        run: ls -la src-tauri/target/${{ matrix.target }}/release/bundle/
+        shell: bash
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: tauri-bundle-${{ matrix.target }}
+          path: ${{ matrix.bundle_path }}
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    if: ${{ !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: 'tauri-bundle-*'
+          merge-multiple: false
+
+      - name: List downloaded artifacts
+        run: ls -laR artifacts/
+
+      - name: Generate release notes
+        id: git-cliff
+        uses: orhun/git-cliff-action@v2
+        with:
+          config: .github/cliff.toml
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate version tag
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "tag_name=v$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag_name }}
+          name: Release ${{ steps.version.outputs.tag_name }}
+          body: ${{ steps.git-cliff.outputs.content }}
+          files: artifacts/**/*
+          draft: false
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
-        with:
-          tagName: v__VERSION__
-          releaseName: 'MaaLogs v__VERSION__'
-          releaseDraft: false
-          updaterJsonPreferNsis: true
-          generateReleaseNotes: false
-          releaseBody: ${{ steps.git-cliff.outputs.content }}
-          args: ${{ matrix.args }}
