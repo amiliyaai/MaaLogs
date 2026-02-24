@@ -198,9 +198,31 @@ pnpm tauri:build
 ## 🔗 相关链接
 
 - [MaaFramework](https://github.com/MaaXYZ/MaaFramework) - 自动化框架
-- [MaaLogAnalyzer](https://github.com/Windsland52/MAALogAnalyzer) - 另一个日志分析工具
+- [MaaEnd](https://github.com/MaaEnd/MaaEnd) - 《明日方舟：终末地》游戏小助手
+- [M9A](https://github.com/MAA1999/M9A) - 重返未来：1999 小助手
 - [Naive UI 文档](https://www.naiveui.com/)
 - [Tauri 文档](https://tauri.app/)
+
+## 🔧 开发指南
+
+### 代码规范
+
+- 使用 TypeScript 进行类型安全开发
+- 遵循 Vue 3 Composition API 风格
+- 组件使用 `<script setup>` 语法
+- 文件注释遵循 JSDoc 规范
+
+### 添加新的日志解析器
+
+1. 在 `src/parsers/` 目录下创建新的解析器文件
+2. 继承 `BaseParser` 类实现解析逻辑
+3. 在 `registry.ts` 中注册解析器
+
+### 添加新的 AI 服务商
+
+1. 在 `src/utils/aiAnalyzer.ts` 中添加服务商类型
+2. 更新 `PROVIDER_MODELS` 和 `PROVIDER_INFO`
+3. 在 `analyzeWithAI` 函数中添加对应请求处理
 
 ## 📝 许可证
 
