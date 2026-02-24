@@ -25,6 +25,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -34,6 +36,20 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Install git-cliff
+        run: cargo install git-cliff --locked
+
+      - name: Generate release notes
+        id: git-cliff
+        shell: bash
+        run: |
+          changelog="$(git-cliff -c .github/cliff.toml --tag v__VERSION__)"
+          {
+            echo "content<<EOF"
+            echo "$changelog"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Setup Rust target
         if: matrix.target != ''
@@ -53,4 +69,5 @@ jobs:
           releaseName: 'MaaLogs v__VERSION__'
           releaseDraft: false
           updaterJsonPreferNsis: true
-          generateReleaseNotes: true
+          generateReleaseNotes: false
+          releaseBody: ${{ steps.git-cliff.outputs.content }}
