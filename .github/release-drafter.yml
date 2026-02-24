@@ -1,0 +1,19 @@
+name-template: 'v$RESOLVED_VERSION'
+tag-template: 'v$RESOLVED_VERSION'
+categories:
+  - title: '✨ 新功能'
+    label: 'feat'
+  - title: '🐛 修复'
+    label: 'fix'
+  - title: '📝 更新'
+    label: 'chore'
+  - title: '📖 文档'
+    label: 'docs'
+change-template: '- $TITLE (#$NUMBER)'
+change-title-escapes: '\<*_&'
+template: |
+  ## 💡 更新内容
+
+  $CHANGES
+
+  **完整更新日志**: https://github.com/amiliyaai/MaaLogs/commits/v$RESOLVED_VERSION
