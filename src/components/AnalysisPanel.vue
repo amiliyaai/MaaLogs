@@ -112,7 +112,16 @@ async function handleAIAnalyze() {
   aiResults.value = [];
   
   try {
-    aiResults.value = await analyzeWithAI(aiConfig.value, [props.selectedTask]);
+    const rawResults = await analyzeWithAI(aiConfig.value, [props.selectedTask]);
+    
+    const dedupedMap = new Map<string, FailureAnalysis>();
+    for (const result of rawResults) {
+      const existing = dedupedMap.get(result.nodeName);
+      if (!existing || result.confidence > existing.confidence) {
+        dedupedMap.set(result.nodeName, result);
+      }
+    }
+    aiResults.value = Array.from(dedupedMap.values());
   } catch (e) {
     aiError.value = e instanceof Error ? e.message : "未知错误";
   } finally {
