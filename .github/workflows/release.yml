@@ -97,12 +97,20 @@ jobs:
       - name: List downloaded artifacts
         run: ls -laR artifacts/
 
+      - name: Install git-cliff
+        run: cargo install git-cliff --locked
+
       - name: Generate release notes
         id: git-cliff
-        uses: orhun/git-cliff-action@v2
-        with:
-          config: .github/cliff.toml
-          token: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          changelog="$(git-cliff -c .github/cliff.toml)"
+          {
+            echo "content<<EOF"
+            echo "$changelog"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate version tag
         id: version
