@@ -37,19 +37,12 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install git-cliff
-        run: cargo install git-cliff --locked
-
       - name: Generate release notes
         id: git-cliff
-        shell: bash
-        run: |
-          changelog="$(git-cliff -c .github/cliff.toml)"
-          {
-            echo "content<<EOF"
-            echo "$changelog"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
+        uses: orhun/git-cliff-action@v2
+        with:
+          config: .github/cliff.toml
+          args: --latest
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
