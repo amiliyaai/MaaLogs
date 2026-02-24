@@ -33,7 +33,6 @@ jobs:
             TAG="${{ github.event.inputs.tag }}"
           fi
           
-          # 判断是否预发布：包含 alpha/beta/rc/-ci
           IS_PRERELEASE=false
           if [[ $TAG =~ alpha|beta|rc|-ci ]]; then
             IS_PRERELEASE=true
@@ -83,18 +82,10 @@ jobs:
 
       - run: npm ci
 
-      - uses: tauri-apps/tauri-action@v0
-        with:
-          tagName: ${{ needs.meta.outputs.tag }}
-          releaseName: 'MaaLogs ${{ needs.meta.outputs.tag }}'
-          releaseBody: ''
-          releaseDraft: false
-          prerelease: ${{ needs.meta.outputs.is_prerelease == 'true' }}
-          args: --target ${{ matrix.target }}
+      - run: npx tauri build --target ${{ matrix.target }}
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions/upload-artifact@v4
         with:
@@ -121,8 +112,6 @@ jobs:
       - name: Generate changelog
         id: git-cliff
         run: |
-          # 正式版：只匹配正式版标签
-          # 预发布版：正常生成
           if [ "${{ needs.meta.outputs.is_prerelease }}" == "false" ]; then
             changelog="$(git-cliff -c .github/cliff.toml --latest --strip header --tag-pattern '^v[0-9]+\.[0-9]+\.[0-9]+$')"
           else
@@ -154,18 +143,12 @@ jobs:
           find assets -type f \( -name "*.dmg" -o -name "*.app.tar.gz*" -o -name "*.exe" -o -name "*.msi" -o -name "*.AppImage" -o -name "*.deb" -o -name "latest.json" \) -exec cp {} release-files/ \;
           ls -la release-files/
 
-      - name: Install git-cliff
-        run: |
-          curl -sL https://github.com/orhun/git-cliff/releases/latest/download/git-cliff-2.12.0-x86_64-unknown-linux-gnu.tar.gz | tar xz
-          sudo mv git-cliff-2.12.0/git-cliff /usr/local/bin/
-
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.meta.outputs.tag }}
           files: release-files/*
           body: ${{ needs.changelog.outputs.release_body }}
           prerelease: ${{ needs.meta.outputs.is_prerelease == 'true' }}
-          # 预发布版本不标记为 latest
           make_latest: ${{ needs.meta.outputs.is_prerelease == 'false' && 'true' || 'false' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
