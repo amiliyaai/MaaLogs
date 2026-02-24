@@ -18,9 +18,12 @@ const providerOptions = computed(() =>
   Object.entries(PROVIDER_INFO).map(([value, info]) => ({ label: info.name, value }))
 );
 
-const modelOptions = computed(() =>
-  (PROVIDER_MODELS[props.config.provider as AIProvider] || []).map(m => ({ label: m, value: m }))
-);
+const modelOptions = computed(() => {
+  const models = PROVIDER_MODELS[props.config.provider as AIProvider] || [];
+  return models.map(m => ({ label: m, value: m }));
+});
+
+const isCustomProvider = computed(() => props.config.provider === "custom");
 
 function handleClose() {
   emit("update:show", false);
@@ -36,11 +39,21 @@ function updateConfig<K extends keyof AIConfig>(key: K, value: AIConfig[K]) {
   
   if (key === "provider") {
     const models = PROVIDER_MODELS[value as AIProvider];
-    if (models && models.length > 0 && !models.includes(newConfig.model)) {
+    if (value === "custom") {
+      newConfig.model = "";
+    } else if (models && models.length > 0 && !models.includes(newConfig.model)) {
       newConfig.model = models[0];
     }
   }
   
+  emit("update:config", newConfig);
+}
+
+function updateApiKey(value: string) {
+  const newConfig = { 
+    ...props.config, 
+    apiKeys: { ...props.config.apiKeys, [props.config.provider]: value } 
+  };
   emit("update:config", newConfig);
 }
 </script>
@@ -57,16 +70,23 @@ function updateConfig<K extends keyof AIConfig>(key: K, value: AIConfig[K]) {
       </n-form-item>
       <n-form-item label="API Key">
         <n-input
-          :value="config.apiKey"
+          :value="config.apiKeys[config.provider]"
           type="password"
           placeholder="输入 API Key"
-          @update:value="updateConfig('apiKey', $event)"
+          @update:value="updateApiKey($event)"
         />
       </n-form-item>
       <n-form-item label="模型">
         <n-select
+          v-if="!isCustomProvider"
           :value="config.model"
           :options="modelOptions"
+          @update:value="updateConfig('model', $event)"
+        />
+        <n-input
+          v-else
+          :value="config.model"
+          placeholder="输入模型名称"
           @update:value="updateConfig('model', $event)"
         />
       </n-form-item>

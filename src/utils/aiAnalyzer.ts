@@ -1,23 +1,51 @@
+/**
+ * @fileoverview AI 分析工具模块
+ *
+ * 本模块提供 AI 驱动的日志分析功能，包括：
+ * - 多服务商支持（OpenAI、Anthropic、DeepSeek 等）
+ * - 失败节点原因分析
+ * - 系统提示词集成 MAA 框架知识库
+ *
+ * @module utils/aiAnalyzer
+ * @author MaaLogs Team
+ * @license MIT
+ */
+
 import type { TaskInfo, NodeInfo, AuxLogEntry } from "../types/logTypes";
 
+/**
+ * AI 服务商类型
+ */
 export type AIProvider = 
   | "openai" 
   | "anthropic" 
-  | "siliconflow" 
-  | "deepseek" 
+  | "gemini"
+  | "xai"
+  | "deepseek"
   | "zhipu" 
   | "minimax" 
   | "moonshot" 
-  | "step" 
+  | "step"
+  | "siliconflow"
+  | "openrouter"
+  | "volcengine"
+  | "aliyun"
+  | "tencent"
   | "custom";
 
+/**
+ * AI 配置接口
+ */
 export interface AIConfig {
   provider: AIProvider;
-  apiKey: string;
+  apiKeys: Record<AIProvider, string>;
   model: string;
   baseUrl: string;
 }
 
+/**
+ * 失败分析结果接口
+ */
 export interface FailureAnalysis {
   nodeName: string;
   nodeId: number;
@@ -27,18 +55,50 @@ export interface FailureAnalysis {
   confidence: number;
 }
 
+/**
+ * localStorage 键名
+ */
 export const AI_CONFIG_KEY = "maa-logs-ai-config";
 
+/**
+ * 默认 AI 配置
+ */
 export const DEFAULT_AI_CONFIG: AIConfig = {
   provider: "openai",
-  apiKey: "",
+  apiKeys: {
+    openai: "",
+    anthropic: "",
+    gemini: "",
+    xai: "",
+    deepseek: "",
+    zhipu: "",
+    minimax: "",
+    moonshot: "",
+    step: "",
+    siliconflow: "",
+    openrouter: "",
+    volcengine: "",
+    aliyun: "",
+    tencent: "",
+    custom: ""
+  },
   model: "gpt-4o-mini",
   baseUrl: ""
 };
 
+/**
+ * 服务商模型映射表
+ */
 export const PROVIDER_MODELS: Record<AIProvider, string[]> = {
-  openai: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo"],
-  anthropic: ["claude-3-5-sonnet-20241022", "claude-3-opus-20240229", "claude-3-haiku-20240307"],
+  openai: ["gpt-5.2", "gpt-5.1", "gpt-5-medium", "gpt-5-high"],
+  anthropic: ["claude-3-5-sonnet-20241022"],
+  gemini: ["gemini-3-pro", "gemini-3-flash", "gemini-2.5-pro", "gemini-2.5-flash"],
+  xai: ["grok-2-1212", "grok-2-vision-1212"],
+  deepseek: ["deepseek-chat", "deepseek-reasoner"],
+  zhipu: ["glm-5", "glm-4-flash"],
+  minimax: ["MiniMax-M2.5"],
+  moonshot: ["moonshot-v1-8k-vision-preview"],
+  step: ["step-1v-8k"],
   siliconflow: [
     "Qwen/Qwen2.5-14B-Instruct",
     "Qwen/Qwen2.5-7B-Instruct",
@@ -46,26 +106,53 @@ export const PROVIDER_MODELS: Record<AIProvider, string[]> = {
     "meta-llama/Llama-3.1-8B-Instruct",
     "THUDM/glm-4-9b-chat"
   ],
-  deepseek: ["deepseek-chat", "deepseek-coder"],
-  zhipu: ["glm-4-flash", "glm-4", "glm-3-turbo"],
-  minimax: ["abab6.5s-chat", "abab5.5s-chat"],
-  moonshot: ["moonshot-v1-8k", "moonshot-v1-8k-vision-preview"],
-  step: ["step-1v-8k", "step-1v-32k"],
+  openrouter: [
+    "openai/gpt-4o",
+    "anthropic/claude-3.5-sonnet",
+    "google/gemini-2.0-flash",
+    "deepseek/deepseek-chat"
+  ],
+  volcengine: [
+    "doubao-pro-32k"
+  ],
+  aliyun: [
+    "qwen-plus",
+    "qwen-max",
+    "qwen-flash"
+  ],
+  tencent: [
+    "hunyuan-pro"
+  ],
   custom: []
 };
 
+/**
+ * 服务商信息映射表
+ */
 export const PROVIDER_INFO: Record<AIProvider, { name: string; defaultBaseUrl: string }> = {
   openai: { name: "OpenAI", defaultBaseUrl: "https://api.openai.com/v1" },
   anthropic: { name: "Anthropic Claude", defaultBaseUrl: "https://api.anthropic.com" },
-  siliconflow: { name: "硅基流动", defaultBaseUrl: "https://api.siliconflow.cn/v1" },
+  gemini: { name: "Google Gemini", defaultBaseUrl: "https://generativelanguage.googleapis.com/v1" },
+  xai: { name: "xAI Grok", defaultBaseUrl: "https://api.x.ai/v1" },
   deepseek: { name: "DeepSeek", defaultBaseUrl: "https://api.deepseek.com/v1" },
   zhipu: { name: "智谱 AI", defaultBaseUrl: "https://open.bigmodel.cn/api/paas/v4" },
   minimax: { name: "MiniMax", defaultBaseUrl: "https://api.minimax.chat/v1" },
   moonshot: { name: "月之暗面", defaultBaseUrl: "https://api.moonshot.cn/v1" },
   step: { name: "阶跃星辰", defaultBaseUrl: "https://api.stepfun.com/v1" },
+  siliconflow: { name: "硅基流动", defaultBaseUrl: "https://api.siliconflow.cn/v1" },
+  openrouter: { name: "OpenRouter", defaultBaseUrl: "https://openrouter.ai/api/v1" },
+  volcengine: { name: "火山引擎", defaultBaseUrl: "https://ark.cn-beijing.volces.com/api/v3" },
+  aliyun: { name: "阿里云", defaultBaseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1" },
+  tencent: { name: "腾讯云", defaultBaseUrl: "https://hunyuan.tencentcloudapi.com" },
   custom: { name: "自定义", defaultBaseUrl: "" }
 };
 
+/**
+ * MAA 框架知识库
+ * 
+ * 包含识别算法、动作类型、节点状态等相关知识
+ * 用于 RAG 检索增强
+ */
 const MAA_KNOWLEDGE = {
   recognition: {
     DirectHit: {
@@ -260,6 +347,11 @@ const MAA_KNOWLEDGE = {
   }
 };
 
+/**
+ * 获取 MAA 框架系统提示词
+ *
+ * @returns 系统提示词字符串
+ */
 function getFrameworkPrompt(): string {
   return `你是一个 MAA (MaaxX Auto) 自动化框架的专家。
 
@@ -288,6 +380,14 @@ ${Object.entries(MAA_KNOWLEDGE.controllers).map(([name, info]) =>
 - next_list: 后续节点列表（name, anchor, jump_back）`;
 }
 
+/**
+ * 构建 AI 分析提示词
+ *
+ * @param tasks - 任务列表
+ * @param failedNodes - 失败节点列表
+ * @param auxLogs - 附加日志（可选）
+ * @returns 构建好的提示词
+ */
 export function buildAnalysisPrompt(tasks: TaskInfo[], failedNodes: NodeInfo[], auxLogs?: AuxLogEntry[]): string {
   let prompt = getFrameworkPrompt() + '\n\n';
 
@@ -347,6 +447,11 @@ export function buildAnalysisPrompt(tasks: TaskInfo[], failedNodes: NodeInfo[], 
   return prompt;
 }
 
+/**
+ * 从 localStorage 加载 AI 配置
+ *
+ * @returns AI 配置对象
+ */
 export function getAIConfig(): AIConfig {
   try {
     const stored = localStorage.getItem(AI_CONFIG_KEY);
@@ -359,37 +464,57 @@ export function getAIConfig(): AIConfig {
   return { ...DEFAULT_AI_CONFIG };
 }
 
+/**
+ * 保存 AI 配置到 localStorage
+ *
+ * @param config - AI 配置对象
+ */
 export function saveAIConfig(config: AIConfig): void {
   localStorage.setItem(AI_CONFIG_KEY, JSON.stringify(config));
 }
 
+/**
+ * 使用 AI 分析任务失败原因
+ *
+ * @param config - AI 配置
+ * @param tasks - 任务列表
+ * @param auxLogs - 附加日志（可选）
+ * @returns 失败分析结果列表
+ */
 export async function analyzeWithAI(config: AIConfig, tasks: TaskInfo[], auxLogs?: AuxLogEntry[]): Promise<FailureAnalysis[]> {
   const failedNodes = tasks.flatMap(t => t.nodes).filter(n => n.status === "failed");
   console.log(`[AI分析] 开始分析，失败节点数: ${failedNodes.length}, 任务数: ${tasks.length}, 日志数: ${auxLogs?.length || 0}`);
   
   if (failedNodes.length === 0) return [];
 
-  if (!config.apiKey) throw new Error("请先配置 AI API Key");
+  const currentApiKey = config.apiKeys[config.provider] || "";
+  if (!currentApiKey) throw new Error("请先配置 AI API Key");
 
   const prompt = buildAnalysisPrompt(tasks, failedNodes, auxLogs);
   console.log(`[AI分析] Prompt 长度: ${prompt.length} 字符`);
   
   const baseUrl = config.baseUrl || PROVIDER_INFO[config.provider]?.defaultBaseUrl || "";
   const isClaude = config.provider === "anthropic";
+  const isGemini = config.provider === "gemini";
 
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   let requestBody: Record<string, unknown>;
+  let endpoint: string;
 
   if (isClaude) {
-    headers["x-api-key"] = config.apiKey;
+    headers["x-api-key"] = currentApiKey;
     headers["anthropic-version"] = "2023-06-01";
     requestBody = { model: config.model, max_tokens: 4000, messages: [{ role: "user", content: prompt }] };
+    endpoint = `${baseUrl}/messages`;
+  } else if (isGemini) {
+    headers["x-goog-api-key"] = currentApiKey;
+    requestBody = { contents: [{ parts: [{ text: prompt }] }] };
+    endpoint = `${baseUrl}/models/${config.model}:generateContent`;
   } else {
-    headers["Authorization"] = `Bearer ${config.apiKey}`;
+    headers["Authorization"] = `Bearer ${currentApiKey}`;
     requestBody = { model: config.model, messages: [{ role: "user", content: prompt }], temperature: 0.3 };
+    endpoint = `${baseUrl}/chat/completions`;
   }
-
-  const endpoint = isClaude ? `${baseUrl}/messages` : `${baseUrl}/chat/completions`;
   console.log(`[AI分析] 发送请求到: ${endpoint}, 模型: ${config.model}`);
   
   const response = await fetch(endpoint, { method: "POST", headers, body: JSON.stringify(requestBody) });
@@ -401,7 +526,11 @@ export async function analyzeWithAI(config: AIConfig, tasks: TaskInfo[], auxLogs
   }
 
   const result = await response.json();
-  const content = isClaude ? result.content?.[0]?.text : result.choices?.[0]?.message?.content;
+  const content = isClaude 
+    ? result.content?.[0]?.text 
+    : isGemini 
+      ? result.candidates?.[0]?.content?.parts?.[0]?.text 
+      : result.choices?.[0]?.message?.content;
   console.log(`[AI分析] 响应内容长度: ${content?.length || 0} 字符`);
 
   const analysisResults = parseAIResponse(content || "", failedNodes);
@@ -410,6 +539,13 @@ export async function analyzeWithAI(config: AIConfig, tasks: TaskInfo[], auxLogs
   return analysisResults;
 }
 
+/**
+ * 解析 AI 返回的分析结果
+ *
+ * @param content - AI 返回的原始内容
+ * @param failedNodes - 失败节点列表
+ * @returns 解析后的失败分析结果列表
+ */
 function parseAIResponse(content: string, failedNodes: NodeInfo[]): FailureAnalysis[] {
   const match = content.match(/\[[\s\S]*\]/);
   if (match) {

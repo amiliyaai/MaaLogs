@@ -102,7 +102,7 @@ function handleSaveAIConfig(config: AIConfig) {
 async function handleAIAnalyze() {
   if (!props.selectedTask) return;
   
-  if (!aiConfig.value.apiKey) {
+  if (!aiConfig.value.apiKeys[aiConfig.value.provider]) {
     showAISettings.value = true;
     return;
   }
@@ -717,6 +717,12 @@ const handleNodeSelect = (nodeId: number) => {
   样式部分
 -->
 <style scoped>
+.node-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
 .ai-controls {
   display: flex;
   gap: 8px;
