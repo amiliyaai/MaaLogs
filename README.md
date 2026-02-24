@@ -4,7 +4,7 @@ MaaLogs 是一个用于解析和可视化 MaaFramework 日志的桌面应用程�
 
 ## 功能特性
 
-- **日志解析**：支持解析 `maa.log` 和 `go-service.log` 格式的日志文件
+- **日志解析**：支持解析 `maa.log` 和 `Custom` 格式的日志文件
 - **任务可视化**：以树形结构展示任务执行流程，包括节点状态、识别详情、控制器和动作信息
 - **Custom 日志关联**：自动关联 Custom 日志与对应的 任务
 - **文本搜索**：支持正则表达式搜索，快速定位日志内容
@@ -101,13 +101,13 @@ npm install
 ### 开发模式
 
 ```bash
-npm run tauri dev
+npm run tauri:dev
 ```
 
 ### 构建发布
 
 ```bash
-npm run tauri build
+npm run tauri:build
 ```
 
 ### 类型检查
@@ -143,15 +143,15 @@ npm run build
 
 ## 日志格式支持
 
-### maa.log 格式
+### maa.log 
 
 ```
 [时间戳][等级][进程ID][线程ID][源文件][行号][函数名] 消息内容
 ```
 
-### go-service.log（MaaEnd）、M9A Custom日志 格式
+### MaaEnd项目、M9A项目 Custom日志
 
-支持 M9A 和 MaaEnd 两种格式的 JSON 结构化日志。
+支持 M9A（还在调试）、MaaEnd 格式的 JSON 结构化日志。
 
 ## VSCode 插件
 
