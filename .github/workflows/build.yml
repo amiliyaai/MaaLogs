@@ -6,11 +6,16 @@ on:
     paths:
       - "src/**"
       - "src-tauri/**"
+      - ".github/workflows/**"
   pull_request:
   workflow_dispatch:
 
 jobs:
+  check:
+    uses: ./.github/workflows/check.yml
+
   build:
+    needs: check
     strategy:
       fail-fast: false
       matrix:

@@ -14,7 +14,11 @@ permissions:
   contents: write
 
 jobs:
+  check:
+    uses: ./.github/workflows/check.yml
+
   meta:
+    needs: check
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
