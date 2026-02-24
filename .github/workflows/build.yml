@@ -58,4 +58,4 @@ jobs:
           name: bundle-${{ matrix.target }}
           path: src-tauri/target/${{ matrix.target }}/release/bundle/**/*
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 3
