@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "MaaLogs",
-  "version": "0.3.0",
+  "version": "0.1.0",
   "identifier": "com.administrator.maalogs",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -29,6 +29,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -46,7 +47,7 @@
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDU1NDk0RTU0QjgxQkY1OTcKUldTWDlSdTRWRTVKVlE3UGVSWXI2TGZTTWlRM21NWkpLZTRPT0czaVI5ZkV5cGhwVlNaWEs2NDMK",
       "endpoints": [
-        "https://github.com/amiliyaai/MaaLogs/releases/latest/download/{{target}}-{{arch}}.json"
+        "https://github.com/amiliyaai/MaaLogs/releases/latest/download/latest.json"
       ]
     }
   }
