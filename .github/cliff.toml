@@ -12,17 +12,9 @@ body = """
 {%- endmacro -%}
 
 {% macro print_commit(commit) -%}
-    - {% if commit.scope %}*({{ commit.scope }})* {% endif %}\
-        {% if commit.breaking %}[**breaking**] {% endif %}\
+    - {% if commit.breaking %}[**breaking**] {% endif %}\
         {{ commit.message | split(pat="\\n") | first | upper_first }} \
         {% if commit.github.username %} @{{ commit.github.username }}{% else %} {{ commit.author.name }}{% endif %}
-        {%- if commit.footers -%}
-            {%- for footer in commit.footers -%}
-                {%- if footer.token == "Co-authored-by" -%}
-                    {%- set co_author_name = footer.value | split(pat=" <") | first | trim %} @{{ co_author_name }}
-                {%- endif -%}
-            {%- endfor -%}
-        {%- endif %}
 {% endmacro -%}
 
 {% if version %}\
@@ -33,15 +25,8 @@ body = """
 
 {% for group, commits in commits | group_by(attribute="group") %}
     ### {{ group | striptags | trim | upper_first }}
-    {% for commit in commits
-    | filter(attribute="scope")
-    | sort(attribute="scope") %}
-        {{ self::print_commit(commit=commit) }}
-    {%- endfor %}
     {% for commit in commits %}
-        {%- if not commit.scope -%}
-            {{ self::print_commit(commit=commit) }}
-        {% endif -%}
+        {{ self::print_commit(commit=commit) }}
     {% endfor -%}
 {% endfor -%}
 """
