@@ -69,11 +69,15 @@
  * - Naive UI 组件：按钮、卡片、折叠面板、代码显示、选择器、标签、复选框
  * - vue-virtual-scroller：虚拟滚动组件，用于优化大列表性能
  */
-import { NButton, NCard, NCollapse, NCollapseItem, NCode, NSelect, NTag, NCheckboxGroup, NCheckbox, NSpace, NModal, NInput, NForm, NFormItem } from "naive-ui";
+import { NButton, NCard, NCollapse, NCollapseItem, NCode, NSelect, NTag } from "naive-ui";
 import { DynamicScroller, DynamicScrollerItem } from "vue-virtual-scroller";
-import { ref, onMounted, computed } from "vue";
-import type { AuxLogEntry, NodeInfo, NextListItem, PipelineCustomActionInfo, TaskInfo } from "../types/logTypes";
-import { analyzeWithAI, getAIConfig, saveAIConfig, PROVIDER_INFO, PROVIDER_MODELS, type AIConfig, type AIProvider, type FailureAnalysis } from "../utils/aiAnalyzer";
+import { ref } from "vue";
+import type { NodeInfo, NextListItem, TaskInfo, PipelineCustomActionInfo, AuxLogEntry } from "../types/logTypes";
+import { analyzeWithAI, getAIConfig, saveAIConfig, type AIConfig, type FailureAnalysis } from "../utils/aiAnalyzer";
+import AISettingsModal from "./AISettingsModal.vue";
+import AIResultCard from "./AIResultCard.vue";
+import ControllerInfoCard from "./ControllerInfoCard.vue";
+import CustomLogPanel from "./CustomLogPanel.vue";
 
 /**
  * AI 分析状态
@@ -85,25 +89,11 @@ const showAISettings = ref(false);
 const aiError = ref("");
 
 /**
- * AI 提供商选项
- */
-const providerOptions = computed(() =>
-  Object.entries(PROVIDER_INFO).map(([value, info]) => ({ label: info.name, value }))
-);
-
-/**
- * 当前提供商的模型选项
- */
-const modelOptions = computed(() =>
-  (PROVIDER_MODELS[aiConfig.value.provider as AIProvider] || []).map(m => ({ label: m, value: m }))
-);
-
-/**
  * 保存 AI 设置
  */
-function saveAISettings() {
-  saveAIConfig(aiConfig.value);
-  showAISettings.value = false;
+function handleSaveAIConfig(config: AIConfig) {
+  aiConfig.value = config;
+  saveAIConfig(config);
 }
 
 /**
@@ -129,101 +119,6 @@ async function handleAIAnalyze() {
     aiAnalyzing.value = false;
   }
 }
-
-/**
- * 默认隐藏来源设置
- *
- * 用于管理用户预设的默认隐藏日志来源列表，设置保存在 localStorage 中。
- */
-
-/** localStorage 存储键 */
-const DEFAULT_HIDDEN_CALLERS_KEY = "maa-logs-default-hidden-callers";
-
-/** 是否显示默认隐藏来源设置模态框 */
-const showDefaultHiddenModal = ref(false);
-
-/** 默认隐藏来源列表 */
-const defaultHiddenCallers = ref<string[]>([]);
-
-/** 新增隐藏来源的输入值 */
-const newHiddenCallerInput = ref("");
-
-/** 默认隐藏来源列表的初始值 */
-const DEFAULT_HIDDEN_CALLERS_INITIAL = ["main.go", "register.go", "checker.go"];
-
-/**
- * 从 localStorage 加载默认隐藏来源列表
- *
- * 如果 localStorage 中没有保存过设置，则使用初始默认值。
- */
-function loadDefaultHiddenCallers() {
-  try {
-    const saved = localStorage.getItem(DEFAULT_HIDDEN_CALLERS_KEY);
-    if (saved) {
-      defaultHiddenCallers.value = JSON.parse(saved);
-    } else {
-      defaultHiddenCallers.value = [...DEFAULT_HIDDEN_CALLERS_INITIAL];
-    }
-  } catch {
-    defaultHiddenCallers.value = [...DEFAULT_HIDDEN_CALLERS_INITIAL];
-  }
-}
-
-/**
- * 保存默认隐藏来源列表到 localStorage
- */
-function saveDefaultHiddenCallers() {
-  localStorage.setItem(DEFAULT_HIDDEN_CALLERS_KEY, JSON.stringify(defaultHiddenCallers.value));
-}
-
-/**
- * 添加新的默认隐藏来源
- *
- * 验证输入值非空且不重复后添加到列表，并清空输入框。
- */
-function addDefaultHiddenCaller() {
-  const value = newHiddenCallerInput.value.trim();
-  if (value && !defaultHiddenCallers.value.includes(value)) {
-    defaultHiddenCallers.value.push(value);
-    saveDefaultHiddenCallers();
-  }
-  newHiddenCallerInput.value = "";
-}
-
-/**
- * 删除指定索引的默认隐藏来源
- *
- * @param {number} index - 要删除的来源索引
- */
-function removeDefaultHiddenCaller(index: number) {
-  defaultHiddenCallers.value.splice(index, 1);
-  saveDefaultHiddenCallers();
-}
-
-/**
- * 应用默认隐藏来源到当前隐藏列表
- *
- * 将默认隐藏来源合并到当前隐藏列表中（去重），然后关闭模态框。
- */
-function applyDefaultHiddenCallers() {
-  const currentHidden = [...props.hiddenCallers];
-  for (const caller of defaultHiddenCallers.value) {
-    if (!currentHidden.includes(caller)) {
-      currentHidden.push(caller);
-    }
-  }
-  emit("update:hiddenCallers", currentHidden);
-  showDefaultHiddenModal.value = false;
-}
-
-/**
- * 组件挂载时加载默认隐藏来源设置并自动应用
- */
-onMounted(() => {
-  loadDefaultHiddenCallers();
-  // 自动应用默认隐藏来源到隐藏列表
-  applyDefaultHiddenCallers();
-});
 
 /**
  * 组件属性定义
@@ -315,18 +210,6 @@ const emit = defineEmits<{
   (e: "update:selectedAuxLevels", value: string[]): void;
   (e: "update:hiddenCallers", value: string[]): void;
 }>();
-
-/**
- * Custom日志级别选项
- * 用于级别过滤复选框组
- */
-const auxLevelOptions = [
-  { label: "Error", value: "error" },
-  { label: "Warn", value: "warn" },
-  { label: "Info", value: "info" },
-  { label: "Debug", value: "debug" },
-  { label: "Other", value: "other" }
-];
 
 /**
  * 处理任务选择
@@ -506,61 +389,9 @@ const handleNodeSelect = (nodeId: number) => {
         <div v-if="!selectedTask" class="empty">请选择左侧任务</div>
         <div v-else class="detail-content">
           <!-- 控制器信息卡片 -->
-          <div class="detail-section-card" v-if="selectedTask.controllerInfo">
-            <div class="detail-section-header">
-              <div class="detail-section-title">控制器信息</div>
-            </div>
-            <div class="controller-info-list">
-              <div class="controller-info-item">
-                <n-tag size="small" :type="selectedTask.controllerInfo.type === 'adb' ? 'info' : 'success'">
-                  {{ selectedTask.controllerInfo.type === 'adb' ? 'ADB' : 'Win32' }}
-                </n-tag>
-                <div class="controller-info-details">
-                  <template v-if="selectedTask.controllerInfo.type === 'adb'">
-                    <span v-if="selectedTask.controllerInfo.address" class="controller-info-detail">
-                      <span class="controller-info-label">地址:</span> {{ selectedTask.controllerInfo.address }}
-                    </span>
-                    <span v-if="selectedTask.controllerInfo.screencapMethods && selectedTask.controllerInfo.screencapMethods.length > 0" class="controller-info-detail">
-                      <span class="controller-info-label">截图:</span> {{ selectedTask.controllerInfo.screencapMethods.join(', ') }}
-                    </span>
-                    <span v-if="selectedTask.controllerInfo.inputMethods && selectedTask.controllerInfo.inputMethods.length > 0" class="controller-info-detail">
-                      <span class="controller-info-label">输入:</span> {{ selectedTask.controllerInfo.inputMethods.join(', ') }}
-                    </span>
-                  </template>
-                  <template v-else-if="selectedTask.controllerInfo.type === 'win32'">
-                    <span v-if="selectedTask.controllerInfo.screencapMethod" class="controller-info-detail">
-                      <span class="controller-info-label">截图:</span> {{ selectedTask.controllerInfo.screencapMethod }}
-                    </span>
-                    <span v-if="selectedTask.controllerInfo.mouseMethod" class="controller-info-detail">
-                      <span class="controller-info-label">鼠标:</span> {{ selectedTask.controllerInfo.mouseMethod }}
-                    </span>
-                    <span v-if="selectedTask.controllerInfo.keyboardMethod" class="controller-info-detail">
-                      <span class="controller-info-label">键盘:</span> {{ selectedTask.controllerInfo.keyboardMethod }}
-                    </span>
-                  </template>
-                </div>
-              </div>
-            </div>
-          </div>
+          <ControllerInfoCard v-if="selectedTask.controllerInfo" :controller-info="selectedTask.controllerInfo" />
           <!-- AI 分析结果卡片 -->
-          <div class="detail-section-card" v-if="aiResults.length > 0 || aiError">
-            <div class="detail-section-header">
-              <div class="detail-section-title">AI 分析结果</div>
-            </div>
-            <div v-if="aiError" class="ai-error">{{ aiError }}</div>
-            <div v-else class="ai-results">
-              <div v-for="result in aiResults" :key="result.nodeId" class="ai-result-item">
-                <div class="ai-result-header">
-                  <strong>{{ result.nodeName }}</strong>
-                  <n-tag size="small" :type="result.confidence > 0.7 ? 'success' : result.confidence > 0.4 ? 'warning' : 'error'">
-                    {{ Math.round(result.confidence * 100) }}%
-                  </n-tag>
-                </div>
-                <div class="ai-result-cause">原因: {{ result.cause }}</div>
-                <div class="ai-result-suggestion">建议: {{ result.suggestion }}</div>
-              </div>
-            </div>
-          </div>
+          <AIResultCard :results="aiResults" :error="aiError" />
           <!-- 空状态：未选择节点 -->
           <div v-if="!selectedNode" class="empty">请选择节点</div>
           <template v-else>
@@ -831,256 +662,31 @@ const handleNodeSelect = (nodeId: number) => {
             </n-collapse>
           </template>
           <!-- Custom 日志区域 -->
-          <div class="detail-section-card">
-            <div class="detail-section-header">
-              <div class="detail-section-title">Custom日志</div>
-            </div>
-            <!-- Custom日志级别过滤 -->
-            <div class="aux-log-filters">
-              <span class="aux-log-filter-label">级别过滤：</span>
-              <n-checkbox-group :value="props.selectedAuxLevels" @update:value="emit('update:selectedAuxLevels', $event as string[])">
-                <n-space>
-                  <n-checkbox v-for="opt in auxLevelOptions" :key="opt.value" :value="opt.value" :label="opt.label" />
-                </n-space>
-              </n-checkbox-group>
-            </div>
-            <!-- 日志来源过滤 -->
-            <div class="aux-log-filters">
-              <span class="aux-log-filter-label">隐藏来源：</span>
-              <n-select
-                :value="props.hiddenCallers"
-                :options="props.callerOptions"
-                multiple
-                clearable
-                placeholder="选择要隐藏的日志来源文件"
-                @update:value="emit('update:hiddenCallers', $event as string[])"
-                style="flex: 1; max-width: 400px;"
-              />
-              <n-button size="small" @click="showDefaultHiddenModal = true">
-                默认设置
-              </n-button>
-            </div>
-            <!-- 默认隐藏来源设置模态框 -->
-            <n-modal v-model:show="showDefaultHiddenModal" preset="card" title="默认隐藏来源" style="width: 400px;">
-              <div class="default-hidden-callers-modal">
-                <div class="default-hidden-callers-list">
-                  <div v-for="(caller, index) in defaultHiddenCallers" :key="index" class="default-hidden-caller-item">
-                    <span>{{ caller }}</span>
-                    <n-button size="tiny" type="error" @click="removeDefaultHiddenCaller(index)">删除</n-button>
-                  </div>
-                  <div v-if="defaultHiddenCallers.length === 0" class="empty">暂无默认隐藏来源</div>
-                </div>
-                <div class="default-hidden-callers-add">
-                  <n-input v-model:value="newHiddenCallerInput" placeholder="输入来源文件名（如 actions.go）" @keyup.enter="addDefaultHiddenCaller" />
-                  <n-button size="small" type="primary" @click="addDefaultHiddenCaller">添加</n-button>
-                </div>
-                <div class="default-hidden-callers-actions">
-                  <n-button type="primary" @click="applyDefaultHiddenCallers">应用并关闭</n-button>
-                </div>
-              </div>
-            </n-modal>
-            <!-- 自定义动作标签 -->
-            <div v-if="selectedNodeCustomActions.length > 0" class="detail-tag-list">
-              <n-tag v-for="item in selectedNodeCustomActions" :key="`${item.name}-${item.fileName}`" size="small" type="info">
-                {{ item.name }} · {{ item.fileName }}
-              </n-tag>
-            </div>
-            <!-- 空状态：未选择任务 -->
-            <div v-if="!selectedTask" class="empty">请选择任务查看Custom日志</div>
-            <div v-else class="aux-log-section">
-              <!-- 关联日志统计 -->
-              <div class="aux-log-summary">
-                <n-tag size="small" type="success">关联日志 {{ selectedTaskAuxLogs.length }}</n-tag>
-              </div>
-              <div class="aux-log-section-title">当前任务 · Custom日志</div>
-              <!-- 空状态：无关联日志 -->
-              <div v-if="selectedTaskAuxLogs.length === 0" class="empty">无关联日志</div>
-              <!-- Custom日志列表（虚拟滚动） -->
-              <div v-else class="aux-log-list">
-                <DynamicScroller
-                  class="virtual-scroller aux-log-scroller"
-                  :items="selectedTaskAuxLogs"
-                  key-field="key"
-                  :min-item-size="60"
-                >
-                  <template #default="{ item, active }">
-                    <DynamicScrollerItem :item="item" :active="active">
-                      <div class="aux-log-item">
-                        <div class="aux-log-main">
-                          <div class="aux-log-header">
-                            <n-tag size="small" :type="formatAuxLevel(item.level)">{{ item.level }}</n-tag>
-                            <span class="aux-log-time">{{ item.timestamp }}</span>
-                          </div>
-                          <div class="aux-log-message">{{ item.message }}</div>
-                        </div>
-                        <div class="aux-log-meta">
-                          <div v-if="item.entry">入口：{{ item.entry }}</div>
-                          <div v-if="item.caller">来源：{{ item.caller }}</div>
-                        </div>
-                      </div>
-                    </DynamicScrollerItem>
-                  </template>
-                </DynamicScroller>
-              </div>
-            </div>
-          </div>
+          <CustomLogPanel
+            :aux-logs="selectedTaskAuxLogs"
+            :custom-actions="selectedNodeCustomActions"
+            :selected-aux-levels="props.selectedAuxLevels"
+            :hidden-callers="props.hiddenCallers"
+            :caller-options="props.callerOptions"
+            :format-aux-level="formatAuxLevel"
+            @update:selected-aux-levels="emit('update:selectedAuxLevels', $event)"
+            @update:hidden-callers="emit('update:hiddenCallers', $event)"
+          />
         </div>
       </div>
     </div>
 
     <!-- AI 设置 Modal -->
-    <n-modal v-model:show="showAISettings" preset="card" title="AI 分析设置" style="width: 500px;">
-      <n-form>
-        <n-form-item label="服务商">
-          <n-select v-model:value="aiConfig.provider" :options="providerOptions" />
-        </n-form-item>
-        <n-form-item label="API Key">
-          <n-input v-model:value="aiConfig.apiKey" type="password" placeholder="输入 API Key" />
-        </n-form-item>
-        <n-form-item label="模型">
-          <n-select v-model:value="aiConfig.model" :options="modelOptions" />
-        </n-form-item>
-        <n-form-item label="Base URL (可选)">
-          <n-input v-model:value="aiConfig.baseUrl" placeholder="留空使用默认" />
-        </n-form-item>
-      </n-form>
-      <template #footer>
-        <n-button @click="showAISettings = false">取消</n-button>
-        <n-button type="primary" @click="saveAISettings">保存</n-button>
-      </template>
-    </n-modal>
+    <AISettingsModal
+      v-model:show="showAISettings"
+      v-model:config="aiConfig"
+      @save="handleSaveAIConfig"
+    />
+  </n-card>
 </template>
 
 <!--
   样式部分
-  - Custom日志过滤器样式
-  - Custom日志滚动区域高度限制
 -->
 <style scoped>
-.controller-info-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.controller-info-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 8px;
-  background: #f9fafb;
-  border-radius: 6px;
-}
-
-.controller-info-details {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  font-size: 12px;
-  flex: 1;
-}
-
-.controller-info-detail {
-  color: #374151;
-}
-
-.controller-info-label {
-  color: #6b7280;
-  margin-right: 2px;
-}
-
-.default-hidden-callers-modal {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.default-hidden-callers-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 200px;
-  overflow-y: auto;
-}
-
-.default-hidden-caller-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px;
-  background: #f3f4f6;
-  border-radius: 6px;
-}
-
-.default-hidden-callers-add {
-  display: flex;
-  gap: 8px;
-}
-
-.default-hidden-callers-add .n-input {
-  flex: 1;
-}
-
-.default-hidden-callers-actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.aux-log-filters {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-  padding: 8px 12px;
-  background: #f9fafb;
-  border-radius: 8px;
-}
-
-.aux-log-filter-label {
-  font-size: 12px;
-  color: #6b7280;
-  white-space: nowrap;
-}
-
-.aux-log-scroller {
-  max-height: 200px;
-}
-
-.ai-error {
-  color: #dc2626;
-  padding: 12px;
-  background: #fef2f2;
-  border-radius: 6px;
-}
-
-.ai-results {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.ai-result-item {
-  padding: 12px;
-  background: #f9fafb;
-  border-radius: 8px;
-  border-left: 3px solid #3b82f6;
-}
-
-.ai-result-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-
-.ai-result-cause {
-  font-size: 13px;
-  color: #374151;
-  margin-bottom: 4px;
-}
-
-.ai-result-suggestion {
-  font-size: 13px;
-  color: #6b7280;
-}
 </style>

@@ -1,0 +1,77 @@
+<script setup lang="ts">
+import { computed } from "vue";
+import { NModal, NForm, NFormItem, NSelect, NInput, NButton } from "naive-ui";
+import { PROVIDER_INFO, PROVIDER_MODELS, type AIConfig, type AIProvider } from "../utils/aiAnalyzer";
+
+const props = defineProps<{
+  show: boolean;
+  config: AIConfig;
+}>();
+
+const emit = defineEmits<{
+  (e: "update:show", value: boolean): void;
+  (e: "update:config", value: AIConfig): void;
+  (e: "save", config: AIConfig): void;
+}>();
+
+const providerOptions = computed(() =>
+  Object.entries(PROVIDER_INFO).map(([value, info]) => ({ label: info.name, value }))
+);
+
+const modelOptions = computed(() =>
+  (PROVIDER_MODELS[props.config.provider as AIProvider] || []).map(m => ({ label: m, value: m }))
+);
+
+function handleClose() {
+  emit("update:show", false);
+}
+
+function handleSave() {
+  emit("save", props.config);
+  emit("update:show", false);
+}
+
+function updateConfig<K extends keyof AIConfig>(key: K, value: AIConfig[K]) {
+  emit("update:config", { ...props.config, [key]: value });
+}
+</script>
+
+<template>
+  <n-modal :show="show" preset="card" title="AI 分析设置" style="width: 500px;" @update:show="emit('update:show', $event)">
+    <n-form>
+      <n-form-item label="服务商">
+        <n-select
+          :value="config.provider"
+          :options="providerOptions"
+          @update:value="updateConfig('provider', $event)"
+        />
+      </n-form-item>
+      <n-form-item label="API Key">
+        <n-input
+          :value="config.apiKey"
+          type="password"
+          placeholder="输入 API Key"
+          @update:value="updateConfig('apiKey', $event)"
+        />
+      </n-form-item>
+      <n-form-item label="模型">
+        <n-select
+          :value="config.model"
+          :options="modelOptions"
+          @update:value="updateConfig('model', $event)"
+        />
+      </n-form-item>
+      <n-form-item label="Base URL (可选)">
+        <n-input
+          :value="config.baseUrl"
+          placeholder="留空使用默认"
+          @update:value="updateConfig('baseUrl', $event)"
+        />
+      </n-form-item>
+    </n-form>
+    <template #footer>
+      <n-button @click="handleClose">取消</n-button>
+      <n-button type="primary" @click="handleSave">保存</n-button>
+    </template>
+  </n-modal>
+</template>
