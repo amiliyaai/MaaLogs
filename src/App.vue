@@ -537,144 +537,144 @@ onBeforeUnmount(() => {
           @dragover.prevent
           @drop.prevent="handleDrop"
         >
-        <!-- 顶部导航栏 -->
-        <AppTopBar
-          :view-mode="viewMode"
-          :is-tauri="isTauriEnv()"
-          @change-view="viewMode = $event"
-          @open-devtools="openDevtools"
-        />
+          <!-- 顶部导航栏 -->
+          <AppTopBar
+            :view-mode="viewMode"
+            :is-tauri="isTauriEnv()"
+            @change-view="viewMode = $event"
+            @open-devtools="openDevtools"
+          />
 
-        <!-- 拖拽遮罩层 -->
-        <div
-          v-if="isDragging"
-          class="drop-mask"
-          @drop="handleDrop"
-          @dragover="handleDragOver"
-        >
-          松手导入日志/配置文件
-        </div>
+          <!-- 拖拽遮罩层 -->
+          <div
+            v-if="isDragging"
+            class="drop-mask"
+            @drop="handleDrop"
+            @dragover="handleDragOver"
+          >
+            松手导入日志/配置文件
+          </div>
 
-        <!-- 复制提示 -->
-        <div
-          v-if="copyMessage"
-          class="copy-toast"
-        >
-          {{ copyMessage }}
-        </div>
+          <!-- 复制提示 -->
+          <div
+            v-if="copyMessage"
+            class="copy-toast"
+          >
+            {{ copyMessage }}
+          </div>
 
-        <!-- 欢迎面板：文件选择和解析控制 -->
-        <HeroPanel
-          :selected-files="selectedFiles"
-          :total-size="totalSize"
-          :parse-state="parseState"
-          :parse-progress="parseProgress"
-          :status-message="statusMessage"
-          :is-dragging="isDragging"
-          :format-size="formatSize"
-          :parser-options="parserOptions"
-          :selected-parser-id="selectedParserId"
-          @file-change="handleFileChange"
-          @parse="handleParse"
-          @drag-over="handleDragOver"
-          @drag-enter="handleDragOver"
-          @drag-leave="handleDragLeave"
-          @drop="handleDrop"
-          @update:selected-parser-id="selectedParserId = $event"
-        />
-
-        <div class="main-content">
-          <!-- 文件列表面板 -->
-          <FileListPanel
+          <!-- 欢迎面板：文件选择和解析控制 -->
+          <HeroPanel
             :selected-files="selectedFiles"
+            :total-size="totalSize"
+            :parse-state="parseState"
+            :parse-progress="parseProgress"
+            :status-message="statusMessage"
+            :is-dragging="isDragging"
             :format-size="formatSize"
-            @remove="handleRemoveSelectedFile"
-            @clear="handleClearSelectedFiles"
+            :parser-options="parserOptions"
+            :selected-parser-id="selectedParserId"
+            @file-change="handleFileChange"
+            @parse="handleParse"
+            @drag-over="handleDragOver"
+            @drag-enter="handleDragOver"
+            @drag-leave="handleDragLeave"
+            @drop="handleDrop"
+            @update:selected-parser-id="selectedParserId = $event"
           />
 
-          <!-- 分析面板 -->
-          <AnalysisPanel
-            v-if="viewMode === 'analysis'"
-            :tasks="tasks"
-            :filtered-tasks="filteredTasks"
-            :selected-task-key="selectedTaskKey"
-            :selected-node-id="selectedNodeId"
-            :selected-task="selectedTask"
-            :selected-task-nodes="selectedTaskNodes"
-            :selected-node="selectedNode"
-            :process-options="processOptions"
-            :thread-options="threadOptions"
-            :selected-process-id="selectedProcessId"
-            :selected-thread-id="selectedThreadId"
-            :task-item-height="taskItemHeight"
-            :node-item-height="nodeItemHeight"
-            :format-task-status="formatTaskStatus"
-            :format-task-time-parts="formatTaskTimeParts"
+          <div class="main-content">
+            <!-- 文件列表面板 -->
+            <FileListPanel
+              :selected-files="selectedFiles"
+              :format-size="formatSize"
+              @remove="handleRemoveSelectedFile"
+              @clear="handleClearSelectedFiles"
+            />
+
+            <!-- 分析面板 -->
+            <AnalysisPanel
+              v-if="viewMode === 'analysis'"
+              :tasks="tasks"
+              :filtered-tasks="filteredTasks"
+              :selected-task-key="selectedTaskKey"
+              :selected-node-id="selectedNodeId"
+              :selected-task="selectedTask"
+              :selected-task-nodes="selectedTaskNodes"
+              :selected-node="selectedNode"
+              :process-options="processOptions"
+              :thread-options="threadOptions"
+              :selected-process-id="selectedProcessId"
+              :selected-thread-id="selectedThreadId"
+              :task-item-height="taskItemHeight"
+              :node-item-height="nodeItemHeight"
+              :format-task-status="formatTaskStatus"
+              :format-task-time-parts="formatTaskTimeParts"
+              :format-duration="formatDuration"
+              :format-result-status="formatResultStatus"
+              :format-next-name="formatNextName"
+              :format-box="formatBox"
+              :summarize-base="summarizeBase"
+              :summarize-recognition="summarizeRecognition"
+              :summarize-nested-actions="summarizeNestedActions"
+              :summarize-next-list="summarizeNextList"
+              :summarize-node-detail="summarizeNodeDetail"
+              :summarize-focus="summarizeFocus"
+              :copy-json="copyJson"
+              :selected-node-custom-actions="selectedNodeCustomActions"
+              :selected-task-aux-logs="selectedTaskAuxLogs"
+              :format-aux-level="formatAuxLevel"
+              :selected-aux-levels="selectedAuxLevels"
+              :hidden-callers="hiddenCallers"
+              :caller-options="callerOptions"
+              @select-task="
+                ({ taskKey, nodeId }) => {
+                  selectedTaskKey = taskKey;
+                  selectedNodeId = nodeId;
+                }
+              "
+              @select-node="selectedNodeId = $event"
+              @update:process-id="selectedProcessId = $event"
+              @update:thread-id="selectedThreadId = $event"
+              @update:selected-aux-levels="selectedAuxLevels = $event"
+              @update:hidden-callers="hiddenCallers = $event"
+            />
+          </div>
+
+          <!-- 搜索面板 -->
+          <SearchPanel
+            v-if="viewMode === 'search'"
+            :search-text="searchText"
+            :search-case-sensitive="searchCaseSensitive"
+            :search-use-regex="searchUseRegex"
+            :hide-debug-info="hideDebugInfo"
+            :search-max-results="searchMaxResults"
+            :search-results="searchResults"
+            :search-message="searchMessage"
+            :quick-search-options="quickSearchOptions"
+            :has-raw-lines="rawLines.length > 0"
+            :search-item-height="searchItemHeight"
+            :split-match="splitMatch"
+            @update:search-text="searchText = $event"
+            @update:search-case-sensitive="searchCaseSensitive = $event"
+            @update:search-use-regex="searchUseRegex = $event"
+            @update:hide-debug-info="hideDebugInfo = $event"
+            @update:search-max-results="searchMaxResults = $event"
+            @perform-search="doPerformSearch"
+          />
+
+          <!-- 统计面板 -->
+          <StatisticsPanel
+            v-if="viewMode === 'statistics'"
+            :node-statistics="nodeStatistics"
+            :node-summary="nodeSummary"
+            :stat-keyword="statKeyword"
+            :stat-sort="statSort"
             :format-duration="formatDuration"
-            :format-result-status="formatResultStatus"
-            :format-next-name="formatNextName"
-            :format-box="formatBox"
-            :summarize-base="summarizeBase"
-            :summarize-recognition="summarizeRecognition"
-            :summarize-nested-actions="summarizeNestedActions"
-            :summarize-next-list="summarizeNextList"
-            :summarize-node-detail="summarizeNodeDetail"
-            :summarize-focus="summarizeFocus"
-            :copy-json="copyJson"
-            :selected-node-custom-actions="selectedNodeCustomActions"
-            :selected-task-aux-logs="selectedTaskAuxLogs"
-            :format-aux-level="formatAuxLevel"
-            :selected-aux-levels="selectedAuxLevels"
-            :hidden-callers="hiddenCallers"
-            :caller-options="callerOptions"
-            @select-task="
-              ({ taskKey, nodeId }) => {
-                selectedTaskKey = taskKey;
-                selectedNodeId = nodeId;
-              }
-            "
-            @select-node="selectedNodeId = $event"
-            @update:process-id="selectedProcessId = $event"
-            @update:thread-id="selectedThreadId = $event"
-            @update:selected-aux-levels="selectedAuxLevels = $event"
-            @update:hidden-callers="hiddenCallers = $event"
+            @update:stat-keyword="statKeyword = $event"
+            @update:stat-sort="statSort = $event"
           />
         </div>
-
-        <!-- 搜索面板 -->
-        <SearchPanel
-          v-if="viewMode === 'search'"
-          :search-text="searchText"
-          :search-case-sensitive="searchCaseSensitive"
-          :search-use-regex="searchUseRegex"
-          :hide-debug-info="hideDebugInfo"
-          :search-max-results="searchMaxResults"
-          :search-results="searchResults"
-          :search-message="searchMessage"
-          :quick-search-options="quickSearchOptions"
-          :has-raw-lines="rawLines.length > 0"
-          :search-item-height="searchItemHeight"
-          :split-match="splitMatch"
-          @update:search-text="searchText = $event"
-          @update:search-case-sensitive="searchCaseSensitive = $event"
-          @update:search-use-regex="searchUseRegex = $event"
-          @update:hide-debug-info="hideDebugInfo = $event"
-          @update:search-max-results="searchMaxResults = $event"
-          @perform-search="doPerformSearch"
-        />
-
-        <!-- 统计面板 -->
-        <StatisticsPanel
-          v-if="viewMode === 'statistics'"
-          :node-statistics="nodeStatistics"
-          :node-summary="nodeSummary"
-          :stat-keyword="statKeyword"
-          :stat-sort="statSort"
-          :format-duration="formatDuration"
-          @update:stat-keyword="statKeyword = $event"
-          @update:stat-sort="statSort = $event"
-        />
-      </div>
       </n-dialog-provider>
     </n-message-provider>
   </n-config-provider>
