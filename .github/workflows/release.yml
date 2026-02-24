@@ -43,10 +43,7 @@ jobs:
           workspaces: ./src-tauri -> target
 
       - name: Install git-cliff
-        uses: dawidd6/action-install-gh-release@v1
-        with:
-          tool: git-cliff
-          token: ${{ secrets.GITHUB_TOKEN }}
+        run: cargo install git-cliff --locked
 
       - name: Generate release notes
         id: git-cliff
