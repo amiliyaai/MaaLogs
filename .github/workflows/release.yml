@@ -19,7 +19,7 @@ jobs:
           - platform: 'macos-latest'
             target: 'aarch64-apple-darwin'
           - platform: 'windows-latest'
-            target: 'x86_64-pc-windows-msvc'
+            target: ''
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -36,6 +36,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Setup Rust target
+        if: matrix.target != ''
         run: rustup target add ${{ matrix.target }}
 
       - name: Install npm dependencies
@@ -49,4 +50,3 @@ jobs:
           tagName: v__VERSION__
           releaseName: 'MaaLogs v__VERSION__'
           releaseDraft: true
-          args: --target ${{ matrix.target }}
