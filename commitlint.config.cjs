@@ -12,6 +12,7 @@ module.exports = {
         'refactor', // 重构
         'perf',     // 性能优化
         'test',     // 测试相关
+        'ci',       // CI/CD 相关
         'chore'     // 构建或辅助工具变动
       ]
     ],
