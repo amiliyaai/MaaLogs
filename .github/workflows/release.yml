@@ -37,6 +37,11 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ./src-tauri -> target
+
       - name: Generate release notes
         id: git-cliff
         uses: orhun/git-cliff-action@v2
