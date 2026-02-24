@@ -22,8 +22,10 @@ jobs:
         id: git-cliff
         with:
           config: .github/cliff.toml
-          args: --latest --strip header
-          output: CHANGES.md
+          args: -vv --latest --strip header
+        env:
+          OUTPUT: CHANGES.md
+          GITHUB_REPO: ${{ github.repository }}
 
   release:
     needs: changelog
@@ -72,3 +74,4 @@ jobs:
           releaseName: 'MaaLogs v__VERSION__'
           releaseBody: ${{ needs.changelog.outputs.release_body }}
           releaseDraft: false
+          updaterJsonPreferNsis: true
