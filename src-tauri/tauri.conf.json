@@ -45,7 +45,9 @@
   "plugins": {
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDU1NDk0RTU0QjgxQkY1OTcKUldTWDlSdTRWRTVKVlE3UGVSWXI2TGZTTWlRM21NWkpLZTRPT0czaVI5ZkV5cGhwVlNaWEs2NDMK",
-      "endpoints": []
+      "endpoints": [
+        "https://github.com/amiliyaai/MaaLogs/releases/latest/download/{{target}}-{{arch}}.json"
+      ]
     }
   }
 }

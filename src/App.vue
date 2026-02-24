@@ -25,6 +25,8 @@ import { NConfigProvider } from "naive-ui";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { appDataDir, appLogDir } from "@tauri-apps/api/path";
+import { check } from "@tauri-apps/plugin-updater";
+import { relaunch } from "@tauri-apps/plugin-process";
 
 /**
  * 虚拟滚动样式
@@ -458,6 +460,18 @@ onMounted(() => {
         }
         isDragging.value = false;
       });
+
+      // 检查更新
+      try {
+        const update = await check();
+        if (update) {
+          logger.info("发现新版本", { version: update.version });
+          await update.downloadAndInstall();
+          await relaunch();
+        }
+      } catch (error) {
+        logger.error("检查更新失败", { error: String(error) });
+      }
     };
     void setup();
   }
