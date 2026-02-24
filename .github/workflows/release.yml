@@ -47,11 +47,26 @@ jobs:
           fi
           echo "tag=$TAG" >> $GITHUB_OUTPUT
 
+      - name: Install git-cliff
+        run: cargo install git-cliff --locked
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          changelog="$(git-cliff -c .github/cliff.toml --tag ${{ steps.tag.outputs.tag }} --strip header)"
+          {
+            echo "content<<EOF"
+            echo "$changelog"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
           files: release-files/*
-          generate_release_notes: true
+          body: ${{ steps.changelog.outputs.content }}
           prerelease: ${{ contains(steps.tag.outputs.tag, '-') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
