@@ -1,90 +1,167 @@
+<!-- markdownlint-disable MD033 MD041 -->
+<div align="center">
+
 # MaaLogs
 
-MaaLogs 是一个用于解析和可视化 MaaFramework 日志的桌面应用程序。它能够解析 MaaFramework 运行时产生的日志文件，提取任务执行信息、节点详情和 Custom 日志，并提供直观的可视化界面进行分析。
+MaaFramework 日志分析利器
 
-## 功能特性
+支持多格式日志解析、可视化任务流程、集成 AI 智能分析，一站式解决日志排查问题
 
-- **日志解析**：支持解析 `maa.log` 和 `Custom` 格式的日志文件
-- **任务可视化**：以树形结构展示任务执行流程，包括节点状态、识别详情、控制器和动作信息
-- **Custom 日志关联**：自动关联 Custom 日志与对应的 任务
-- **文本搜索**：支持正则表达式搜索，快速定位日志内容
-- **统计分析**：统计节点执行次数、耗时分布和成功率
-- **AI 智能分析**：集成多服务商 AI 模型，分析任务失败原因并提供建议
+</div>
 
-## 技术栈
+<p align="center">
+  <a href="https://vuejs.org/" target="_blank"><img alt="vue" src="https://img.shields.io/badge/Vue 3-4FC08D?logo=vue.js&logoColor=fff"></a>
+  <a href="https://www.typescriptlang.org/" target="_blank"><img alt="ts" src="https://img.shields.io/badge/TypeScript 5-3178C6?logo=typescript&logoColor=fff"></a>
+  <a href="https://www.naiveui.com/" target="_blank"><img alt="naive-ui" src="https://img.shields.io/badge/Naive UI-5FA04E?logo=vuedotjs&logoColor=fff"></a>
+  <a href="https://tauri.app/" target="_blank"><img alt="tauri" src="https://img.shields.io/badge/Tauri 2-FFC131?logo=tauri&logoColor=000"></a>
+  <br/>
+  <a href="https://github.com/MaaXYZ/MaaLogs/blob/main/LICENSE" target="_blank"><img alt="license" src="https://img.shields.io/github/license/MaaXYZ/MaaLogs"></a>
+  <a href="https://github.com/MaaXYZ/MaaLogs/commits/main/" target="_blank"><img alt="commits" src="https://img.shields.io/github/commit-activity/m/MaaXYZ/MaaLogs?color=%23ff69b4"></a>
+</div>
 
-- **前端框架**：Vue 3 + TypeScript
-- **UI 组件库**：Naive UI
-- **桌面框架**：Tauri 2.0
-- **构建工具**：Vite
+<div align="center">
 
-## 项目结构
+[📖 使用文档](#-使用方法) | [🔧 开发指南](#-开发指南)
 
+</div>
+
+## ✨ 功能特性
+
+### 📊 日志分析
+
+- **多格式支持**：支持解析 `maa.log` 和 `Custom` 格式的日志文件
+- **任务可视化**：以树形结构展示任务执行流程
+- **节点详情**：展示节点状态、识别详情、控制器和动作信息
+- **Custom 日志关联**：自动关联 Custom 日志与对应的任务
+
+### 🔍 文本搜索
+
+- 全文搜索（支持正则表达式）
+- 快速定位日志内容
+- 搜索结果高亮显示
+
+### 📈 统计分析
+
+- 节点执行次数统计
+- 耗时分布分析
+- 成功率计算
+
+### 🤖 AI 智能分析
+
+- 集成多服务商 AI 模型
+- 分析任务失败原因
+- 提供修复建议
+- 支持服务商：OpenAI、Claude、Gemini、DeepSeek、智谱 AI、MiniMax、月之暗面、硅基流动等
+
+## 📖 使用方法
+
+### 日志分析
+
+1. 选择日志文件（点击按钮或拖拽文件）
+2. 选择解析器（默认 MaaEnd）
+3. 点击"开始解析"
+4. 查看任务列表和节点详情
+5. 选择任务后点击"AI 分析"分析失败原因
+
+### AI 智能分析
+
+1. 点击"设置"按钮配置 AI 服务商和模型
+2. 输入对应服务商的 API Key
+3. 选择一个任务
+4. 点击"AI 分析"按钮
+
+## 🛠️ 技术栈
+
+- **Vue 3** - 渐进式 JavaScript 框架
+- **TypeScript** - 类型安全开发
+- **Naive UI** - Vue 3 组件库
+- **Vite** - 快速构建工具
+- **Tauri** - 跨平台桌面应用框架
+
+## 📁 项目结构
+
+```plaintext
+MaaLogs/
+├── src/                        # 前端源码
+│   ├── components/             # Vue 组件
+│   │   ├── AIResultCard.vue   # AI 分析结果卡片
+│   │   ├── AISettingsModal.vue # AI 设置弹窗
+│   │   ├── AnalysisPanel.vue  # 任务分析面板
+│   │   ├── AppTopBar.vue      # 顶部导航栏
+│   │   ├── ControllerInfoCard.vue # 控制器信息卡片
+│   │   ├── CustomLogPanel.vue # Custom 日志面板
+│   │   ├── FileListPanel.vue  # 文件列表面板
+│   │   ├── HeroPanel.vue      # 文件选择面板
+│   │   ├── SearchPanel.vue    # 搜索面板
+│   │   └── StatisticsPanel.vue # 统计面板
+│   ├── composables/            # Vue Composables
+│   │   ├── index.ts           # 导出入口
+│   │   ├── useFileSelection.ts # 文件选择
+│   │   ├── useLogParser.ts    # 日志解析
+│   │   ├── useSearch.ts       # 搜索功能
+│   │   └── useStatistics.ts   # 统计分析
+│   ├── parsers/               # 日志解析器
+│   │   ├── index.ts           # 解析器注册
+│   │   ├── types.ts           # 类型定义
+│   │   ├── base.ts            # 基础解析器
+│   │   ├── correlate.ts       # 日志关联
+│   │   ├── m9a.ts             # M9A 解析器
+│   │   ├── maaend.ts          # MaaEnd 解析器
+│   │   └── registry.ts        # 注册逻辑
+│   ├── types/                 # TypeScript 类型
+│   │   └── logTypes.ts       # 日志类型定义
+│   ├── utils/                # 工具函数
+│   │   ├── aiAnalyzer.ts      # AI 分析工具
+│   │   ├── file.ts            # 文件处理
+│   │   ├── format.ts          # 格式化工具
+│   │   ├── logger.ts          # 日志记录器
+│   │   └── parse.ts           # 解析工具
+│   ├── App.vue                # 主应用组件
+│   └── main.ts                # 应用入口
+├── src-tauri/                 # Tauri 后端
+│   ├── src/                  # Rust 源码
+│   │   ├── lib.rs            # 库入口
+│   │   └── main.rs            # 主入口
+│   ├── Cargo.toml            # Rust 依赖
+│   ├── tauri.conf.json       # Tauri 配置
+│   └── capabilities/          # 权限配置
+├── vscode/                    # VSCode 插件
+│   ├── src/                  # 插件源码
+│   │   ├── commands/         # 命令
+│   │   ├── providers/        # 提供者
+│   │   ├── types/            # 类型定义
+│   │   ├── utils/            # 工具函数
+│   │   ├── views/            # 视图
+│   │   └── extension.ts      # 插件入口
+│   ├── syntaxes/             # 语法高亮
+│   ├── package.json          # 插件配置
+│   └── .vscodeignore         # 忽略配置
+├── public/                    # 静态资源
+│   └── *.svg                 # 图标资源
+├── index.html                # HTML 模板
+├── package.json              # Node 依赖
+├── vite.config.ts            # Vite 配置
+├── tsconfig.json             # TypeScript 配置
+└── README.md                 # 项目文档
 ```
-src/
-├── App.vue                 # 主应用组件
-├── main.ts                 # 应用入口
-├── components/             # Vue 组件
-│   ├── AppTopBar.vue       # 顶部导航栏
-│   ├── HeroPanel.vue       # 文件选择和解析控制面板
-│   ├── FileListPanel.vue   # 已选文件列表
-│   ├── AnalysisPanel.vue   # 任务分析面板
-│   ├── SearchPanel.vue     # 日志搜索面板
-│   └── StatisticsPanel.vue # 统计分析面板
-├── composables/            # Vue Composables
-│   ├── index.ts            # 导出入口
-│   ├── useLogParser.ts     # 日志解析逻辑
-│   ├── useSearch.ts        # 搜索功能
-│   ├── useStatistics.ts    # 统计计算
-│   └── useFileSelection.ts # 文件选择管理
-├── parsers/                # 日志解析器
-│   ├── index.ts            # 解析器注册表
-│   ├── types.ts            # 解析器类型定义
-│   ├── base.ts             # 基础解析器
-│   ├── loguru.ts           # Loguru 格式解析器
-│   ├── maaend.ts           # MaaEnd 格式解析器
-│   ├── correlate.ts        # Custom 日志关联
-│   └── registry.ts         # 解析器注册逻辑
-├── types/                  # TypeScript 类型定义
-│   └── logTypes.ts         # 日志相关类型
-└── utils/                  # 工具函数
-    ├── logger.ts           # 日志记录器
-    ├── format.ts           # 格式化工具
-    ├── parse.ts            # 解析工具
-    ├── file.ts             # 文件处理工具
-    └── aiAnalyzer.ts       # AI 分析工具
-```
 
-## 核心模块说明
+## 🏗️ 架构说明
 
-### Composables
+### 解析器架构
 
-Composables 是 Vue 3 的组合式函数，用于封装和复用有状态的逻辑：
+采用可扩展的解析器架构，支持多种日志格式：
 
-- **useLogParser**：核心日志解析逻辑，包括任务构建、节点提取和 Custom 日志关联
-- **useSearch**：文本搜索功能，支持正则表达式和大小写敏感选项
-- **useStatistics**：节点统计计算，包括执行次数、耗时分布和成功率
-- **useFileSelection**：文件选择和拖拽处理，支持 Tauri 文件系统 API
+- **BaseParser** - 基础解析器类
+- **MaaEndParser** - 解析 MaaEnd 格式日志
+- **M9AParser** - 解析 M9A 格式日志
 
-### Parsers
+### 组件设计
 
-日志解析器模块实现了可扩展的解析器架构：
+- **组件化** - 每个功能模块独立组件
+- **Composables** - 封装可复用逻辑
+- **类型安全** - 完整的 TypeScript 类型定义
 
-- **BaseParser**：基础解析器类，提供通用的解析方法
-- **LoguruParser**：解析 Loguru 格式的日志（Go 服务日志）
-- **MaaEndParser**：解析 MaaEnd 格式的日志
-- **correlateAuxLogs**：将 Custom 日志与 Pipeline 节点关联
-
-### Utils
-
-工具函数模块提供纯函数，无副作用：
-
-- **format.ts**：格式化函数，如时间、大小、状态等
-- **parse.ts**：解析函数，如日志行解析、任务构建等
-- **file.ts**：文件处理函数，如文件类型判断、路径处理等
-- **aiAnalyzer.ts**：AI 分析功能，支持多服务商配置、失败原因分析和 MAA 框架知识库
-
-## 开发指南
+## 🚀 快速开始
 
 ### 环境要求
 
@@ -95,85 +172,36 @@ Composables 是 Vue 3 的组合式函数，用于封装和复用有状态的逻�
 ### 安装依赖
 
 ```bash
-npm install
+pnpm install
 ```
 
 ### 开发模式
 
 ```bash
-npm run tauri:dev
+# 桌面应用
+pnpm tauri:dev
+
+# Web 版本
+pnpm dev
 ```
 
 ### 构建发布
 
 ```bash
-npm run tauri:build
+# Web 版本
+pnpm build
+
+# Tauri 桌面应用
+pnpm tauri:build
 ```
 
-### 类型检查
+## 🔗 相关链接
 
-```bash
-npm run build
-```
+- [MaaFramework](https://github.com/MaaXYZ/MaaFramework) - 自动化框架
+- [MaaLogAnalyzer](https://github.com/Windsland52/MAALogAnalyzer) - 另一个日志分析工具
+- [Naive UI 文档](https://www.naiveui.com/)
+- [Tauri 文档](https://tauri.app/)
 
-## 使用说明
-
-1. **选择日志文件**：点击"选择日志文件"按钮或直接拖拽文件到窗口
-2. **选择解析器**：根据日志类型选择合适的解析器（默认 MaaEnd）
-3. **开始解析**：点击"开始解析"按钮
-4. **查看结果**：
-   - **分析视图**：查看任务列表、节点详情和 Custom 日志
-   - **搜索视图**：在原始日志中搜索关键字
-   - **统计视图**：查看节点执行统计信息
-
-### AI 智能分析
-
-在分析视图中，选择一个任务后，点击"AI 分析"按钮即可分析失败原因：
-
-1. 点击"设置"按钮配置 AI 服务商和模型
-2. 输入对应服务商的 API Key
-3. 点击"AI 分析"按钮开始分析
-4. 分析结果将显示失败节点的原因和建议
-
-**支持的服务商**：
-- OpenAI、Anthropic (Claude)、Google Gemini、xAI (Grok)、DeepSeek
-- 智谱 AI、MiniMax、月之暗面、阶跃星辰
-- 硅基流动、OpenRouter、火山引擎、阿里云、腾讯云
-- 自定义（支持任意兼容 OpenAI API 的服务商）
-
-## 日志格式支持
-
-### maa.log 
-
-```
-[时间戳][等级][进程ID][线程ID][源文件][行号][函数名] 消息内容
-```
-
-### MaaEnd项目、M9A项目 Custom日志
-
-支持 M9A（还在调试）、MaaEnd 格式的 JSON 结构化日志。
-
-## VSCode 插件
-
-> ⚠️ **开发中** - 当前 VSCode 插件功能正在完善中（还不能用！）
-
-MaaLogs 同时提供 VSCode 插件版本，可在 VSCode 中直接分析日志文件。
-
-### 功能特性（开发中）
-
-- 日志文件分析
-- 任务树可视化
-- AI 智能分析（集成桌面应用全部功能）
-
-### 安装使用
-
-```bash
-cd vscode
-npm install
-```
-
-按 `F5` 启动调试，或将插件打包后安装。
-
-## 许可证
+## 📝 许可证
 
 MIT License
