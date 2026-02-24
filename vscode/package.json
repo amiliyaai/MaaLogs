@@ -59,7 +59,8 @@
         {
           "id": "maaLogs.main",
           "name": "MaaLogs",
-          "type": "webview"
+          "type": "webview",
+          "icon": "$(graph)"
         }
       ]
     },

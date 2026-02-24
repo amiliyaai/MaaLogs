@@ -32,7 +32,16 @@ function handleSave() {
 }
 
 function updateConfig<K extends keyof AIConfig>(key: K, value: AIConfig[K]) {
-  emit("update:config", { ...props.config, [key]: value });
+  const newConfig = { ...props.config, [key]: value };
+  
+  if (key === "provider") {
+    const models = PROVIDER_MODELS[value as AIProvider];
+    if (models && models.length > 0 && !models.includes(newConfig.model)) {
+      newConfig.model = models[0];
+    }
+  }
+  
+  emit("update:config", newConfig);
 }
 </script>
 
