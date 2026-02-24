@@ -15,8 +15,8 @@ MaaFramework 日志分析利器
   <a href="https://www.naiveui.com/" target="_blank"><img alt="naive-ui" src="https://img.shields.io/badge/Naive UI-5FA04E?logo=vuedotjs&logoColor=fff"></a>
   <a href="https://tauri.app/" target="_blank"><img alt="tauri" src="https://img.shields.io/badge/Tauri 2-FFC131?logo=tauri&logoColor=000"></a>
   <br/>
-  <a href="https://github.com/MaaXYZ/MaaLogs/blob/main/LICENSE" target="_blank"><img alt="license" src="https://img.shields.io/github/license/MaaXYZ/MaaLogs"></a>
-  <a href="https://github.com/MaaXYZ/MaaLogs/commits/main/" target="_blank"><img alt="commits" src="https://img.shields.io/github/commit-activity/m/MaaXYZ/MaaLogs?color=%23ff69b4"></a>
+  <img alt="license" src="https://img.shields.io/github/license/amiliyaai/MaaLogs">
+  <img alt="commit" src="https://img.shields.io/github/commit-activity/m/amiliyaai/MaaLogs?color=%23ff69b4">
 </div>
 
 <div align="center">
