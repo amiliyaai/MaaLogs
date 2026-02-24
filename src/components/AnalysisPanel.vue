@@ -97,10 +97,19 @@ function handleSaveAIConfig(config: AIConfig) {
 }
 
 /**
- * 监听任务切换，清空 AI 分析结果
+ * AI 分析结果缓存（按任务 key 存储）
  */
-watch(() => props.selectedTaskKey, () => {
-  aiResults.value = [];
+const aiResultsCache = new Map<string, FailureAnalysis[]>();
+
+/**
+ * 监听任务切换，恢复已分析任务的结果
+ */
+watch(() => props.selectedTaskKey, (newKey) => {
+  if (newKey && aiResultsCache.has(newKey)) {
+    aiResults.value = aiResultsCache.get(newKey)!;
+  } else {
+    aiResults.value = [];
+  }
   aiError.value = "";
 });
 
@@ -129,7 +138,11 @@ async function handleAIAnalyze() {
         dedupedMap.set(result.nodeName, result);
       }
     }
-    aiResults.value = Array.from(dedupedMap.values());
+    const dedupedResults = Array.from(dedupedMap.values());
+    aiResults.value = dedupedResults;
+    if (props.selectedTask) {
+      aiResultsCache.set(props.selectedTask.key, dedupedResults);
+    }
   } catch (e) {
     aiError.value = e instanceof Error ? e.message : "未知错误";
   } finally {
