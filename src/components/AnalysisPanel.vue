@@ -69,10 +69,66 @@
  * - Naive UI 组件：按钮、卡片、折叠面板、代码显示、选择器、标签、复选框
  * - vue-virtual-scroller：虚拟滚动组件，用于优化大列表性能
  */
-import { NButton, NCard, NCollapse, NCollapseItem, NCode, NSelect, NTag, NCheckboxGroup, NCheckbox, NSpace, NModal, NInput } from "naive-ui";
+import { NButton, NCard, NCollapse, NCollapseItem, NCode, NSelect, NTag, NCheckboxGroup, NCheckbox, NSpace, NModal, NInput, NForm, NFormItem } from "naive-ui";
 import { DynamicScroller, DynamicScrollerItem } from "vue-virtual-scroller";
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 import type { AuxLogEntry, NodeInfo, NextListItem, PipelineCustomActionInfo, TaskInfo } from "../types/logTypes";
+import { analyzeWithAI, getAIConfig, saveAIConfig, PROVIDER_INFO, PROVIDER_MODELS, type AIConfig, type AIProvider, type FailureAnalysis } from "../utils/aiAnalyzer";
+
+/**
+ * AI 分析状态
+ */
+const aiConfig = ref<AIConfig>(getAIConfig());
+const aiAnalyzing = ref(false);
+const aiResults = ref<FailureAnalysis[]>([]);
+const showAISettings = ref(false);
+const aiError = ref("");
+
+/**
+ * AI 提供商选项
+ */
+const providerOptions = computed(() =>
+  Object.entries(PROVIDER_INFO).map(([value, info]) => ({ label: info.name, value }))
+);
+
+/**
+ * 当前提供商的模型选项
+ */
+const modelOptions = computed(() =>
+  (PROVIDER_MODELS[aiConfig.value.provider as AIProvider] || []).map(m => ({ label: m, value: m }))
+);
+
+/**
+ * 保存 AI 设置
+ */
+function saveAISettings() {
+  saveAIConfig(aiConfig.value);
+  showAISettings.value = false;
+}
+
+/**
+ * 执行 AI 分析
+ */
+async function handleAIAnalyze() {
+  if (!props.selectedTask) return;
+  
+  if (!aiConfig.value.apiKey) {
+    showAISettings.value = true;
+    return;
+  }
+
+  aiAnalyzing.value = true;
+  aiError.value = "";
+  aiResults.value = [];
+  
+  try {
+    aiResults.value = await analyzeWithAI(aiConfig.value, [props.selectedTask]);
+  } catch (e) {
+    aiError.value = e instanceof Error ? e.message : "未知错误";
+  } finally {
+    aiAnalyzing.value = false;
+  }
+}
 
 /**
  * 默认隐藏来源设置
@@ -333,7 +389,19 @@ const handleNodeSelect = (nodeId: number) => {
       <!-- 左栏：任务列表 -->
       <div class="task-list">
         <div class="panel-top">
-          <div class="node-header">任务列表</div>
+          <div class="node-header">
+            <span>任务列表</span>
+            <n-button size="small" @click="showAISettings = true">设置</n-button>
+            <n-button 
+              size="small" 
+              type="primary" 
+              :loading="aiAnalyzing" 
+              :disabled="!selectedTask" 
+              @click="handleAIAnalyze"
+            >
+              AI 分析
+            </n-button>
+          </div>
         </div>
         <div class="task-list-content">
           <!-- 虚拟滚动任务列表 -->
@@ -471,6 +539,25 @@ const handleNodeSelect = (nodeId: number) => {
                     </span>
                   </template>
                 </div>
+              </div>
+            </div>
+          </div>
+          <!-- AI 分析结果卡片 -->
+          <div class="detail-section-card" v-if="aiResults.length > 0 || aiError">
+            <div class="detail-section-header">
+              <div class="detail-section-title">AI 分析结果</div>
+            </div>
+            <div v-if="aiError" class="ai-error">{{ aiError }}</div>
+            <div v-else class="ai-results">
+              <div v-for="result in aiResults" :key="result.nodeId" class="ai-result-item">
+                <div class="ai-result-header">
+                  <strong>{{ result.nodeName }}</strong>
+                  <n-tag size="small" :type="result.confidence > 0.7 ? 'success' : result.confidence > 0.4 ? 'warning' : 'error'">
+                    {{ Math.round(result.confidence * 100) }}%
+                  </n-tag>
+                </div>
+                <div class="ai-result-cause">原因: {{ result.cause }}</div>
+                <div class="ai-result-suggestion">建议: {{ result.suggestion }}</div>
               </div>
             </div>
           </div>
@@ -840,7 +927,28 @@ const handleNodeSelect = (nodeId: number) => {
         </div>
       </div>
     </div>
-  </n-card>
+
+    <!-- AI 设置 Modal -->
+    <n-modal v-model:show="showAISettings" preset="card" title="AI 分析设置" style="width: 500px;">
+      <n-form>
+        <n-form-item label="服务商">
+          <n-select v-model:value="aiConfig.provider" :options="providerOptions" />
+        </n-form-item>
+        <n-form-item label="API Key">
+          <n-input v-model:value="aiConfig.apiKey" type="password" placeholder="输入 API Key" />
+        </n-form-item>
+        <n-form-item label="模型">
+          <n-select v-model:value="aiConfig.model" :options="modelOptions" />
+        </n-form-item>
+        <n-form-item label="Base URL (可选)">
+          <n-input v-model:value="aiConfig.baseUrl" placeholder="留空使用默认" />
+        </n-form-item>
+      </n-form>
+      <template #footer>
+        <n-button @click="showAISettings = false">取消</n-button>
+        <n-button type="primary" @click="saveAISettings">保存</n-button>
+      </template>
+    </n-modal>
 </template>
 
 <!--
@@ -936,5 +1044,43 @@ const handleNodeSelect = (nodeId: number) => {
 
 .aux-log-scroller {
   max-height: 200px;
+}
+
+.ai-error {
+  color: #dc2626;
+  padding: 12px;
+  background: #fef2f2;
+  border-radius: 6px;
+}
+
+.ai-results {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ai-result-item {
+  padding: 12px;
+  background: #f9fafb;
+  border-radius: 8px;
+  border-left: 3px solid #3b82f6;
+}
+
+.ai-result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.ai-result-cause {
+  font-size: 13px;
+  color: #374151;
+  margin-bottom: 4px;
+}
+
+.ai-result-suggestion {
+  font-size: 13px;
+  color: #6b7280;
 }
 </style>
