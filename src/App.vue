@@ -17,12 +17,12 @@
  * Vue 核心导入
  */
 import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
-import { NConfigProvider, NMessageProvider, createDiscreteApi } from "naive-ui";
+import { NConfigProvider, NMessageProvider, createDiscreteApi, useDialog } from "naive-ui";
 
 /**
  * Tauri API 导入
  */
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, getName, getVersion } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { appDataDir, appLogDir } from "@tauri-apps/api/path";
 import { check } from "@tauri-apps/plugin-updater";
@@ -33,7 +33,7 @@ import { relaunch } from "@tauri-apps/plugin-process";
  */
 import "vue-virtual-scroller/dist/vue-virtual-scroller.css";
 
-const { message: $message } = createDiscreteApi(["message"], {
+const { message: $message, dialog: $dialog } = createDiscreteApi(["message", "dialog"], {
   configProviderProps: {
     theme: undefined
   }
@@ -472,10 +472,43 @@ onMounted(() => {
         const update = await check();
         if (update) {
           logger.info("发现新版本", { version: update.version });
-          $message.info(`发现新版本 v${update.version}，正在下载...`);
-          await update.downloadAndInstall();
-          $message.success("更新完成，正在重启...");
-          await relaunch();
+          const currentVersion = await getVersion();
+          
+          $dialog.info({
+            title: "发现新版本",
+            content: `当前版本：v${currentVersion}\n最新版本：v${update.version}\n\n是否立即更新？`,
+            positiveText: "立即更新",
+            negativeText: "稍后提醒",
+            onPositiveClick: async () => {
+              $message.info("正在下载更新...");
+              try {
+                let downloaded = 0;
+                let contentLength = 0;
+                await update.downloadAndInstall((event) => {
+                  switch (event.event) {
+                    case "Started":
+                      contentLength = event.data.contentLength;
+                      break;
+                    case "Progress":
+                      downloaded += event.data.chunkLength;
+                      if (contentLength > 0) {
+                        const percent = Math.round((downloaded / contentLength) * 100);
+                        $message.info(`下载进度：${percent}%`);
+                      }
+                      break;
+                    case "Finished":
+                      $message.success("下载完成，正在安装...");
+                      break;
+                  }
+                });
+                $message.success("更新完成，正在重启...");
+                await relaunch();
+              } catch (err) {
+                logger.error("更新失败", { error: String(err) });
+                $message.error("更新失败，请稍后重试");
+              }
+            }
+          });
         }
       } catch (error) {
         logger.error("检查更新失败", { error: String(error) });
