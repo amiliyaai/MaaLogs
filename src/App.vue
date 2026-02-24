@@ -17,12 +17,13 @@
  * Vue 核心导入
  */
 import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
-import { NConfigProvider, NMessageProvider, createDiscreteApi, useDialog } from "naive-ui";
+import { NConfigProvider, NMessageProvider, createDiscreteApi } from "naive-ui";
 
 /**
  * Tauri API 导入
  */
-import { invoke, getName, getVersion } from "@tauri-apps/api/core";
+import { invoke } from "@tauri-apps/api/core";
+import { getVersion } from "@tauri-apps/api/app";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { appDataDir, appLogDir } from "@tauri-apps/api/path";
 import { check } from "@tauri-apps/plugin-updater";
@@ -487,7 +488,7 @@ onMounted(() => {
                 await update.downloadAndInstall((event) => {
                   switch (event.event) {
                     case "Started":
-                      contentLength = event.data.contentLength;
+                      contentLength = event.data.contentLength ?? 0;
                       break;
                     case "Progress":
                       downloaded += event.data.chunkLength;

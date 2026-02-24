@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { NModal, NCard, NSpace, NText, NDivider, NButton, NTag, NDescriptions, NDescriptionsItem } from "naive-ui";
-import { getVersion } from "@tauri-apps/api/core";
+import { getVersion } from "@tauri-apps/api/app";
 import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { ref, onMounted } from "vue";
@@ -45,7 +45,7 @@ async function checkUpdate() {
             await update.downloadAndInstall((event) => {
               switch (event.event) {
                 case "Started":
-                  contentLength = event.data.contentLength;
+                  contentLength = event.data.contentLength ?? 0;
                   break;
                 case "Progress":
                   downloaded += event.data.chunkLength;
