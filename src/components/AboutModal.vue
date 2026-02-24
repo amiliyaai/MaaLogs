@@ -1,12 +1,8 @@
 <script setup lang="ts">
 import { NModal, NCard, NSpace, NText, NDivider, NButton, NTag, NDescriptions, NDescriptionsItem } from "naive-ui";
-import { getVersion } from "@tauri-apps/api/app";
-import { check } from "@tauri-apps/plugin-updater";
-import { relaunch } from "@tauri-apps/plugin-process";
 import { ref, onMounted } from "vue";
-import { createDiscreteApi } from "naive-ui";
-
-const { message: $message, dialog: $dialog } = createDiscreteApi(["message", "dialog"]);
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { checkForUpdate, getCurrentVersion } from "../utils/updater";
 
 const props = defineProps<{
   show: boolean;
@@ -20,70 +16,21 @@ const appVersion = ref("0.1.0");
 const checking = ref(false);
 
 onMounted(async () => {
-  try {
-    appVersion.value = await getVersion();
-  } catch {
-    console.warn("Failed to get app version");
-  }
+  appVersion.value = await getCurrentVersion();
 });
 
-async function checkUpdate() {
+async function handleCheckUpdate() {
   checking.value = true;
-  try {
-    const update = await check();
-    if (update) {
-      $dialog.info({
-        title: "发现新版本",
-        content: `当前版本：v${appVersion.value}\n最新版本：v${update.version}\n\n是否立即更新？`,
-        positiveText: "立即更新",
-        negativeText: "稍后提醒",
-        onPositiveClick: async () => {
-          $message.info("正在下载更新...");
-          try {
-            let downloaded = 0;
-            let contentLength = 0;
-            await update.downloadAndInstall((event) => {
-              switch (event.event) {
-                case "Started":
-                  contentLength = event.data.contentLength ?? 0;
-                  break;
-                case "Progress":
-                  downloaded += event.data.chunkLength;
-                  if (contentLength > 0) {
-                    const percent = Math.round((downloaded / contentLength) * 100);
-                    $message.info(`下载进度：${percent}%`);
-                  }
-                  break;
-                case "Finished":
-                  $message.success("下载完成，正在安装...");
-                  break;
-              }
-            });
-            $message.success("更新完成，正在重启...");
-            await relaunch();
-          } catch (err) {
-            console.error("更新失败:", err);
-            $message.error("更新失败，请稍后重试");
-          }
-        }
-      });
-    } else {
-      $message.success("当前已是最新版本");
-    }
-  } catch (error) {
-    console.error("检查更新失败:", error);
-    $message.error("检查更新失败");
-  } finally {
-    checking.value = false;
-  }
+  await checkForUpdate(true);
+  checking.value = false;
 }
 
-function openGitHub() {
-  window.open("https://github.com/amiliyaai/MaaLogs", "_blank");
+async function openGitHub() {
+  await openUrl("https://github.com/amiliyaai/MaaLogs");
 }
 
-function openIssues() {
-  window.open("https://github.com/amiliyaai/MaaLogs/issues", "_blank");
+async function openIssues() {
+  await openUrl("https://github.com/amiliyaai/MaaLogs/issues");
 }
 </script>
 
@@ -111,7 +58,7 @@ function openIssues() {
               <n-button
                 size="small"
                 :loading="checking"
-                @click="checkUpdate"
+                @click="handleCheckUpdate"
               >
                 检查更新
               </n-button>

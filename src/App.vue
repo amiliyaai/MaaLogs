@@ -17,28 +17,24 @@
  * Vue 核心导入
  */
 import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
-import { NConfigProvider, NMessageProvider, NDialogProvider, createDiscreteApi } from "naive-ui";
+import { NConfigProvider, NMessageProvider, NDialogProvider } from "naive-ui";
 
 /**
  * Tauri API 导入
  */
 import { invoke } from "@tauri-apps/api/core";
-import { getVersion } from "@tauri-apps/api/app";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { appDataDir, appLogDir } from "@tauri-apps/api/path";
-import { check } from "@tauri-apps/plugin-updater";
-import { relaunch } from "@tauri-apps/plugin-process";
+
+/**
+ * 更新检查
+ */
+import { checkForUpdate } from "./utils/updater";
 
 /**
  * 虚拟滚动样式
  */
 import "vue-virtual-scroller/dist/vue-virtual-scroller.css";
-
-const { message: $message, dialog: $dialog } = createDiscreteApi(["message", "dialog"], {
-  configProviderProps: {
-    theme: undefined
-  }
-});
 
 /**
  * 子组件导入
@@ -469,51 +465,7 @@ onMounted(() => {
       });
 
       // 检查更新
-      try {
-        const update = await check();
-        if (update) {
-          logger.info("发现新版本", { version: update.version });
-          const currentVersion = await getVersion();
-          
-          $dialog.info({
-            title: "发现新版本",
-            content: `当前版本：v${currentVersion}\n最新版本：v${update.version}\n\n是否立即更新？`,
-            positiveText: "立即更新",
-            negativeText: "稍后提醒",
-            onPositiveClick: async () => {
-              $message.info("正在下载更新...");
-              try {
-                let downloaded = 0;
-                let contentLength = 0;
-                await update.downloadAndInstall((event) => {
-                  switch (event.event) {
-                    case "Started":
-                      contentLength = event.data.contentLength ?? 0;
-                      break;
-                    case "Progress":
-                      downloaded += event.data.chunkLength;
-                      if (contentLength > 0) {
-                        const percent = Math.round((downloaded / contentLength) * 100);
-                        $message.info(`下载进度：${percent}%`);
-                      }
-                      break;
-                    case "Finished":
-                      $message.success("下载完成，正在安装...");
-                      break;
-                  }
-                });
-                $message.success("更新完成，正在重启...");
-                await relaunch();
-              } catch (err) {
-                logger.error("更新失败", { error: String(err) });
-                $message.error("更新失败，请稍后重试");
-              }
-            }
-          });
-        }
-      } catch (error) {
-        logger.error("检查更新失败", { error: String(error) });
-      }
+      await checkForUpdate();
     };
     void setup();
   }
