@@ -44,14 +44,14 @@ jobs:
         id: git-cliff
         shell: bash
         run: |
-          changelog="$(git-cliff -c .github/cliff.toml --tag v__VERSION__)"
+          changelog="$(git-cliff -c .github/cliff.toml)"
           {
             echo "content<<EOF"
             echo "$changelog"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Rust target
         if: matrix.target != ''
