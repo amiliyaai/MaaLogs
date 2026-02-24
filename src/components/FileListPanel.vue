@@ -59,30 +59,65 @@ const emit = defineEmits<{
   - 空状态提示
 -->
 <template>
-  <n-card class="panel file-list-panel" size="small">
+  <n-card
+    class="panel file-list-panel"
+    size="small"
+  >
     <!-- 标题栏 -->
     <template #header>
       <div class="header-content">
         <span>文件列表</span>
         <!-- 全部移除按钮 -->
-        <n-button v-if="selectedFiles.length > 0" size="tiny" type="error" @click="emit('clear')">全部移除</n-button>
+        <n-button
+          v-if="selectedFiles.length > 0"
+          size="tiny"
+          type="error"
+          @click="emit('clear')"
+        >
+          全部移除
+        </n-button>
       </div>
     </template>
     <!-- 空状态 -->
-    <div v-if="selectedFiles.length === 0" class="empty">请先选择日志/配置文件</div>
+    <div
+      v-if="selectedFiles.length === 0"
+      class="empty"
+    >
+      请先选择日志/配置文件
+    </div>
     <!-- 文件列表 -->
-    <div v-else class="file-list-wrapper">
+    <div
+      v-else
+      class="file-list-wrapper"
+    >
       <ul class="file-list">
-        <li v-for="(file, index) in selectedFiles" :key="file.name" class="file-row">
+        <li
+          v-for="(file, index) in selectedFiles"
+          :key="file.name"
+          class="file-row"
+        >
           <!-- 文件名 -->
-          <div class="file-name">{{ file.name }}</div>
+          <div class="file-name">
+            {{ file.name }}
+          </div>
           <!-- 文件大小 -->
-          <div class="file-meta">{{ formatSize(file.size) }}</div>
+          <div class="file-meta">
+            {{ formatSize(file.size) }}
+          </div>
           <!-- 文件类型 -->
-          <div class="file-meta">{{ file.type }}</div>
+          <div class="file-meta">
+            {{ file.type }}
+          </div>
           <!-- 移除按钮 -->
           <div class="file-action">
-            <n-button size="tiny" secondary type="error" @click="emit('remove', index)">移除</n-button>
+            <n-button
+              size="tiny"
+              secondary
+              type="error"
+              @click="emit('remove', index)"
+            >
+              移除
+            </n-button>
           </div>
         </li>
       </ul>

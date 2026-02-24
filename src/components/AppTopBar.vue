@@ -56,25 +56,44 @@ const showAbout = ref(false);
   <header class="topbar">
     <!-- 品牌区域 -->
     <div class="brand">
-      <div class="subtitle">日志解析 · 任务与节点可视化</div>
+      <div class="subtitle">
+        日志解析 · 任务与节点可视化
+      </div>
     </div>
     <!-- 操作区域 -->
     <div class="top-actions">
       <div class="view-tabs">
         <!-- 关于按钮 -->
-        <n-button size="small" secondary @click="showAbout = true">
+        <n-button
+          size="small"
+          secondary
+          @click="showAbout = true"
+        >
           关于
         </n-button>
         <!-- 开发者工具按钮（仅 Tauri 环境） -->
-        <n-button v-if="isTauri" size="small" secondary @click="emit('open-devtools')">
+        <n-button
+          v-if="isTauri"
+          size="small"
+          secondary
+          @click="emit('open-devtools')"
+        >
           开发者工具
         </n-button>
         <!-- 日志分析视图切换按钮 -->
-        <n-button size="small" :type="viewMode === 'analysis' ? 'primary' : 'default'" @click="emitView('analysis')">
+        <n-button
+          size="small"
+          :type="viewMode === 'analysis' ? 'primary' : 'default'"
+          @click="emitView('analysis')"
+        >
           日志分析
         </n-button>
         <!-- 文本搜索视图切换按钮 -->
-        <n-button size="small" :type="viewMode === 'search' ? 'primary' : 'default'" @click="emitView('search')">
+        <n-button
+          size="small"
+          :type="viewMode === 'search' ? 'primary' : 'default'"
+          @click="emitView('search')"
+        >
           文本搜索
         </n-button>
         <!-- 节点统计视图切换按钮 -->

@@ -488,7 +488,11 @@ onBeforeUnmount(() => {
 
 <template>
   <n-config-provider>
-    <div class="app" @dragover.prevent @drop.prevent="handleDrop">
+    <div
+      class="app"
+      @dragover.prevent
+      @drop.prevent="handleDrop"
+    >
       <!-- 顶部导航栏 -->
       <AppTopBar
         :view-mode="viewMode"
@@ -498,12 +502,22 @@ onBeforeUnmount(() => {
       />
 
       <!-- 拖拽遮罩层 -->
-      <div v-if="isDragging" class="drop-mask" @drop="handleDrop" @dragover="handleDragOver">
+      <div
+        v-if="isDragging"
+        class="drop-mask"
+        @drop="handleDrop"
+        @dragover="handleDragOver"
+      >
         松手导入日志/配置文件
       </div>
 
       <!-- 复制提示 -->
-      <div v-if="copyMessage" class="copy-toast">{{ copyMessage }}</div>
+      <div
+        v-if="copyMessage"
+        class="copy-toast"
+      >
+        {{ copyMessage }}
+      </div>
 
       <!-- 欢迎面板：文件选择和解析控制 -->
       <HeroPanel
@@ -522,7 +536,7 @@ onBeforeUnmount(() => {
         @drag-enter="handleDragOver"
         @drag-leave="handleDragLeave"
         @drop="handleDrop"
-        @update:selectedParserId="selectedParserId = $event"
+        @update:selected-parser-id="selectedParserId = $event"
       />
 
       <div class="main-content">
@@ -576,10 +590,10 @@ onBeforeUnmount(() => {
             }
           "
           @select-node="selectedNodeId = $event"
-          @update:processId="selectedProcessId = $event"
-          @update:threadId="selectedThreadId = $event"
-          @update:selectedAuxLevels="selectedAuxLevels = $event"
-          @update:hiddenCallers="hiddenCallers = $event"
+          @update:process-id="selectedProcessId = $event"
+          @update:thread-id="selectedThreadId = $event"
+          @update:selected-aux-levels="selectedAuxLevels = $event"
+          @update:hidden-callers="hiddenCallers = $event"
         />
       </div>
 
@@ -597,11 +611,11 @@ onBeforeUnmount(() => {
         :has-raw-lines="rawLines.length > 0"
         :search-item-height="searchItemHeight"
         :split-match="splitMatch"
-        @update:searchText="searchText = $event"
-        @update:searchCaseSensitive="searchCaseSensitive = $event"
-        @update:searchUseRegex="searchUseRegex = $event"
-        @update:hideDebugInfo="hideDebugInfo = $event"
-        @update:searchMaxResults="searchMaxResults = $event"
+        @update:search-text="searchText = $event"
+        @update:search-case-sensitive="searchCaseSensitive = $event"
+        @update:search-use-regex="searchUseRegex = $event"
+        @update:hide-debug-info="hideDebugInfo = $event"
+        @update:search-max-results="searchMaxResults = $event"
         @perform-search="doPerformSearch"
       />
 
@@ -613,8 +627,8 @@ onBeforeUnmount(() => {
         :stat-keyword="statKeyword"
         :stat-sort="statSort"
         :format-duration="formatDuration"
-        @update:statKeyword="statKeyword = $event"
-        @update:statSort="statSort = $event"
+        @update:stat-keyword="statKeyword = $event"
+        @update:stat-sort="statSort = $event"
       />
     </div>
   </n-config-provider>

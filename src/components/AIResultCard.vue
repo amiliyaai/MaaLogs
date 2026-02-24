@@ -9,13 +9,30 @@ defineProps<{
 </script>
 
 <template>
-  <div class="detail-section-card" v-if="results.length > 0 || error">
+  <div
+    v-if="results.length > 0 || error"
+    class="detail-section-card"
+  >
     <div class="detail-section-header">
-      <div class="detail-section-title">AI 分析结果</div>
+      <div class="detail-section-title">
+        AI 分析结果
+      </div>
     </div>
-    <div v-if="error" class="ai-error">{{ error }}</div>
-    <div v-else class="ai-results">
-      <div v-for="result in results" :key="result.nodeId" class="ai-result-item">
+    <div
+      v-if="error"
+      class="ai-error"
+    >
+      {{ error }}
+    </div>
+    <div
+      v-else
+      class="ai-results"
+    >
+      <div
+        v-for="result in results"
+        :key="result.nodeId"
+        class="ai-result-item"
+      >
         <div class="ai-result-header">
           <strong>{{ result.nodeName }}</strong>
           <n-tag
@@ -25,8 +42,12 @@ defineProps<{
             {{ Math.round(result.confidence * 100) }}%
           </n-tag>
         </div>
-        <div class="ai-result-cause">原因: {{ result.cause }}</div>
-        <div class="ai-result-suggestion">建议: {{ result.suggestion }}</div>
+        <div class="ai-result-cause">
+          原因: {{ result.cause }}
+        </div>
+        <div class="ai-result-suggestion">
+          建议: {{ result.suggestion }}
+        </div>
       </div>
     </div>
   </div>

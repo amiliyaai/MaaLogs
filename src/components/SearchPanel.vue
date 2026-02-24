@@ -122,9 +122,14 @@ const searchMaxOptions = [
   - 搜索结果列表（虚拟滚动）
 -->
 <template>
-  <n-card class="panel" size="small">
+  <n-card
+    class="panel"
+    size="small"
+  >
     <!-- 标题 -->
-    <template #header>文本搜索</template>
+    <template #header>
+      文本搜索
+    </template>
     <!-- 搜索控制区域 -->
     <div class="search-controls">
       <!-- 搜索输入框 -->
@@ -135,15 +140,24 @@ const searchMaxOptions = [
         @update:value="emit('update:searchText', $event)"
       />
       <!-- 区分大小写选项 -->
-      <n-checkbox :checked="searchCaseSensitive" @update:checked="emit('update:searchCaseSensitive', $event)">
+      <n-checkbox
+        :checked="searchCaseSensitive"
+        @update:checked="emit('update:searchCaseSensitive', $event)"
+      >
         区分大小写
       </n-checkbox>
       <!-- 正则表达式选项 -->
-      <n-checkbox :checked="searchUseRegex" @update:checked="emit('update:searchUseRegex', $event)">
+      <n-checkbox
+        :checked="searchUseRegex"
+        @update:checked="emit('update:searchUseRegex', $event)"
+      >
         正则表达式
       </n-checkbox>
       <!-- 隐藏调试信息选项 -->
-      <n-checkbox :checked="hideDebugInfo" @update:checked="emit('update:hideDebugInfo', $event)">
+      <n-checkbox
+        :checked="hideDebugInfo"
+        @update:checked="emit('update:hideDebugInfo', $event)"
+      >
         隐藏调试信息
       </n-checkbox>
       <!-- 最大结果数选择 -->
@@ -154,7 +168,12 @@ const searchMaxOptions = [
         @update:value="emit('update:searchMaxResults', $event)"
       />
       <!-- 搜索按钮 -->
-      <n-button type="primary" size="small" @click="emit('perform-search')" :disabled="!hasRawLines">
+      <n-button
+        type="primary"
+        size="small"
+        :disabled="!hasRawLines"
+        @click="emit('perform-search')"
+      >
         搜索
       </n-button>
     </div>
@@ -173,14 +192,33 @@ const searchMaxOptions = [
       </n-button>
     </div>
     <!-- 搜索状态消息 -->
-    <div class="search-message">{{ searchMessage || '输入关键字后点击搜索' }}</div>
+    <div class="search-message">
+      {{ searchMessage || '输入关键字后点击搜索' }}
+    </div>
     <!-- 空状态：无搜索结果 -->
-    <div v-if="searchResults.length === 0" class="empty">暂无搜索结果</div>
+    <div
+      v-if="searchResults.length === 0"
+      class="empty"
+    >
+      暂无搜索结果
+    </div>
     <!-- 搜索结果列表（虚拟滚动） -->
-    <div v-else class="search-results">
-      <DynamicScroller class="virtual-scroller" :items="searchResults" key-field="key" :min-item-size="searchItemHeight">
+    <div
+      v-else
+      class="search-results"
+    >
+      <DynamicScroller
+        class="virtual-scroller"
+        :items="searchResults"
+        key-field="key"
+        :min-item-size="searchItemHeight"
+      >
         <template #default="{ item, active }">
-          <DynamicScrollerItem :item="item" :active="active" :size-dependencies="[item.line, item.matchStart, item.matchEnd]">
+          <DynamicScrollerItem
+            :item="item"
+            :active="active"
+            :size-dependencies="[item.line, item.matchStart, item.matchEnd]"
+          >
             <!-- 搜索结果行 -->
             <div class="search-row">
               <!-- 文件名和行号 -->

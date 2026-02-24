@@ -268,8 +268,8 @@ export function useLogParser(config: LogParserConfig = {}): LogParserResult {
       const controllerInfos: ControllerInfo[] = [];
       const eventIdentifierMap = new Map<number, string>();
       let lastIdentifierForEvent: string | null = null;
-      let pipelineActions: Record<string, PipelineCustomActionInfo[]> = {};
-      let pipelineKeywords: Record<string, string[]> = {};
+      const pipelineActions: Record<string, PipelineCustomActionInfo[]> = {};
+      const pipelineKeywords: Record<string, string[]> = {};
       let totalLines = 0;
       const fileLines: { file: SelectedFile; lines: string[] }[] = [];
 

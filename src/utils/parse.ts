@@ -638,7 +638,7 @@ export function parseLine(line: string, lineNum: number): LogLine | null {
   let sourceFile: string | undefined;
   let lineNumber: string | undefined;
   let functionName: string | undefined;
-  let message = rest;
+  const message = rest;
 
   // 解析可选的源码位置信息
   if (part3) {

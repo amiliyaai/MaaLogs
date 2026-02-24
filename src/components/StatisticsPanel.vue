@@ -99,16 +99,30 @@ const statSortOptions = [
   - 统计表格（虚拟滚动）
 -->
 <template>
-  <n-card class="panel" size="small">
+  <n-card
+    class="panel"
+    size="small"
+  >
     <!-- 标题 -->
-    <template #header>节点统计</template>
+    <template #header>
+      节点统计
+    </template>
     <!-- 空状态：无统计数据 -->
-    <div v-if="nodeStatistics.length === 0" class="empty">解析后将在此显示统计数据</div>
+    <div
+      v-if="nodeStatistics.length === 0"
+      class="empty"
+    >
+      解析后将在此显示统计数据
+    </div>
     <div v-else>
       <!-- 控制区域 -->
       <div class="stat-controls">
         <!-- 关键字过滤输入框 -->
-        <n-input :value="statKeyword" placeholder="按节点名过滤" @update:value="emit('update:statKeyword', $event)" />
+        <n-input
+          :value="statKeyword"
+          placeholder="按节点名过滤"
+          @update:value="emit('update:statKeyword', $event)"
+        />
         <!-- 排序选择器 -->
         <n-select
           size="small"
@@ -118,31 +132,54 @@ const statSortOptions = [
         />
       </div>
       <!-- 统计摘要 -->
-      <div v-if="nodeSummary" class="stat-summary">
+      <div
+        v-if="nodeSummary"
+        class="stat-summary"
+      >
         <!-- 节点类型数 -->
         <div>
-          <div class="stat-label">节点类型</div>
-          <div class="stat-value">{{ nodeSummary.uniqueNodes }}</div>
+          <div class="stat-label">
+            节点类型
+          </div>
+          <div class="stat-value">
+            {{ nodeSummary.uniqueNodes }}
+          </div>
         </div>
         <!-- 总执行次数 -->
         <div>
-          <div class="stat-label">总执行次数</div>
-          <div class="stat-value">{{ nodeSummary.totalNodes }}</div>
+          <div class="stat-label">
+            总执行次数
+          </div>
+          <div class="stat-value">
+            {{ nodeSummary.totalNodes }}
+          </div>
         </div>
         <!-- 平均耗时 -->
         <div>
-          <div class="stat-label">平均耗时</div>
-          <div class="stat-value">{{ formatDuration(nodeSummary.avgDuration) }}</div>
+          <div class="stat-label">
+            平均耗时
+          </div>
+          <div class="stat-value">
+            {{ formatDuration(nodeSummary.avgDuration) }}
+          </div>
         </div>
         <!-- 总耗时 -->
         <div>
-          <div class="stat-label">总耗时</div>
-          <div class="stat-value">{{ formatDuration(nodeSummary.totalDuration) }}</div>
+          <div class="stat-label">
+            总耗时
+          </div>
+          <div class="stat-value">
+            {{ formatDuration(nodeSummary.totalDuration) }}
+          </div>
         </div>
         <!-- 最慢节点 -->
         <div>
-          <div class="stat-label">最慢节点</div>
-          <div class="stat-value">{{ nodeSummary.slowestNode.name }}</div>
+          <div class="stat-label">
+            最慢节点
+          </div>
+          <div class="stat-value">
+            {{ nodeSummary.slowestNode.name }}
+          </div>
         </div>
       </div>
       <!-- 分隔线 -->
@@ -166,10 +203,15 @@ const statSortOptions = [
           :min-item-size="36"
         >
           <template #default="{ item, active }">
-            <DynamicScrollerItem :item="item" :active="active">
+            <DynamicScrollerItem
+              :item="item"
+              :active="active"
+            >
               <!-- 数据行 -->
               <div class="stat-row">
-                <div class="stat-name">{{ item.name }}</div>
+                <div class="stat-name">
+                  {{ item.name }}
+                </div>
                 <div>{{ item.count }}</div>
                 <div>{{ item.successCount }}/{{ item.failCount }}</div>
                 <div>{{ formatDuration(item.avgDuration) }}</div>

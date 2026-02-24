@@ -7,7 +7,7 @@ permissions:
   contents: write
 
 jobs:
-  changelog:
+  generate-changelog:
     runs-on: ubuntu-latest
     outputs:
       release_body: ${{ steps.git-cliff.outputs.content }}
@@ -22,13 +22,12 @@ jobs:
         id: git-cliff
         with:
           config: .github/cliff.toml
-          args: -vv --latest --strip header
+          args: --latest --strip header
         env:
           OUTPUT: CHANGES.md
-          GITHUB_REPO: ${{ github.repository }}
 
   release:
-    needs: changelog
+    needs: generate-changelog
     permissions:
       contents: write
     strategy:
@@ -72,6 +71,6 @@ jobs:
         with:
           tagName: v__VERSION__
           releaseName: 'MaaLogs v__VERSION__'
-          releaseBody: ${{ needs.changelog.outputs.release_body }}
+          releaseBody: ${{ needs.generate-changelog.outputs.release_body }}
           releaseDraft: false
           updaterJsonPreferNsis: true

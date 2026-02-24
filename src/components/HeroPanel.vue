@@ -131,7 +131,12 @@ const emitParse = () => emit("parse");
         <!-- 文件选择按钮（隐藏的 input） -->
         <label class="upload">
           <NButton size="small">选择日志文件</NButton>
-          <input type="file" multiple accept=".log,.json,.zip" @change="emit('file-change', $event)" />
+          <input
+            type="file"
+            multiple
+            accept=".log,.json,.zip"
+            @change="emit('file-change', $event)"
+          >
         </label>
         <!-- 解析按钮 -->
         <NButton
@@ -144,10 +149,15 @@ const emitParse = () => emit("parse");
         </NButton>
       </div>
       <!-- 拖拽提示 -->
-      <div class="drag-hint">导入 maa.log 可选导入Custom日志，支持拖拽导入(包括日志压缩包或日志目录)</div>
+      <div class="drag-hint">
+        导入 maa.log 可选导入Custom日志，支持拖拽导入(包括日志压缩包或日志目录)
+      </div>
     </div>
     <!-- 状态信息卡片 -->
-    <NCard class="hero-card" size="small">
+    <NCard
+      class="hero-card"
+      size="small"
+    >
       <template #header>
         <span>当前选择：</span>
         <span class="card-stat-divider">|</span>
@@ -167,9 +177,15 @@ const emitParse = () => emit("parse");
         />
       </div>
       <!-- 解析进度条 -->
-      <NProgress v-if="parseState === 'parsing'" :percentage="parseProgress" processing />
+      <NProgress
+        v-if="parseState === 'parsing'"
+        :percentage="parseProgress"
+        processing
+      />
       <!-- 状态消息 -->
-      <div class="card-hint">{{ statusMessage }}</div>
+      <div class="card-hint">
+        {{ statusMessage }}
+      </div>
     </NCard>
   </section>
 </template>

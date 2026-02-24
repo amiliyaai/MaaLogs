@@ -268,7 +268,10 @@ const handleNodeSelect = (nodeId: number) => {
   - 右栏：节点详情（识别详情、动作详情、Custom日志等）
 -->
 <template>
-  <n-card class="panel" size="small">
+  <n-card
+    class="panel"
+    size="small"
+  >
     <!-- 标题栏，包含进程/线程过滤器 -->
     <template #header>
       <div class="panel-header">
@@ -279,38 +282,58 @@ const handleNodeSelect = (nodeId: number) => {
             size="small"
             :options="processOptions"
             :value="selectedProcessId"
-            @update:value="emit('update:processId', $event)"
             placeholder="进程"
             class="filter-select"
+            @update:value="emit('update:processId', $event)"
           />
           <!-- 线程过滤器 -->
           <n-select
             size="small"
             :options="threadOptions"
             :value="selectedThreadId"
-            @update:value="emit('update:threadId', $event)"
             placeholder="线程"
             class="filter-select"
+            @update:value="emit('update:threadId', $event)"
           />
         </div>
       </div>
     </template>
     <!-- 空状态 -->
-    <div v-if="tasks.length === 0" class="empty">解析后将在此显示任务与节点</div>
+    <div
+      v-if="tasks.length === 0"
+      class="empty"
+    >
+      解析后将在此显示任务与节点
+    </div>
     <!-- 主内容区域：三栏布局 -->
-    <div v-else class="task-layout">
+    <div
+      v-else
+      class="task-layout"
+    >
       <!-- 左栏：任务列表 -->
       <div class="task-list">
         <div class="panel-top">
           <div class="node-header">
             <span>任务列表</span>
             <div class="ai-controls">
-              <n-spin :show="aiAnalyzing" size="small">
-                <n-button size="small" :disabled="!selectedTask" @click="handleAIAnalyze">
+              <n-spin
+                :show="aiAnalyzing"
+                size="small"
+              >
+                <n-button
+                  size="small"
+                  :disabled="!selectedTask"
+                  @click="handleAIAnalyze"
+                >
                   AI 分析
                 </n-button>
               </n-spin>
-              <n-button size="small" @click="showAISettings = true">设置</n-button>
+              <n-button
+                size="small"
+                @click="showAISettings = true"
+              >
+                设置
+              </n-button>
             </div>
           </div>
         </div>
@@ -323,7 +346,10 @@ const handleNodeSelect = (nodeId: number) => {
             :min-item-size="taskItemHeight"
           >
             <template #default="{ item, active }">
-              <DynamicScrollerItem :item="item" :active="active">
+              <DynamicScrollerItem
+                :item="item"
+                :active="active"
+              >
                 <!-- 任务行 -->
                 <div
                   class="task-row"
@@ -332,10 +358,19 @@ const handleNodeSelect = (nodeId: number) => {
                 >
                   <!-- 任务主要信息 -->
                   <div class="task-main">
-                    <div class="task-title">{{ item.entry || "未命名任务" }}</div>
+                    <div class="task-title">
+                      {{ item.entry || "未命名任务" }}
+                    </div>
                     <div class="task-tags">
-                      <n-tag size="small" type="info">进程ID：{{ item.processId || "P?" }}</n-tag>
-                      <n-tag size="small">线程ID：{{ item.threadId || "T?" }}</n-tag>
+                      <n-tag
+                        size="small"
+                        type="info"
+                      >
+                        进程ID：{{ item.processId || "P?" }}
+                      </n-tag>
+                      <n-tag size="small">
+                        线程ID：{{ item.threadId || "T?" }}
+                      </n-tag>
                     </div>
                   </div>
                   <!-- 任务次要信息 -->
@@ -347,7 +382,9 @@ const handleNodeSelect = (nodeId: number) => {
                   <div class="task-side">
                     <div>状态： {{ formatTaskStatus(item.status) }}</div>
                     <div class="task-side-row">
-                      <div class="task-side-label">开始时间：</div>
+                      <div class="task-side-label">
+                        开始时间：
+                      </div>
                       <div class="task-side-value">
                         <span>{{ formatTaskTimeParts(item.start_time).date }}</span>
                         <span v-if="formatTaskTimeParts(item.start_time).time">
@@ -356,7 +393,9 @@ const handleNodeSelect = (nodeId: number) => {
                       </div>
                     </div>
                     <div class="task-side-row task-side-row-inline">
-                      <div class="task-side-label">耗时：</div>
+                      <div class="task-side-label">
+                        耗时：
+                      </div>
                       <div class="task-side-value">
                         {{ item.duration ? formatDuration(item.duration) : "-" }}
                       </div>
@@ -371,11 +410,21 @@ const handleNodeSelect = (nodeId: number) => {
       <!-- 中栏：节点列表 -->
       <div class="node-list">
         <div class="panel-top">
-          <div class="node-header">节点列表</div>
+          <div class="node-header">
+            节点列表
+          </div>
         </div>
         <!-- 空状态：未选择任务 -->
-        <div v-if="!selectedTaskKey" class="empty">请选择左侧任务</div>
-        <div v-else class="node-list-content">
+        <div
+          v-if="!selectedTaskKey"
+          class="empty"
+        >
+          请选择左侧任务
+        </div>
+        <div
+          v-else
+          class="node-list-content"
+        >
           <!-- 虚拟滚动节点列表 -->
           <DynamicScroller
             class="virtual-scroller"
@@ -384,12 +433,22 @@ const handleNodeSelect = (nodeId: number) => {
             :min-item-size="nodeItemHeight"
           >
             <template #default="{ item, active }">
-              <DynamicScrollerItem :item="item" :active="active" :size-dependencies="[item.name, item.status, item.recognition_attempts?.length]">
+              <DynamicScrollerItem
+                :item="item"
+                :active="active"
+                :size-dependencies="[item.name, item.status, item.recognition_attempts?.length]"
+              >
                 <!-- 节点行 -->
-                <div class="node-row" :class="{ active: item.node_id === selectedNodeId }" @click="handleNodeSelect(item.node_id)">
+                <div
+                  class="node-row"
+                  :class="{ active: item.node_id === selectedNodeId }"
+                  @click="handleNodeSelect(item.node_id)"
+                >
                   <!-- 节点主要信息 -->
                   <div class="node-main">
-                    <div class="node-name">{{ item.name || item.node_id }}</div>
+                    <div class="node-name">
+                      {{ item.name || item.node_id }}
+                    </div>
                     <div class="node-sub">
                       <div>时间： {{ item.timestamp }}</div>
                       <div>状态： {{ formatResultStatus(item.status) }}</div>
@@ -397,63 +456,126 @@ const handleNodeSelect = (nodeId: number) => {
                   </div>
                   <!-- 节点徽章 -->
                   <div class="node-badges">
-                    <div class="node-badge">进行识别： {{ item.recognition_attempts?.length || 0 }}次</div>
-                    <div class="node-badge">Next列表： {{ item.next_list?.length || 0 }}个</div>
+                    <div class="node-badge">
+                      进行识别： {{ item.recognition_attempts?.length || 0 }}次
+                    </div>
+                    <div class="node-badge">
+                      Next列表： {{ item.next_list?.length || 0 }}个
+                    </div>
                   </div>
                 </div>
               </DynamicScrollerItem>
             </template>
           </DynamicScroller>
           <!-- 空状态：无节点 -->
-          <div v-if="(selectedTask?.nodes || []).length === 0" class="empty">未发现节点事件</div>
+          <div
+            v-if="(selectedTask?.nodes || []).length === 0"
+            class="empty"
+          >
+            未发现节点事件
+          </div>
         </div>
       </div>
       <!-- 右栏：节点详情 -->
       <div class="detail-panel">
         <div class="panel-top">
-          <div class="node-header">节点详情</div>
+          <div class="node-header">
+            节点详情
+          </div>
         </div>
         <!-- 空状态：未选择任务 -->
-        <div v-if="!selectedTask" class="empty">请选择左侧任务</div>
-        <div v-else class="detail-content">
+        <div
+          v-if="!selectedTask"
+          class="empty"
+        >
+          请选择左侧任务
+        </div>
+        <div
+          v-else
+          class="detail-content"
+        >
           <!-- 控制器信息卡片 -->
-          <ControllerInfoCard v-if="selectedTask.controllerInfo" :controller-info="selectedTask.controllerInfo" />
+          <ControllerInfoCard
+            v-if="selectedTask.controllerInfo"
+            :controller-info="selectedTask.controllerInfo"
+          />
           <!-- AI 分析结果卡片 -->
-          <AIResultCard :results="aiResults" :error="aiError" />
+          <AIResultCard
+            :results="aiResults"
+            :error="aiError"
+          />
           <!-- 空状态：未选择节点 -->
-          <div v-if="!selectedNode" class="empty">请选择节点</div>
+          <div
+            v-if="!selectedNode"
+            class="empty"
+          >
+            请选择节点
+          </div>
           <template v-else>
             <!-- 识别详情卡片 -->
-            <div class="detail-section-card" v-if="selectedNode.reco_details">
+            <div
+              v-if="selectedNode.reco_details"
+              class="detail-section-card"
+            >
               <div class="detail-section-header">
-                <div class="detail-section-title">识别详情</div>
-                <n-button size="tiny" @click="copyJson(selectedNode.reco_details)">复制</n-button>
+                <div class="detail-section-title">
+                  识别详情
+                </div>
+                <n-button
+                  size="tiny"
+                  @click="copyJson(selectedNode.reco_details)"
+                >
+                  复制
+                </n-button>
               </div>
               <div class="detail-section-grid">
                 <div class="detail-section-cell">
-                  <div class="detail-section-label">识别 ID</div>
-                  <div class="detail-section-value">{{ selectedNode.reco_details.reco_id }}</div>
-                </div>
-                <div class="detail-section-cell">
-                  <div class="detail-section-label">识别算法</div>
+                  <div class="detail-section-label">
+                    识别 ID
+                  </div>
                   <div class="detail-section-value">
-                    <n-tag size="small" type="info">{{ selectedNode.reco_details.algorithm }}</n-tag>
+                    {{ selectedNode.reco_details.reco_id }}
                   </div>
                 </div>
                 <div class="detail-section-cell">
-                  <div class="detail-section-label">节点名称</div>
-                  <div class="detail-section-value">{{ selectedNode.reco_details.name }}</div>
+                  <div class="detail-section-label">
+                    识别算法
+                  </div>
+                  <div class="detail-section-value">
+                    <n-tag
+                      size="small"
+                      type="info"
+                    >
+                      {{ selectedNode.reco_details.algorithm }}
+                    </n-tag>
+                  </div>
                 </div>
                 <div class="detail-section-cell">
-                  <div class="detail-section-label">识别位置</div>
+                  <div class="detail-section-label">
+                    节点名称
+                  </div>
+                  <div class="detail-section-value">
+                    {{ selectedNode.reco_details.name }}
+                  </div>
+                </div>
+                <div class="detail-section-cell">
+                  <div class="detail-section-label">
+                    识别位置
+                  </div>
                   <div class="detail-section-value detail-section-box">
                     {{ formatBox(selectedNode.reco_details.box) }}
                   </div>
                 </div>
               </div>
               <!-- 原始识别数据折叠面板 -->
-              <n-collapse class="detail-section-collapse" :default-expanded-names="[]">
-                <n-collapse-item title="原始识别数据" name="reco-raw">
+              <n-collapse
+                class="detail-section-collapse"
+                :default-expanded-names="[]"
+              >
+                <n-collapse-item
+                  title="原始识别数据"
+                  name="reco-raw"
+                >
                   <n-code
                     :code="JSON.stringify(selectedNode.reco_details, null, 2)"
                     language="json"
@@ -464,51 +586,96 @@ const handleNodeSelect = (nodeId: number) => {
               </n-collapse>
             </div>
             <!-- 无识别详情 -->
-            <div v-else class="detail-section-card">
+            <div
+              v-else
+              class="detail-section-card"
+            >
               <div class="detail-section-header">
-                <div class="detail-section-title">识别详情</div>
+                <div class="detail-section-title">
+                  识别详情
+                </div>
               </div>
-              <div class="empty">无 Recognition 详情</div>
+              <div class="empty">
+                无 Recognition 详情
+              </div>
             </div>
             <!-- 动作详情卡片 -->
-            <div class="detail-section-card" v-if="selectedNode.action_details">
+            <div
+              v-if="selectedNode.action_details"
+              class="detail-section-card"
+            >
               <div class="detail-section-header">
-                <div class="detail-section-title">动作详情</div>
-                <n-button size="tiny" @click="copyJson(selectedNode.action_details)">复制</n-button>
+                <div class="detail-section-title">
+                  动作详情
+                </div>
+                <n-button
+                  size="tiny"
+                  @click="copyJson(selectedNode.action_details)"
+                >
+                  复制
+                </n-button>
               </div>
               <div class="detail-section-grid">
                 <div class="detail-section-cell">
-                  <div class="detail-section-label">动作 ID</div>
-                  <div class="detail-section-value">{{ selectedNode.action_details.action_id }}</div>
-                </div>
-                <div class="detail-section-cell">
-                  <div class="detail-section-label">动作类型</div>
+                  <div class="detail-section-label">
+                    动作 ID
+                  </div>
                   <div class="detail-section-value">
-                    <n-tag size="small" type="success">{{ selectedNode.action_details.action }}</n-tag>
+                    {{ selectedNode.action_details.action_id }}
                   </div>
                 </div>
                 <div class="detail-section-cell">
-                  <div class="detail-section-label">节点名称</div>
-                  <div class="detail-section-value">{{ selectedNode.action_details.name }}</div>
+                  <div class="detail-section-label">
+                    动作类型
+                  </div>
+                  <div class="detail-section-value">
+                    <n-tag
+                      size="small"
+                      type="success"
+                    >
+                      {{ selectedNode.action_details.action }}
+                    </n-tag>
+                  </div>
                 </div>
                 <div class="detail-section-cell">
-                  <div class="detail-section-label">执行结果</div>
+                  <div class="detail-section-label">
+                    节点名称
+                  </div>
                   <div class="detail-section-value">
-                    <n-tag size="small" :type="selectedNode.action_details.success ? 'success' : 'error'">
+                    {{ selectedNode.action_details.name }}
+                  </div>
+                </div>
+                <div class="detail-section-cell">
+                  <div class="detail-section-label">
+                    执行结果
+                  </div>
+                  <div class="detail-section-value">
+                    <n-tag
+                      size="small"
+                      :type="selectedNode.action_details.success ? 'success' : 'error'"
+                    >
                       {{ selectedNode.action_details.success ? "成功" : "失败" }}
                     </n-tag>
                   </div>
                 </div>
                 <div class="detail-section-cell">
-                  <div class="detail-section-label">目标位置</div>
+                  <div class="detail-section-label">
+                    目标位置
+                  </div>
                   <div class="detail-section-value detail-section-box">
                     {{ formatBox(selectedNode.action_details.box) }}
                   </div>
                 </div>
               </div>
               <!-- 原始动作数据折叠面板 -->
-              <n-collapse class="detail-section-collapse" :default-expanded-names="[]">
-                <n-collapse-item title="原始动作数据" name="action-raw">
+              <n-collapse
+                class="detail-section-collapse"
+                :default-expanded-names="[]"
+              >
+                <n-collapse-item
+                  title="原始动作数据"
+                  name="action-raw"
+                >
                   <n-code
                     :code="JSON.stringify(selectedNode.action_details, null, 2)"
                     language="json"
@@ -519,11 +686,18 @@ const handleNodeSelect = (nodeId: number) => {
               </n-collapse>
             </div>
             <!-- 无动作详情 -->
-            <div v-else class="detail-section-card">
+            <div
+              v-else
+              class="detail-section-card"
+            >
               <div class="detail-section-header">
-                <div class="detail-section-title">动作详情</div>
+                <div class="detail-section-title">
+                  动作详情
+                </div>
               </div>
-              <div class="empty">无 Action 详情</div>
+              <div class="empty">
+                无 Action 详情
+              </div>
             </div>
             <!-- 详细信息折叠面板组 -->
             <n-collapse :default-expanded-names="[]">
@@ -540,7 +714,10 @@ const handleNodeSelect = (nodeId: number) => {
                   <div>时间: {{ selectedNode.timestamp }}</div>
                   <div>
                     状态:
-                    <n-tag size="small" :type="selectedNode.status === 'success' ? 'success' : 'error'">
+                    <n-tag
+                      size="small"
+                      :type="selectedNode.status === 'success' ? 'success' : 'error'"
+                    >
                       {{ formatResultStatus(selectedNode.status) }}
                     </n-tag>
                   </div>
@@ -556,8 +733,16 @@ const handleNodeSelect = (nodeId: number) => {
                     <span class="collapse-summary">{{ summarizeRecognition(selectedNode) }}</span>
                   </div>
                 </template>
-                <div v-if="(selectedNode.recognition_attempts || []).length === 0" class="empty">无识别尝试记录</div>
-                <div v-else class="detail-list">
+                <div
+                  v-if="(selectedNode.recognition_attempts || []).length === 0"
+                  class="empty"
+                >
+                  无识别尝试记录
+                </div>
+                <div
+                  v-else
+                  class="detail-list"
+                >
                   <div
                     v-for="(attempt, index) in selectedNode.recognition_attempts"
                     :key="`${selectedNode.node_id}-${index}`"
@@ -566,8 +751,16 @@ const handleNodeSelect = (nodeId: number) => {
                     <div class="detail-item-title">
                       {{ attempt.name || "Recognition" }} · {{ formatResultStatus(attempt.status) }} · {{ attempt.timestamp }}
                     </div>
-                    <div v-if="attempt.reco_details" class="detail-actions">
-                      <n-button size="tiny" @click="copyJson(attempt.reco_details)">复制</n-button>
+                    <div
+                      v-if="attempt.reco_details"
+                      class="detail-actions"
+                    >
+                      <n-button
+                        size="tiny"
+                        @click="copyJson(attempt.reco_details)"
+                      >
+                        复制
+                      </n-button>
                     </div>
                     <n-code
                       v-if="attempt.reco_details"
@@ -577,7 +770,10 @@ const handleNodeSelect = (nodeId: number) => {
                       class="detail-code"
                     />
                     <!-- 嵌套节点 -->
-                    <div v-if="(attempt.nested_nodes || []).length > 0" class="nested-list">
+                    <div
+                      v-if="(attempt.nested_nodes || []).length > 0"
+                      class="nested-list"
+                    >
                       <div
                         v-for="(nested, nestedIndex) in attempt.nested_nodes"
                         :key="`${selectedNode.node_id}-${index}-nested-${nestedIndex}`"
@@ -586,8 +782,16 @@ const handleNodeSelect = (nodeId: number) => {
                         <div class="detail-item-title">
                           {{ nested.name || "Nested" }} · {{ formatResultStatus(nested.status) }} · {{ nested.timestamp }}
                         </div>
-                        <div v-if="nested.reco_details" class="detail-actions">
-                          <n-button size="tiny" @click="copyJson(nested.reco_details)">复制</n-button>
+                        <div
+                          v-if="nested.reco_details"
+                          class="detail-actions"
+                        >
+                          <n-button
+                            size="tiny"
+                            @click="copyJson(nested.reco_details)"
+                          >
+                            复制
+                          </n-button>
                         </div>
                         <n-code
                           v-if="nested.reco_details"
@@ -609,8 +813,16 @@ const handleNodeSelect = (nodeId: number) => {
                     <span class="collapse-summary">{{ summarizeNestedActions(selectedNode) }}</span>
                   </div>
                 </template>
-                <div v-if="(selectedNode.nested_action_nodes || []).length === 0" class="empty">无嵌套动作节点</div>
-                <div v-else class="detail-list">
+                <div
+                  v-if="(selectedNode.nested_action_nodes || []).length === 0"
+                  class="empty"
+                >
+                  无嵌套动作节点
+                </div>
+                <div
+                  v-else
+                  class="detail-list"
+                >
                   <div
                     v-for="(actionNode, actionIndex) in selectedNode.nested_action_nodes"
                     :key="`${selectedNode.node_id}-action-${actionIndex}`"
@@ -619,8 +831,16 @@ const handleNodeSelect = (nodeId: number) => {
                     <div class="detail-item-title">
                       {{ actionNode.name || "Action" }} · {{ formatResultStatus(actionNode.status) }} · {{ actionNode.timestamp }}
                     </div>
-                    <div v-if="actionNode.action_details" class="detail-actions">
-                      <n-button size="tiny" @click="copyJson(actionNode.action_details)">复制</n-button>
+                    <div
+                      v-if="actionNode.action_details"
+                      class="detail-actions"
+                    >
+                      <n-button
+                        size="tiny"
+                        @click="copyJson(actionNode.action_details)"
+                      >
+                        复制
+                      </n-button>
                     </div>
                     <n-code
                       v-if="actionNode.action_details"
@@ -640,9 +860,22 @@ const handleNodeSelect = (nodeId: number) => {
                     <span class="collapse-summary">{{ summarizeNextList(selectedNode) }}</span>
                   </div>
                 </template>
-                <div v-if="(selectedNode.next_list || []).length === 0" class="empty">无 Next List</div>
-                <div v-else class="next-list">
-                  <n-tag v-for="(item, idx) in selectedNode.next_list" :key="`${selectedNode.node_id}-next-${idx}`" size="small" type="info">
+                <div
+                  v-if="(selectedNode.next_list || []).length === 0"
+                  class="empty"
+                >
+                  无 Next List
+                </div>
+                <div
+                  v-else
+                  class="next-list"
+                >
+                  <n-tag
+                    v-for="(item, idx) in selectedNode.next_list"
+                    :key="`${selectedNode.node_id}-next-${idx}`"
+                    size="small"
+                    type="info"
+                  >
                     {{ formatNextName(item) }}
                   </n-tag>
                 </div>
@@ -655,8 +888,16 @@ const handleNodeSelect = (nodeId: number) => {
                     <span class="collapse-summary">{{ summarizeNodeDetail(selectedNode) }}</span>
                   </div>
                 </template>
-                <div v-if="selectedNode.node_details" class="detail-actions">
-                  <n-button size="tiny" @click="copyJson(selectedNode.node_details)">复制</n-button>
+                <div
+                  v-if="selectedNode.node_details"
+                  class="detail-actions"
+                >
+                  <n-button
+                    size="tiny"
+                    @click="copyJson(selectedNode.node_details)"
+                  >
+                    复制
+                  </n-button>
                 </div>
                 <n-code
                   v-if="selectedNode.node_details"
@@ -665,7 +906,12 @@ const handleNodeSelect = (nodeId: number) => {
                   word-wrap
                   class="detail-code"
                 />
-                <div v-else class="empty">无节点配置</div>
+                <div
+                  v-else
+                  class="empty"
+                >
+                  无节点配置
+                </div>
               </n-collapse-item>
               <!-- Focus 信息 -->
               <n-collapse-item name="focus">
@@ -675,8 +921,16 @@ const handleNodeSelect = (nodeId: number) => {
                     <span class="collapse-summary">{{ summarizeFocus(selectedNode) }}</span>
                   </div>
                 </template>
-                <div v-if="selectedNode.focus" class="detail-actions">
-                  <n-button size="tiny" @click="copyJson(selectedNode.focus)">复制</n-button>
+                <div
+                  v-if="selectedNode.focus"
+                  class="detail-actions"
+                >
+                  <n-button
+                    size="tiny"
+                    @click="copyJson(selectedNode.focus)"
+                  >
+                    复制
+                  </n-button>
                 </div>
                 <n-code
                   v-if="selectedNode.focus"
@@ -685,7 +939,12 @@ const handleNodeSelect = (nodeId: number) => {
                   word-wrap
                   class="detail-code"
                 />
-                <div v-else class="empty">无 Focus 信息</div>
+                <div
+                  v-else
+                  class="empty"
+                >
+                  无 Focus 信息
+                </div>
               </n-collapse-item>
             </n-collapse>
           </template>

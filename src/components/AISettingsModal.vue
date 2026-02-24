@@ -59,7 +59,13 @@ function updateApiKey(value: string) {
 </script>
 
 <template>
-  <n-modal :show="show" preset="card" title="AI 分析设置" style="width: 500px;" @update:show="emit('update:show', $event)">
+  <n-modal
+    :show="show"
+    preset="card"
+    title="AI 分析设置"
+    style="width: 500px;"
+    @update:show="emit('update:show', $event)"
+  >
     <n-form>
       <n-form-item label="服务商">
         <n-select
@@ -99,8 +105,15 @@ function updateApiKey(value: string) {
       </n-form-item>
     </n-form>
     <template #footer>
-      <n-button @click="handleClose">取消</n-button>
-      <n-button type="primary" @click="handleSave">保存</n-button>
+      <n-button @click="handleClose">
+        取消
+      </n-button>
+      <n-button
+        type="primary"
+        @click="handleSave"
+      >
+        保存
+      </n-button>
     </template>
   </n-modal>
 </template>
