@@ -15,7 +15,13 @@ categories:
     label: 'chore'
 change-template: '- $TITLE (#$NUMBER) @$AUTHOR'
 change-title-escapes: '\<*_&'
-include-labels: 'feat,fix,docs,style,ci,chore'
+include-labels:
+  - feat
+  - fix
+  - docs
+  - style
+  - ci
+  - chore
 template: |
   **$CHANGES**
 
