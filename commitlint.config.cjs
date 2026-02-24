@@ -5,15 +5,15 @@ module.exports = {
       2,
       'always',
       [
-        'feat',     // 新功能
-        'fix',      // 修复 bug
-        'docs',     // 文档更新
-        'style',    // 代码格式
-        'refactor', // 重构
-        'perf',     // 性能优化
-        'test',     // 测试相关
-        'ci',       // CI/CD 相关
-        'chore'     // 构建或辅助工具变动
+        'feat',
+        'fix',
+        'docs',
+        'style',
+        'refactor',
+        'perf',
+        'test',
+        'ci',
+        'chore'
       ]
     ],
     'type-case': [2, 'always', 'lower-case'],
