@@ -1,6 +1,7 @@
 [remote.github]
-owner = "MaaEnd"
+owner = "amiliyaai"
 repo = "MaaLogs"
+
 [changelog]
 header = """
 # 更新日志
@@ -43,19 +44,9 @@ body = """
         {% endif -%}
     {% endfor -%}
 {% endfor -%}
-{%- if github -%}
-{% if github.contributors | filter(attribute="is_first_time", value=true) | length != 0 %}
-  ## 新贡献者 ❤️
-{% endif %}\
-{% for contributor in github.contributors | filter(attribute="is_first_time", value=true) %}
-  * @{{ contributor.username }} made their first contribution
-    {%- if contributor.pr_number %} in \
-      [#{{ contributor.pr_number }}]({{ self::remote_url() }}/pull/{{ contributor.pr_number }}) \
-    {%- endif %}
-{%- endfor -%}
-{%- endif %}
 """
 footer = ""
+
 [git]
 conventional_commits = true
 filter_unconventional = false
@@ -77,5 +68,3 @@ commit_parsers = [
 ]
 ignore_tags = "rc"
 sort_commits = "oldest"
-[git.github]
-commits = true

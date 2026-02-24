@@ -50,6 +50,8 @@ jobs:
             echo "$changelog"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Rust target
         if: matrix.target != ''
