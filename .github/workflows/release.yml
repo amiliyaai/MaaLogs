@@ -15,14 +15,11 @@ jobs:
       matrix:
         include:
           - platform: 'macos-latest'
-            target_arch: 'x86_64'
-            target_os: 'darwin'
+            target: 'x86_64-apple-darwin'
           - platform: 'macos-latest'
-            target_arch: 'aarch64'
-            target_os: 'darwin'
+            target: 'aarch64-apple-darwin'
           - platform: 'windows-latest'
-            target_arch: 'x86_64'
-            target_os: 'windows'
+            target: 'x86_64-pc-windows-msvc'
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -39,13 +36,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Setup Rust target
-        if: matrix.target_os == 'darwin'
-        run: |
-          if [ "${{ matrix.target_arch }}" == "aarch64" ]; then
-            rustup target add aarch64-apple-darwin
-          else
-            rustup target add x86_64-apple-darwin
-          fi
+        run: rustup target add ${{ matrix.target }}
 
       - name: Install npm dependencies
         run: npm ci
@@ -58,4 +49,4 @@ jobs:
           tagName: v__VERSION__
           releaseName: 'MaaLogs v__VERSION__'
           releaseDraft: true
-          args: --target ${{ matrix.target_os }}-${{ matrix.target_arch }}
+          args: --target ${{ matrix.target }}
