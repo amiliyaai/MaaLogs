@@ -55,10 +55,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev libgtk-3-dev
 
-      - name: Install Windows dependencies
-        if: matrix.platform == 'windows-latest'
-        run: choco install vcredist2022 -y
-
       - name: Install npm dependencies
         run: npm ci
 
