@@ -60,6 +60,9 @@ jobs:
 
       - name: Build Tauri app
         run: npx tauri build --target ${{ matrix.target }}
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
 
       - name: Verify bundle exists
         run: ls -la src-tauri/target/${{ matrix.target }}/release/bundle/
