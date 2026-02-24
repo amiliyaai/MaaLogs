@@ -1,4 +1,4 @@
-import type { TaskInfo, NodeInfo } from "../types/logTypes";
+import type { TaskInfo, NodeInfo, AuxLogEntry } from "../types/logTypes";
 
 export type AIProvider = 
   | "openai" 
@@ -288,7 +288,7 @@ ${Object.entries(MAA_KNOWLEDGE.controllers).map(([name, info]) =>
 - next_list: 后续节点列表（name, anchor, jump_back）`;
 }
 
-export function buildAnalysisPrompt(tasks: TaskInfo[], failedNodes: NodeInfo[]): string {
+export function buildAnalysisPrompt(tasks: TaskInfo[], failedNodes: NodeInfo[], auxLogs?: AuxLogEntry[]): string {
   let prompt = getFrameworkPrompt() + '\n\n';
 
   const uniqueAlgorithms = [...new Set(failedNodes.map(n => n.reco_details?.algorithm).filter(Boolean))];
@@ -332,6 +332,18 @@ export function buildAnalysisPrompt(tasks: TaskInfo[], failedNodes: NodeInfo[]):
   prompt += '请按以下 JSON 数组格式输出分析结果（只输出 JSON，不要其他内容）：\n';
   prompt += '[{"nodeName":"节点名","nodeId":1,"taskName":"任务名","cause":"失败原因","suggestion":"建议","confidence":0.8}]\n';
 
+  if (auxLogs && auxLogs.length > 0) {
+    prompt += '\n## 相关 Custom 日志\n';
+    const taskIds = new Set(failedNodes.map(n => n.task_id));
+    const relevantLogs = auxLogs.filter(log => 
+      !log.task_id || taskIds.has(log.task_id) || log.level === "error"
+    ).slice(-50);
+    
+    for (const log of relevantLogs) {
+      prompt += `[${log.level.toUpperCase()}] ${log.timestamp} ${log.caller || log.source}: ${log.message}\n`;
+    }
+  }
+
   return prompt;
 }
 
@@ -351,13 +363,13 @@ export function saveAIConfig(config: AIConfig): void {
   localStorage.setItem(AI_CONFIG_KEY, JSON.stringify(config));
 }
 
-export async function analyzeWithAI(config: AIConfig, tasks: TaskInfo[]): Promise<FailureAnalysis[]> {
+export async function analyzeWithAI(config: AIConfig, tasks: TaskInfo[], auxLogs?: AuxLogEntry[]): Promise<FailureAnalysis[]> {
   const failedNodes = tasks.flatMap(t => t.nodes).filter(n => n.status === "failed");
   if (failedNodes.length === 0) return [];
 
   if (!config.apiKey) throw new Error("请先配置 AI API Key");
 
-  const prompt = buildAnalysisPrompt(tasks, failedNodes);
+  const prompt = buildAnalysisPrompt(tasks, failedNodes, auxLogs);
   const baseUrl = config.baseUrl || PROVIDER_INFO[config.provider]?.defaultBaseUrl || "";
   const isClaude = config.provider === "anthropic";
 

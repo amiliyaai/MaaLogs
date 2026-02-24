@@ -71,7 +71,7 @@
  */
 import { NButton, NCard, NCollapse, NCollapseItem, NCode, NSelect, NTag } from "naive-ui";
 import { DynamicScroller, DynamicScrollerItem } from "vue-virtual-scroller";
-import { ref } from "vue";
+import { ref, watch } from "vue";
 import type { NodeInfo, NextListItem, TaskInfo, PipelineCustomActionInfo, AuxLogEntry } from "../types/logTypes";
 import { analyzeWithAI, getAIConfig, saveAIConfig, type AIConfig, type FailureAnalysis } from "../utils/aiAnalyzer";
 import AISettingsModal from "./AISettingsModal.vue";
@@ -97,6 +97,14 @@ function handleSaveAIConfig(config: AIConfig) {
 }
 
 /**
+ * 监听任务切换，清空 AI 分析结果
+ */
+watch(() => props.selectedTaskKey, () => {
+  aiResults.value = [];
+  aiError.value = "";
+});
+
+/**
  * 执行 AI 分析
  */
 async function handleAIAnalyze() {
@@ -112,7 +120,7 @@ async function handleAIAnalyze() {
   aiResults.value = [];
   
   try {
-    const rawResults = await analyzeWithAI(aiConfig.value, [props.selectedTask]);
+    const rawResults = await analyzeWithAI(aiConfig.value, [props.selectedTask], props.selectedTaskAuxLogs);
     
     const dedupedMap = new Map<string, FailureAnalysis>();
     for (const result of rawResults) {
