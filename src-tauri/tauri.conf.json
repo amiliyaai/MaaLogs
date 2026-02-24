@@ -45,7 +45,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDU1NDk0RTU0QjgxQkY1OTcKUldTWDlSdTRWRTVKVlE3UGVSWXI2TGZTTWlRM21NWkpLZTRPT0czaVI5ZkV5cGhwVlNaWEs2NDMK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDQzNkZCMzZDMEVFNjMwMTEKUldRUk1PWU9iTE52UTF2WVRQUlB0ZWhxc0t1bVZTZldXemx2a3FRRk1SWHNhSXJOZnQ4d2lIRzcK",
       "endpoints": [
         "https://github.com/amiliyaai/MaaLogs/releases/latest/download/latest.json"
       ]
