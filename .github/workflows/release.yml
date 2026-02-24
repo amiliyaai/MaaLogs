@@ -144,8 +144,11 @@ jobs:
       - name: Prepare release files
         run: |
           mkdir -p release-files
-          find assets -type f \( -name "*.dmg" -o -name "*.app.tar.gz*" -o -name "*.exe" -o -name "*.msi" -o -name "*.AppImage" -o -name "*.deb" \) -exec cp {} release-files/ \;
+          find assets -type f \( -name "*.dmg" -o -name "*.app.tar.gz*" -o -name "*.exe" -o -name "*.msi" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.sig" \) -exec cp {} release-files/ \;
+          echo "=== All files in release-files ==="
           ls -la release-files/
+          echo "=== Signature files ==="
+          find release-files -name "*.sig" -exec echo "Found: {}" \;
 
       - name: Generate latest.json
         run: |
@@ -154,11 +157,15 @@ jobs:
           REPO="amiliyaai/MaaLogs"
           BASE_URL="https://github.com/${REPO}/releases/download/${TAG}"
           
-          # 读取签名文件
-          MAC_X64_SIG=$(cat release-files/MaaLogs.app.tar.gz.sig 2>/dev/null || echo "")
-          MAC_ARM_SIG=$(cat release-files/MaaLogs.app.tar.gz.sig 2>/dev/null || echo "")
-          WIN_SIG=$(cat release-files/MaaLogs_${VERSION}_x64-setup.exe.sig 2>/dev/null || echo "")
-          LINUX_SIG=$(cat release-files/MaaLogs_${VERSION}_amd64.AppImage.sig 2>/dev/null || echo "")
+          # 查找并读取签名文件
+          MAC_SIG=$(find release-files -name "*.app.tar.gz.sig" | head -1 | xargs cat 2>/dev/null || echo "")
+          WIN_SIG=$(find release-files -name "*-setup.exe.sig" | head -1 | xargs cat 2>/dev/null || echo "")
+          LINUX_SIG=$(find release-files -name "*.AppImage.sig" | head -1 | xargs cat 2>/dev/null || echo "")
+          
+          echo "=== Signatures found ==="
+          echo "macOS: ${MAC_SIG:0:50}..."
+          echo "Windows: ${WIN_SIG:0:50}..."
+          echo "Linux: ${LINUX_SIG:0:50}..."
           
           # 生成 latest.json
           cat > release-files/latest.json << EOF
@@ -168,11 +175,11 @@ jobs:
             "pub_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
             "platforms": {
               "darwin-x86_64": {
-                "signature": "${MAC_X64_SIG}",
+                "signature": "${MAC_SIG}",
                 "url": "${BASE_URL}/MaaLogs.app.tar.gz"
               },
               "darwin-aarch64": {
-                "signature": "${MAC_ARM_SIG}",
+                "signature": "${MAC_SIG}",
                 "url": "${BASE_URL}/MaaLogs.app.tar.gz"
               },
               "linux-x86_64": {
