@@ -18,6 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
+      version: ${{ steps.tag.outputs.version }}
       is_prerelease: ${{ steps.tag.outputs.is_prerelease }}
     steps:
       - uses: actions/checkout@v4
@@ -33,6 +34,8 @@ jobs:
             TAG="${{ github.event.inputs.tag }}"
           fi
           
+          VERSION="${TAG#v}"
+          
           IS_PRERELEASE=false
           if [[ $TAG =~ alpha|beta|rc|-ci ]]; then
             IS_PRERELEASE=true
@@ -40,6 +43,7 @@ jobs:
           fi
           
           echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "is_prerelease=$IS_PRERELEASE" >> $GITHUB_OUTPUT
 
   build:
@@ -140,8 +144,51 @@ jobs:
       - name: Prepare release files
         run: |
           mkdir -p release-files
-          find assets -type f \( -name "*.dmg" -o -name "*.app.tar.gz*" -o -name "*.exe" -o -name "*.msi" -o -name "*.AppImage" -o -name "*.deb" -o -name "latest.json" \) -exec cp {} release-files/ \;
+          find assets -type f \( -name "*.dmg" -o -name "*.app.tar.gz*" -o -name "*.exe" -o -name "*.msi" -o -name "*.AppImage" -o -name "*.deb" \) -exec cp {} release-files/ \;
           ls -la release-files/
+
+      - name: Generate latest.json
+        run: |
+          VERSION="${{ needs.meta.outputs.version }}"
+          TAG="${{ needs.meta.outputs.tag }}"
+          REPO="amiliyaai/MaaLogs"
+          BASE_URL="https://github.com/${REPO}/releases/download/${TAG}"
+          
+          # 读取签名文件
+          MAC_X64_SIG=$(cat release-files/MaaLogs.app.tar.gz.sig 2>/dev/null || echo "")
+          MAC_ARM_SIG=$(cat release-files/MaaLogs.app.tar.gz.sig 2>/dev/null || echo "")
+          WIN_SIG=$(cat release-files/MaaLogs_${VERSION}_x64-setup.exe.sig 2>/dev/null || echo "")
+          LINUX_SIG=$(cat release-files/MaaLogs_${VERSION}_amd64.AppImage.sig 2>/dev/null || echo "")
+          
+          # 生成 latest.json
+          cat > release-files/latest.json << EOF
+          {
+            "version": "${VERSION}",
+            "notes": "${{ needs.changelog.outputs.release_body }}",
+            "pub_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "platforms": {
+              "darwin-x86_64": {
+                "signature": "${MAC_X64_SIG}",
+                "url": "${BASE_URL}/MaaLogs.app.tar.gz"
+              },
+              "darwin-aarch64": {
+                "signature": "${MAC_ARM_SIG}",
+                "url": "${BASE_URL}/MaaLogs.app.tar.gz"
+              },
+              "linux-x86_64": {
+                "signature": "${LINUX_SIG}",
+                "url": "${BASE_URL}/MaaLogs_${VERSION}_amd64.AppImage"
+              },
+              "windows-x86_64": {
+                "signature": "${WIN_SIG}",
+                "url": "${BASE_URL}/MaaLogs_${VERSION}_x64-setup.exe"
+              }
+            }
+          }
+          EOF
+          
+          echo "Generated latest.json:"
+          cat release-files/latest.json
 
       - uses: softprops/action-gh-release@v2
         with:
