@@ -17,7 +17,7 @@
  * Vue 核心导入
  */
 import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
-import { NConfigProvider, NMessageProvider, createDiscreteApi } from "naive-ui";
+import { NConfigProvider, NMessageProvider, NDialogProvider, createDiscreteApi } from "naive-ui";
 
 /**
  * Tauri API 导入
@@ -531,11 +531,12 @@ onBeforeUnmount(() => {
 <template>
   <n-config-provider>
     <n-message-provider>
-      <div
-        class="app"
-        @dragover.prevent
-        @drop.prevent="handleDrop"
-      >
+      <n-dialog-provider>
+        <div
+          class="app"
+          @dragover.prevent
+          @drop.prevent="handleDrop"
+        >
         <!-- 顶部导航栏 -->
         <AppTopBar
           :view-mode="viewMode"
@@ -674,6 +675,7 @@ onBeforeUnmount(() => {
           @update:stat-sort="statSort = $event"
         />
       </div>
+      </n-dialog-provider>
     </n-message-provider>
   </n-config-provider>
 </template>
