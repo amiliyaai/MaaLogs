@@ -9,6 +9,9 @@ on:
       run-id:
         description: "Build run ID"
         required: true
+      tag:
+        description: "Tag name (e.g. v1.0.0)"
+        required: true
 
 permissions:
   contents: write
@@ -34,10 +37,21 @@ jobs:
           mkdir -p release-files
           find assets -type f \( -name "*.dmg" -o -name "*.app.tar.gz*" -o -name "*.exe" -o -name "*.msi" -o -name "*.AppImage" -o -name "*.deb" -o -name "latest.json" \) -exec cp {} release-files/ \;
 
+      - name: Get tag name
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" == "push" ]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+          else
+            TAG="${{ github.event.inputs.tag }}"
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.tag.outputs.tag }}
           files: release-files/*
           generate_release_notes: true
-          prerelease: ${{ contains(github.ref, '-') }}
+          prerelease: ${{ contains(steps.tag.outputs.tag, '-') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
