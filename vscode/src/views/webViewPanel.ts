@@ -1,157 +1,157 @@
-import * as vscode from 'vscode';
-import type { TaskInfo, NodeInfo, AuxLogEntry, ControllerInfo } from '../types/logTypes';
-import { Logger } from '../utils/logger';
+import * as vscode from "vscode";
+import type { TaskInfo, NodeInfo, AuxLogEntry, ControllerInfo } from "../types/logTypes";
+import { Logger } from "../utils/logger";
 
-const logger = new Logger('WebView');
+const logger = new Logger("WebView");
 
 export interface WebViewMessage {
-    type: string;
-    payload?: unknown;
+  type: string;
+  payload?: unknown;
 }
 
 export interface WebViewState {
-    tasks: TaskInfo[];
-    filteredTasks: TaskInfo[];
-    selectedTaskKey: string | null;
-    selectedNodeId: number | null;
-    selectedProcessId: string;
-    selectedThreadId: string;
-    hiddenCallers: string[];
-    selectedAuxLevels: string[];
-    searchResults: { fileName: string; lineNumber: number; line: string }[];
+  tasks: TaskInfo[];
+  filteredTasks: TaskInfo[];
+  selectedTaskKey: string | null;
+  selectedNodeId: number | null;
+  selectedProcessId: string;
+  selectedThreadId: string;
+  hiddenCallers: string[];
+  selectedAuxLevels: string[];
+  searchResults: { fileName: string; lineNumber: number; line: string }[];
 }
 
 export class WebViewPanel {
-    private panel: vscode.WebviewPanel | null = null;
-    private context: vscode.ExtensionContext;
-    private state: WebViewState;
-    private _onDidDispose = new vscode.EventEmitter<void>();
-    private _onDidMessage = new vscode.EventEmitter<WebViewMessage>();
+  private panel: vscode.WebviewPanel | null = null;
+  private context: vscode.ExtensionContext;
+  private state: WebViewState;
+  private _onDidDispose = new vscode.EventEmitter<void>();
+  private _onDidMessage = new vscode.EventEmitter<WebViewMessage>();
 
-    readonly onDidDispose = this._onDidDispose.event;
-    readonly onDidMessage = this._onDidMessage.event;
+  readonly onDidDispose = this._onDidDispose.event;
+  readonly onDidMessage = this._onDidMessage.event;
 
-    constructor(context: vscode.ExtensionContext) {
-        this.context = context;
-        this.state = {
-            tasks: [],
-            filteredTasks: [],
-            selectedTaskKey: null,
-            selectedNodeId: null,
-            selectedProcessId: 'all',
-            selectedThreadId: 'all',
-            hiddenCallers: [],
-            selectedAuxLevels: ['error', 'warn', 'info', 'debug'],
-            searchResults: []
-        };
+  constructor(context: vscode.ExtensionContext) {
+    this.context = context;
+    this.state = {
+      tasks: [],
+      filteredTasks: [],
+      selectedTaskKey: null,
+      selectedNodeId: null,
+      selectedProcessId: "all",
+      selectedThreadId: "all",
+      hiddenCallers: [],
+      selectedAuxLevels: ["error", "warn", "info", "debug"],
+      searchResults: [],
+    };
+  }
+
+  show(): void {
+    if (this.panel) {
+      this.panel.reveal();
+      return;
     }
 
-    show(): void {
-        if (this.panel) {
-            this.panel.reveal();
-            return;
-        }
+    this.panel = vscode.window.createWebviewPanel(
+      "maaLogsAnalysis",
+      "MaaLogs 分析",
+      vscode.ViewColumn.One,
+      {
+        enableScripts: true,
+        retainContextWhenHidden: true,
+        enableFindWidget: true,
+      }
+    );
 
-        this.panel = vscode.window.createWebviewPanel(
-            'maaLogsAnalysis',
-            'MaaLogs 分析',
-            vscode.ViewColumn.One,
-            {
-                enableScripts: true,
-                retainContextWhenHidden: true,
-                enableFindWidget: true
-            }
-        );
+    this.panel.webview.html = this.getHtml();
 
-        this.panel.webview.html = this.getHtml();
+    this.panel.webview.onDidReceiveMessage((message: WebViewMessage) => {
+      logger.debug("收到消息", { type: message.type, payload: message.payload });
+      this._onDidMessage.fire(message);
+      this.handleMessage(message);
+    });
 
-        this.panel.webview.onDidReceiveMessage((message: WebViewMessage) => {
-            logger.debug('收到消息', { type: message.type, payload: message.payload });
-            this._onDidMessage.fire(message);
-            this.handleMessage(message);
-        });
+    this.panel.onDidDispose(() => {
+      this.panel = null;
+      this._onDidDispose.fire();
+    });
+  }
 
-        this.panel.onDidDispose(() => {
-            this.panel = null;
-            this._onDidDispose.fire();
-        });
-    }
-
-    private handleMessage(message: WebViewMessage): void {
-        switch (message.type) {
-            case 'selectTask':
-                this.state.selectedTaskKey = message.payload as string;
-                this.state.selectedNodeId = null;
-                this.updateState();
-                break;
-            case 'selectNode':
-                this.state.selectedNodeId = message.payload as number;
-                this.updateState();
-                break;
-            case 'setProcessId':
-                this.state.selectedProcessId = message.payload as string;
-                this.filterTasks();
-                break;
-            case 'setThreadId':
-                this.state.selectedThreadId = message.payload as string;
-                this.filterTasks();
-                break;
-            case 'setHiddenCallers':
-                this.state.hiddenCallers = message.payload as string[];
-                this.updateState();
-                break;
-            case 'setAuxLevels':
-                this.state.selectedAuxLevels = message.payload as string[];
-                this.updateState();
-                break;
-            case 'openFile':
-                this.openFile(message.payload as { fileName: string; lineNumber: number });
-                break;
-        }
-    }
-
-    private async openFile(payload: { fileName: string; lineNumber: number }): Promise<void> {
-        const files = await vscode.workspace.findFiles(payload.fileName);
-        if (files.length > 0) {
-            const document = await vscode.workspace.openTextDocument(files[0]);
-            const editor = await vscode.window.showTextDocument(document);
-            const position = new vscode.Position(payload.lineNumber - 1, 0);
-            editor.selection = new vscode.Selection(position, position);
-            editor.revealRange(new vscode.Range(position, position));
-        }
-    }
-
-    setTasks(tasks: TaskInfo[]): void {
-        this.state.tasks = tasks;
-        this.filterTasks();
-    }
-
-    private filterTasks(): void {
-        let filtered = [...this.state.tasks];
-
-        if (this.state.selectedProcessId !== 'all') {
-            filtered = filtered.filter(t => t.processId === this.state.selectedProcessId);
-        }
-
-        if (this.state.selectedThreadId !== 'all') {
-            filtered = filtered.filter(t => t.threadId === this.state.selectedThreadId);
-        }
-
-        this.state.filteredTasks = filtered;
+  private handleMessage(message: WebViewMessage): void {
+    switch (message.type) {
+      case "selectTask":
+        this.state.selectedTaskKey = message.payload as string;
+        this.state.selectedNodeId = null;
         this.updateState();
+        break;
+      case "selectNode":
+        this.state.selectedNodeId = message.payload as number;
+        this.updateState();
+        break;
+      case "setProcessId":
+        this.state.selectedProcessId = message.payload as string;
+        this.filterTasks();
+        break;
+      case "setThreadId":
+        this.state.selectedThreadId = message.payload as string;
+        this.filterTasks();
+        break;
+      case "setHiddenCallers":
+        this.state.hiddenCallers = message.payload as string[];
+        this.updateState();
+        break;
+      case "setAuxLevels":
+        this.state.selectedAuxLevels = message.payload as string[];
+        this.updateState();
+        break;
+      case "openFile":
+        this.openFile(message.payload as { fileName: string; lineNumber: number });
+        break;
+    }
+  }
+
+  private async openFile(payload: { fileName: string; lineNumber: number }): Promise<void> {
+    const files = await vscode.workspace.findFiles(payload.fileName);
+    if (files.length > 0) {
+      const document = await vscode.workspace.openTextDocument(files[0]);
+      const editor = await vscode.window.showTextDocument(document);
+      const position = new vscode.Position(payload.lineNumber - 1, 0);
+      editor.selection = new vscode.Selection(position, position);
+      editor.revealRange(new vscode.Range(position, position));
+    }
+  }
+
+  setTasks(tasks: TaskInfo[]): void {
+    this.state.tasks = tasks;
+    this.filterTasks();
+  }
+
+  private filterTasks(): void {
+    let filtered = [...this.state.tasks];
+
+    if (this.state.selectedProcessId !== "all") {
+      filtered = filtered.filter((t) => t.processId === this.state.selectedProcessId);
     }
 
-    private updateState(): void {
-        if (this.panel) {
-            this.panel.webview.postMessage({
-                type: 'updateState',
-                payload: this.state
-            });
-        }
+    if (this.state.selectedThreadId !== "all") {
+      filtered = filtered.filter((t) => t.threadId === this.state.selectedThreadId);
     }
 
-    private getHtml(): string {
-        return `<!DOCTYPE html>
+    this.state.filteredTasks = filtered;
+    this.updateState();
+  }
+
+  private updateState(): void {
+    if (this.panel) {
+      this.panel.webview.postMessage({
+        type: "updateState",
+        payload: this.state,
+      });
+    }
+  }
+
+  private getHtml(): string {
+    return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -682,10 +682,10 @@ export class WebViewPanel {
     </script>
 </body>
 </html>`;
-    }
+  }
 
-    dispose(): void {
-        this.panel?.dispose();
-        this.panel = null;
-    }
+  dispose(): void {
+    this.panel?.dispose();
+    this.panel = null;
+  }
 }

@@ -1,277 +1,276 @@
-import * as vscode from 'vscode';
-import type { TaskInfo, NodeInfo, AuxLogEntry, ControllerInfo, RawLine } from '../types/logTypes';
-import { parseLogFile } from '../utils/parse';
-import { Logger } from '../utils/logger';
+import * as vscode from "vscode";
+import type { TaskInfo, NodeInfo, AuxLogEntry, ControllerInfo, RawLine } from "../types/logTypes";
+import { parseLogFile } from "../utils/parse";
+import { Logger } from "../utils/logger";
 
-const logger = new Logger('Sidebar');
+const logger = new Logger("Sidebar");
 
 export interface WebViewMessage {
-    type: string;
-    payload?: unknown;
+  type: string;
+  payload?: unknown;
 }
 
 export interface AppState {
-    tasks: TaskInfo[];
-    filteredTasks: TaskInfo[];
-    rawLines: RawLine[];
-    selectedTaskKey: string | null;
-    selectedNodeId: number | null;
-    selectedProcessId: string;
-    selectedThreadId: string;
-    hiddenCallers: string[];
-    selectedAuxLevels: string[];
-    searchQuery: string;
-    searchResults: RawLine[];
-    parseProgress: number;
-    parseState: 'ready' | 'parsing' | 'done' | 'error';
-    statusMessage: string;
-    files: { name: string; size: number }[];
+  tasks: TaskInfo[];
+  filteredTasks: TaskInfo[];
+  rawLines: RawLine[];
+  selectedTaskKey: string | null;
+  selectedNodeId: number | null;
+  selectedProcessId: string;
+  selectedThreadId: string;
+  hiddenCallers: string[];
+  selectedAuxLevels: string[];
+  searchQuery: string;
+  searchResults: RawLine[];
+  parseProgress: number;
+  parseState: "ready" | "parsing" | "done" | "error";
+  statusMessage: string;
+  files: { name: string; size: number }[];
 }
 
 export class SidebarWebViewProvider implements vscode.WebviewViewProvider {
-    public static readonly viewType = 'maaLogs.main';
-    
-    private _view?: vscode.WebviewView;
-    private context: vscode.ExtensionContext;
-    private state: AppState;
-    private _onDidChangeTasks = new vscode.EventEmitter<TaskInfo[]>();
-    
-    readonly onDidChangeTasks = this._onDidChangeTasks.event;
+  public static readonly viewType = "maaLogs.main";
 
-    constructor(context: vscode.ExtensionContext) {
-        this.context = context;
-        this.state = {
-            tasks: [],
-            filteredTasks: [],
-            rawLines: [],
-            selectedTaskKey: null,
-            selectedNodeId: null,
-            selectedProcessId: 'all',
-            selectedThreadId: 'all',
-            hiddenCallers: [],
-            selectedAuxLevels: ['error', 'warn', 'info', 'debug'],
-            searchQuery: '',
-            searchResults: [],
-            parseProgress: 0,
-            parseState: 'ready',
-            statusMessage: '请选择日志文件',
-            files: []
-        };
-    }
+  private _view?: vscode.WebviewView;
+  private context: vscode.ExtensionContext;
+  private state: AppState;
+  private _onDidChangeTasks = new vscode.EventEmitter<TaskInfo[]>();
 
-    resolveWebviewView(
-        webviewView: vscode.WebviewView,
-        _context: vscode.WebviewViewResolveContext,
-        _token: vscode.CancellationToken
-    ): void {
-        this._view = webviewView;
+  readonly onDidChangeTasks = this._onDidChangeTasks.event;
 
-        webviewView.webview.options = {
-            enableScripts: true,
-            localResourceRoots: [this.context.extensionUri]
-        };
+  constructor(context: vscode.ExtensionContext) {
+    this.context = context;
+    this.state = {
+      tasks: [],
+      filteredTasks: [],
+      rawLines: [],
+      selectedTaskKey: null,
+      selectedNodeId: null,
+      selectedProcessId: "all",
+      selectedThreadId: "all",
+      hiddenCallers: [],
+      selectedAuxLevels: ["error", "warn", "info", "debug"],
+      searchQuery: "",
+      searchResults: [],
+      parseProgress: 0,
+      parseState: "ready",
+      statusMessage: "请选择日志文件",
+      files: [],
+    };
+  }
 
-        webviewView.webview.html = this.getHtml();
+  resolveWebviewView(
+    webviewView: vscode.WebviewView,
+    _context: vscode.WebviewViewResolveContext,
+    _token: vscode.CancellationToken
+  ): void {
+    this._view = webviewView;
 
-        webviewView.webview.onDidReceiveMessage((message: WebViewMessage) => {
-            this.handleMessage(message);
-        });
+    webviewView.webview.options = {
+      enableScripts: true,
+      localResourceRoots: [this.context.extensionUri],
+    };
 
-        webviewView.onDidDispose(() => {
-            this._view = undefined;
-        });
-    }
+    webviewView.webview.html = this.getHtml();
 
-    private handleMessage(message: WebViewMessage): void {
-        switch (message.type) {
-            case 'ready':
-                this.updateState();
-                break;
-            case 'selectFiles':
-                this.selectFiles();
-                break;
-            case 'selectTask':
-                this.state.selectedTaskKey = message.payload as string;
-                this.state.selectedNodeId = null;
-                this.updateState();
-                break;
-            case 'selectNode':
-                this.state.selectedNodeId = message.payload as number;
-                this.updateState();
-                break;
-            case 'setProcessId':
-                this.state.selectedProcessId = message.payload as string;
-                this.filterTasks();
-                break;
-            case 'setThreadId':
-                this.state.selectedThreadId = message.payload as string;
-                this.filterTasks();
-                break;
-            case 'setHiddenCallers':
-                this.state.hiddenCallers = message.payload as string[];
-                this.updateState();
-                break;
-            case 'setAuxLevels':
-                this.state.selectedAuxLevels = message.payload as string[];
-                this.updateState();
-                break;
-            case 'search':
-                this.state.searchQuery = message.payload as string;
-                this.search();
-                break;
-            case 'openFile':
-                this.openFile(message.payload as { fileName: string; lineNumber: number });
-                break;
-            case 'clearFiles':
-                this.clearFiles();
-                break;
-        }
-    }
+    webviewView.webview.onDidReceiveMessage((message: WebViewMessage) => {
+      this.handleMessage(message);
+    });
 
-    public async selectFiles(uris?: vscode.Uri[]): Promise<void> {
-        if (!uris) {
-            uris = await vscode.window.showOpenDialog({
-                canSelectMany: true,
-                openLabel: '选择日志文件',
-                filters: {
-                    'Log Files': ['log', 'maalog'],
-                    'JSON Files': ['json', 'jsonc'],
-                    'All Files': ['*']
-                }
-            });
-        }
+    webviewView.onDidDispose(() => {
+      this._view = undefined;
+    });
+  }
 
-        if (!uris || uris.length === 0) {
-            return;
-        }
-
-        this.state.files = uris.map(uri => ({
-            name: uri.fsPath.split(/[/\\]/).pop() || uri.fsPath,
-            size: 0
-        }));
-        this.state.parseState = 'parsing';
-        this.state.statusMessage = '解析中...';
+  private handleMessage(message: WebViewMessage): void {
+    switch (message.type) {
+      case "ready":
         this.updateState();
-
-        await this.parseFiles(uris);
-    }
-
-    private async parseFiles(uris: vscode.Uri[]): Promise<void> {
-        const allTasks: TaskInfo[] = [];
-        const allRawLines: RawLine[] = [];
-        const allControllers: ControllerInfo[] = [];
-
-        for (let i = 0; i < uris.length; i++) {
-            const uri = uris[i];
-            this.state.parseProgress = Math.round((i / uris.length) * 100);
-            this.state.statusMessage = `解析 ${this.state.files[i]?.name || uri.fsPath}...`;
-            this.updateState();
-
-            try {
-                const content = await vscode.workspace.fs.readFile(uri);
-                const text = Buffer.from(content).toString('utf-8');
-                const fileName = uri.fsPath.split(/[/\\]/).pop() || uri.fsPath;
-                
-                const result = await parseLogFile(text, fileName);
-                allTasks.push(...result.tasks);
-                allRawLines.push(...result.rawLines);
-                allControllers.push(...result.controllerInfos);
-            } catch (error) {
-                logger.error('解析文件失败', { file: uri.fsPath, error: String(error) });
-            }
-        }
-
-        this.state.tasks = allTasks;
-        this.state.rawLines = allRawLines;
-        this.state.filteredTasks = allTasks;
-        this.state.parseProgress = 100;
-        this.state.parseState = 'done';
-        this.state.statusMessage = allTasks.length > 0 
-            ? `解析完成，共 ${allTasks.length} 个任务` 
-            : '解析完成，未识别到任务';
-
-        this._onDidChangeTasks.fire(allTasks);
+        break;
+      case "selectFiles":
+        this.selectFiles();
+        break;
+      case "selectTask":
+        this.state.selectedTaskKey = message.payload as string;
+        this.state.selectedNodeId = null;
         this.updateState();
-    }
-
-    private filterTasks(): void {
-        let filtered = [...this.state.tasks];
-
-        if (this.state.selectedProcessId !== 'all') {
-            filtered = filtered.filter(t => t.processId === this.state.selectedProcessId);
-        }
-
-        if (this.state.selectedThreadId !== 'all') {
-            filtered = filtered.filter(t => t.threadId === this.state.selectedThreadId);
-        }
-
-        this.state.filteredTasks = filtered;
+        break;
+      case "selectNode":
+        this.state.selectedNodeId = message.payload as number;
         this.updateState();
-    }
-
-    private search(): void {
-        if (!this.state.searchQuery) {
-            this.state.searchResults = [];
-            this.updateState();
-            return;
-        }
-
-        const query = this.state.searchQuery.toLowerCase();
-        this.state.searchResults = this.state.rawLines.filter(line => 
-            line.line.toLowerCase().includes(query)
-        ).slice(0, 100);
-        
+        break;
+      case "setProcessId":
+        this.state.selectedProcessId = message.payload as string;
+        this.filterTasks();
+        break;
+      case "setThreadId":
+        this.state.selectedThreadId = message.payload as string;
+        this.filterTasks();
+        break;
+      case "setHiddenCallers":
+        this.state.hiddenCallers = message.payload as string[];
         this.updateState();
-    }
-
-    private async openFile(payload: { fileName: string; lineNumber: number }): Promise<void> {
-        const files = await vscode.workspace.findFiles(payload.fileName);
-        if (files.length > 0) {
-            const document = await vscode.workspace.openTextDocument(files[0]);
-            const editor = await vscode.window.showTextDocument(document);
-            const position = new vscode.Position(payload.lineNumber - 1, 0);
-            editor.selection = new vscode.Selection(position, position);
-            editor.revealRange(new vscode.Range(position, position));
-        }
-    }
-
-    private clearFiles(): void {
-        this.state = {
-            tasks: [],
-            filteredTasks: [],
-            rawLines: [],
-            selectedTaskKey: null,
-            selectedNodeId: null,
-            selectedProcessId: 'all',
-            selectedThreadId: 'all',
-            hiddenCallers: [],
-            selectedAuxLevels: ['error', 'warn', 'info', 'debug'],
-            searchQuery: '',
-            searchResults: [],
-            parseProgress: 0,
-            parseState: 'ready',
-            statusMessage: '请选择日志文件',
-            files: []
-        };
+        break;
+      case "setAuxLevels":
+        this.state.selectedAuxLevels = message.payload as string[];
         this.updateState();
+        break;
+      case "search":
+        this.state.searchQuery = message.payload as string;
+        this.search();
+        break;
+      case "openFile":
+        this.openFile(message.payload as { fileName: string; lineNumber: number });
+        break;
+      case "clearFiles":
+        this.clearFiles();
+        break;
+    }
+  }
+
+  public async selectFiles(uris?: vscode.Uri[]): Promise<void> {
+    if (!uris) {
+      uris = await vscode.window.showOpenDialog({
+        canSelectMany: true,
+        openLabel: "选择日志文件",
+        filters: {
+          "Log Files": ["log", "maalog"],
+          "JSON Files": ["json", "jsonc"],
+          "All Files": ["*"],
+        },
+      });
     }
 
-    private updateState(): void {
-        if (this._view) {
-            this._view.webview.postMessage({
-                type: 'updateState',
-                payload: this.state
-            });
-        }
+    if (!uris || uris.length === 0) {
+      return;
     }
 
-    private getHtml(): string {
-        return `<!DOCTYPE html>
+    this.state.files = uris.map((uri) => ({
+      name: uri.fsPath.split(/[/\\]/).pop() || uri.fsPath,
+      size: 0,
+    }));
+    this.state.parseState = "parsing";
+    this.state.statusMessage = "解析中...";
+    this.updateState();
+
+    await this.parseFiles(uris);
+  }
+
+  private async parseFiles(uris: vscode.Uri[]): Promise<void> {
+    const allTasks: TaskInfo[] = [];
+    const allRawLines: RawLine[] = [];
+    const allControllers: ControllerInfo[] = [];
+
+    for (let i = 0; i < uris.length; i++) {
+      const uri = uris[i];
+      this.state.parseProgress = Math.round((i / uris.length) * 100);
+      this.state.statusMessage = `解析 ${this.state.files[i]?.name || uri.fsPath}...`;
+      this.updateState();
+
+      try {
+        const content = await vscode.workspace.fs.readFile(uri);
+        const text = Buffer.from(content).toString("utf-8");
+        const fileName = uri.fsPath.split(/[/\\]/).pop() || uri.fsPath;
+
+        const result = await parseLogFile(text, fileName);
+        allTasks.push(...result.tasks);
+        allRawLines.push(...result.rawLines);
+        allControllers.push(...result.controllerInfos);
+      } catch (error) {
+        logger.error("解析文件失败", { file: uri.fsPath, error: String(error) });
+      }
+    }
+
+    this.state.tasks = allTasks;
+    this.state.rawLines = allRawLines;
+    this.state.filteredTasks = allTasks;
+    this.state.parseProgress = 100;
+    this.state.parseState = "done";
+    this.state.statusMessage =
+      allTasks.length > 0 ? `解析完成，共 ${allTasks.length} 个任务` : "解析完成，未识别到任务";
+
+    this._onDidChangeTasks.fire(allTasks);
+    this.updateState();
+  }
+
+  private filterTasks(): void {
+    let filtered = [...this.state.tasks];
+
+    if (this.state.selectedProcessId !== "all") {
+      filtered = filtered.filter((t) => t.processId === this.state.selectedProcessId);
+    }
+
+    if (this.state.selectedThreadId !== "all") {
+      filtered = filtered.filter((t) => t.threadId === this.state.selectedThreadId);
+    }
+
+    this.state.filteredTasks = filtered;
+    this.updateState();
+  }
+
+  private search(): void {
+    if (!this.state.searchQuery) {
+      this.state.searchResults = [];
+      this.updateState();
+      return;
+    }
+
+    const query = this.state.searchQuery.toLowerCase();
+    this.state.searchResults = this.state.rawLines
+      .filter((line) => line.line.toLowerCase().includes(query))
+      .slice(0, 100);
+
+    this.updateState();
+  }
+
+  private async openFile(payload: { fileName: string; lineNumber: number }): Promise<void> {
+    const files = await vscode.workspace.findFiles(payload.fileName);
+    if (files.length > 0) {
+      const document = await vscode.workspace.openTextDocument(files[0]);
+      const editor = await vscode.window.showTextDocument(document);
+      const position = new vscode.Position(payload.lineNumber - 1, 0);
+      editor.selection = new vscode.Selection(position, position);
+      editor.revealRange(new vscode.Range(position, position));
+    }
+  }
+
+  private clearFiles(): void {
+    this.state = {
+      tasks: [],
+      filteredTasks: [],
+      rawLines: [],
+      selectedTaskKey: null,
+      selectedNodeId: null,
+      selectedProcessId: "all",
+      selectedThreadId: "all",
+      hiddenCallers: [],
+      selectedAuxLevels: ["error", "warn", "info", "debug"],
+      searchQuery: "",
+      searchResults: [],
+      parseProgress: 0,
+      parseState: "ready",
+      statusMessage: "请选择日志文件",
+      files: [],
+    };
+    this.updateState();
+  }
+
+  private updateState(): void {
+    if (this._view) {
+      this._view.webview.postMessage({
+        type: "updateState",
+        payload: this.state,
+      });
+    }
+  }
+
+  private getHtml(): string {
+    return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${this._view?.webview.cspSource || ''} 'unsafe-inline'; script-src ${this._view?.webview.cspSource || ''} 'unsafe-inline';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${this._view?.webview.cspSource || ""} 'unsafe-inline'; script-src ${this._view?.webview.cspSource || ""} 'unsafe-inline';">
     <title>MaaLogs</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1022,5 +1021,5 @@ export class SidebarWebViewProvider implements vscode.WebviewViewProvider {
     </script>
 </body>
 </html>`;
-    }
+  }
 }

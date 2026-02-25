@@ -41,15 +41,15 @@ jobs:
           else
             TAG="${{ github.event.inputs.tag }}"
           fi
-          
+
           VERSION="${TAG#v}"
-          
+
           IS_PRERELEASE=false
           if [[ $TAG =~ alpha|beta|rc|-ci ]]; then
             IS_PRERELEASE=true
             echo "This is a prerelease version"
           fi
-          
+
           echo "tag=$TAG" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "is_prerelease=$IS_PRERELEASE" >> $GITHUB_OUTPUT
@@ -68,8 +68,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -98,9 +98,9 @@ jobs:
           TARGET="${{ matrix.target }}"
           ARCH="${TARGET%%-*}"
           BUNDLE_DIR="src-tauri/target/${TARGET}/release/bundle"
-          
+
           mkdir -p release-files
-          
+
           cp "$BUNDLE_DIR/dmg/"*.dmg "release-files/MaaLogs-macos-${ARCH}-v${VERSION}.dmg" || true
           if [[ -f "$BUNDLE_DIR/macos/MaaLogs.app.tar.gz" ]]; then
             cp "$BUNDLE_DIR/macos/MaaLogs.app.tar.gz" "release-files/MaaLogs-macos-${ARCH}-v${VERSION}.app.tar.gz"
@@ -108,7 +108,7 @@ jobs:
           if [[ -f "$BUNDLE_DIR/macos/MaaLogs.app.tar.gz.sig" ]]; then
             cp "$BUNDLE_DIR/macos/MaaLogs.app.tar.gz.sig" "release-files/MaaLogs-macos-${ARCH}-v${VERSION}.app.tar.gz.sig"
           fi
-          
+
           echo "=== Release files ==="
           ls -la release-files/
 
@@ -134,8 +134,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -164,12 +164,12 @@ jobs:
           TARGET="${{ matrix.target }}"
           ARCH="${TARGET%%-*}"
           BUNDLE_DIR="src-tauri/target/${TARGET}/release/bundle"
-          
+
           mkdir -p release-files
-          
+
           cp "$BUNDLE_DIR/nsis/"*-setup.exe "release-files/MaaLogs-win-${ARCH}-v${VERSION}-setup.exe" || true
           cp "$BUNDLE_DIR/nsis/"*-setup.exe.sig "release-files/MaaLogs-win-${ARCH}-v${VERSION}-setup.exe.sig" || true
-          
+
           echo "=== Release files ==="
           ls -la release-files/
 
@@ -191,8 +191,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -226,12 +226,12 @@ jobs:
           VERSION="${{ needs.meta.outputs.version }}"
           TARGET="x86_64-unknown-linux-gnu"
           BUNDLE_DIR="src-tauri/target/${TARGET}/release/bundle"
-          
+
           mkdir -p release-files
-          
+
           cp "$BUNDLE_DIR/appimage/"*.AppImage "release-files/MaaLogs-linux-x86_64-v${VERSION}.AppImage" || true
           cp "$BUNDLE_DIR/appimage/"*.AppImage.sig "release-files/MaaLogs-linux-x86_64-v${VERSION}.AppImage.sig" || true
-          
+
           echo "=== Release files ==="
           ls -la release-files/
 
@@ -285,7 +285,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: release-files
-          pattern: 'bundle-*'
+          pattern: "bundle-*"
           merge-multiple: true
 
       - name: List release files
@@ -299,20 +299,20 @@ jobs:
           TAG="${{ needs.meta.outputs.tag }}"
           REPO="amiliyaai/MaaLogs"
           BASE_URL="https://github.com/${REPO}/releases/download/${TAG}"
-          
+
           MAC_X64_SIG=$(cat release-files/MaaLogs-macos-x86_64-v${VERSION}.app.tar.gz.sig 2>/dev/null || echo "")
           MAC_ARM_SIG=$(cat release-files/MaaLogs-macos-aarch64-v${VERSION}.app.tar.gz.sig 2>/dev/null || echo "")
           WIN_X64_SIG=$(cat release-files/MaaLogs-win-x86_64-v${VERSION}-setup.exe.sig 2>/dev/null || echo "")
           WIN_ARM_SIG=$(cat release-files/MaaLogs-win-aarch64-v${VERSION}-setup.exe.sig 2>/dev/null || echo "")
           LINUX_X64_SIG=$(cat release-files/MaaLogs-linux-x86_64-v${VERSION}.AppImage.sig 2>/dev/null || echo "")
-          
+
           echo "=== Signatures found ==="
           echo "macOS x86_64: ${MAC_X64_SIG:0:50}..."
           echo "macOS aarch64: ${MAC_ARM_SIG:0:50}..."
           echo "Windows x86_64: ${WIN_X64_SIG:0:50}..."
           echo "Windows aarch64: ${WIN_ARM_SIG:0:50}..."
           echo "Linux x86_64: ${LINUX_X64_SIG:0:50}..."
-          
+
           jq -n \
             --arg version "$VERSION" \
             --arg notes "See release notes for details" \
@@ -339,7 +339,7 @@ jobs:
                 "windows-aarch64": { signature: $win_arm_sig, url: $win_arm_url }
               }
             }' > release-files/latest.json
-          
+
           echo "Generated latest.json:"
           cat release-files/latest.json
 
@@ -349,26 +349,26 @@ jobs:
           VERSION="${{ needs.meta.outputs.version }}"
           cat > release_body.md << 'EOF'
           ## 📦 下载说明
-          
+
           ### Windows
           - **x64**: 下载 `win-x86_64-setup.exe` 安装包
           - **ARM64**: 下载 `win-aarch64-setup.exe` 安装包
-          
+
           ### macOS
           - **Intel 芯片**: 下载 `macos-x86_64.dmg` 文件
           - **Apple Silicon (M1/M2/M3)**: 下载 `macos-aarch64.dmg` 文件
-          
+
           ### Linux
           - **x64**: 下载 `linux-x86_64.AppImage` 文件
-          
+
           ---
-          
+
           ## 📝 更新日志
-          
+
           EOF
-          
+
           echo "${{ needs.changelog.outputs.release_body }}" >> release_body.md
-          
+
           echo "=== Release body ==="
           cat release_body.md
 
@@ -377,7 +377,7 @@ jobs:
         with:
           body_path: release_body.md
           files: release-files/*
-          draft: true
+          draft: false
           prerelease: ${{ needs.meta.outputs.is_prerelease == 'true' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

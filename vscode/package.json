@@ -105,7 +105,11 @@
       "properties": {
         "maaLogs.defaultHiddenCallers": {
           "type": "array",
-          "default": ["main.go", "register.go", "checker.go"],
+          "default": [
+            "main.go",
+            "register.go",
+            "checker.go"
+          ],
           "description": "默认隐藏的日志来源"
         },
         "maaLogs.chunkSize": {

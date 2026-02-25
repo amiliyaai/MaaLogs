@@ -1,0 +1,21 @@
+version: "2"
+checks:
+  method-complexity:
+    config:
+      threshold: 15
+  method-lines:
+    config:
+      threshold: 120
+  argument-count:
+    config:
+      threshold: 6
+plugins:
+  eslint:
+    enabled: true
+  markdownlint:
+    enabled: false
+exclude_patterns:
+  - "dist/"
+  - "node_modules/"
+  - "src-tauri/target/"
+  - "vscode/out/"

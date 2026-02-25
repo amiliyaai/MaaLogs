@@ -2,10 +2,7 @@
   "permissions": [
     {
       "identifier": "fs:scope",
-      "allow": [
-        { "path": "$APPLOG/**" },
-        { "path": "$APPDATA/**" }
-      ]
+      "allow": [{ "path": "$APPLOG/**" }, { "path": "$APPDATA/**" }]
     }
   ]
 }

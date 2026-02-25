@@ -1,5 +1,21 @@
-import * as vscode from 'vscode';
-import type { LogLine, EventNotification, TaskInfo, ControllerInfo, NodeInfo, AuxLogEntry, ParseResult, AdbScreencapMethod, AdbInputMethod, Win32ScreencapMethod, Win32InputMethod, RecognitionDetail, ActionDetail, RecognitionAttempt, NextListItem } from '../types/logTypes';
+import * as vscode from "vscode";
+import type {
+  LogLine,
+  EventNotification,
+  TaskInfo,
+  ControllerInfo,
+  NodeInfo,
+  AuxLogEntry,
+  ParseResult,
+  AdbScreencapMethod,
+  AdbInputMethod,
+  Win32ScreencapMethod,
+  Win32InputMethod,
+  RecognitionDetail,
+  ActionDetail,
+  RecognitionAttempt,
+  NextListItem,
+} from "../types/logTypes";
 
 const ADB_SCREENCAP_METHOD_MAP: Record<number, AdbScreencapMethod> = {
   1: "EncodeToFileAndPull",
@@ -8,14 +24,14 @@ const ADB_SCREENCAP_METHOD_MAP: Record<number, AdbScreencapMethod> = {
   8: "RawByNetcat",
   16: "MinicapDirect",
   32: "MinicapStream",
-  64: "EmulatorExtras"
+  64: "EmulatorExtras",
 };
 
 const ADB_INPUT_METHOD_MAP: Record<number, AdbInputMethod> = {
   1: "AdbShell",
   2: "MinitouchAndAdbKey",
   4: "Maatouch",
-  8: "EmulatorExtras"
+  8: "EmulatorExtras",
 };
 
 const WIN32_SCREENCAP_METHOD_MAP: Record<number, Win32ScreencapMethod> = {
@@ -24,7 +40,7 @@ const WIN32_SCREENCAP_METHOD_MAP: Record<number, Win32ScreencapMethod> = {
   4: "DXGI_DesktopDup",
   8: "DXGI_DesktopDup_Window",
   16: "PrintWindow",
-  32: "ScreenDC"
+  32: "ScreenDC",
 };
 
 const WIN32_INPUT_METHOD_MAP: Record<number, Win32InputMethod> = {
@@ -36,7 +52,7 @@ const WIN32_INPUT_METHOD_MAP: Record<number, Win32InputMethod> = {
   32: "SendMessageWithCursorPos",
   64: "PostMessageWithCursorPos",
   128: "SendMessageWithWindowPos",
-  256: "PostMessageWithWindowPos"
+  256: "PostMessageWithWindowPos",
 };
 
 export class StringPool {
@@ -99,7 +115,10 @@ export function parseValue(value: string): unknown {
   }
   if (/^-?\d+$/.test(value)) return parseInt(value);
   if (/^-?\d+\.\d+$/.test(value)) return parseFloat(value);
-  if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+  if (
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  ) {
     return value.slice(1, -1);
   }
   return value;
@@ -176,7 +195,8 @@ export function parseMessageAndParams(message: string): {
 }
 
 export function parseLine(line: string, lineNum: number): LogLine | null {
-  const regex = /^\[([^\]]+)\]\[([^\]]+)\]\[([^\]]+)\]\[([^\]]+)\](?:\[([^\]]+)\])?(?:\[([^\]]+)\])?(?:\[([^\]]+)\])?\s*(.*)$/;
+  const regex =
+    /^\[([^\]]+)\]\[([^\]]+)\]\[([^\]]+)\]\[([^\]]+)\](?:\[([^\]]+)\])?(?:\[([^\]]+)\])?(?:\[([^\]]+)\])?\s*(.*)$/;
   const match = line.match(regex);
   if (!match) return null;
 
@@ -215,11 +235,14 @@ export function parseLine(line: string, lineNum: number): LogLine | null {
     params,
     status,
     duration,
-    _lineNumber: lineNum
+    _lineNumber: lineNum,
   };
 }
 
-export function parseEventNotification(parsed: LogLine, fileName: string): EventNotification | null {
+export function parseEventNotification(
+  parsed: LogLine,
+  fileName: string
+): EventNotification | null {
   const { message, params } = parsed;
   if (!message.includes("!!!OnEventNotify!!!")) return null;
 
@@ -235,7 +258,7 @@ export function parseEventNotification(parsed: LogLine, fileName: string): Event
     _lineNumber: parsed._lineNumber,
     fileName,
     processId: parsed.processId,
-    threadId: parsed.threadId
+    threadId: parsed.threadId,
   };
 }
 
@@ -251,9 +274,17 @@ export function parseControllerInfo(parsed: LogLine, fileName: string): Controll
   if (functionName === "MaaAdbControllerCreate") {
     const adbPath = params["adb_path"] as string | undefined;
     const address = params["address"] as string | undefined;
-    const screencapMethodsBitmask = typeof params["screencap_methods"] === "number" ? params["screencap_methods"] : parseInt(String(params["screencap_methods"] || "0"));
+    const screencapMethodsBitmask =
+      typeof params["screencap_methods"] === "number"
+        ? params["screencap_methods"]
+        : parseInt(String(params["screencap_methods"] || "0"));
     const inputMethodsValue = params["input_methods"];
-    const inputMethodsBitmask = typeof inputMethodsValue === "bigint" ? inputMethodsValue : (typeof inputMethodsValue === "number" ? BigInt(inputMethodsValue) : 0n);
+    const inputMethodsBitmask =
+      typeof inputMethodsValue === "bigint"
+        ? inputMethodsValue
+        : typeof inputMethodsValue === "number"
+          ? BigInt(inputMethodsValue)
+          : 0n;
     const config = params["config"] as Record<string, unknown> | undefined;
     const agentPath = params["agent_path"] as string | undefined;
 
@@ -268,14 +299,23 @@ export function parseControllerInfo(parsed: LogLine, fileName: string): Controll
       agentPath,
       timestamp,
       fileName,
-      lineNumber: parsed._lineNumber || 0
+      lineNumber: parsed._lineNumber || 0,
     };
   }
 
   if (functionName === "MaaWin32ControllerCreate") {
-    const screencapMethodValue = typeof params["screencap_method"] === "number" ? params["screencap_method"] : parseInt(String(params["screencap_method"] || "0"));
-    const mouseMethodValue = typeof params["mouse_method"] === "number" ? params["mouse_method"] : parseInt(String(params["mouse_method"] || "0"));
-    const keyboardMethodValue = typeof params["keyboard_method"] === "number" ? params["keyboard_method"] : parseInt(String(params["keyboard_method"] || "0"));
+    const screencapMethodValue =
+      typeof params["screencap_method"] === "number"
+        ? params["screencap_method"]
+        : parseInt(String(params["screencap_method"] || "0"));
+    const mouseMethodValue =
+      typeof params["mouse_method"] === "number"
+        ? params["mouse_method"]
+        : parseInt(String(params["mouse_method"] || "0"));
+    const keyboardMethodValue =
+      typeof params["keyboard_method"] === "number"
+        ? params["keyboard_method"]
+        : parseInt(String(params["keyboard_method"] || "0"));
 
     return {
       type: "win32",
@@ -285,7 +325,7 @@ export function parseControllerInfo(parsed: LogLine, fileName: string): Controll
       keyboardMethod: parseWin32InputMethod(keyboardMethodValue),
       timestamp,
       fileName,
-      lineNumber: parsed._lineNumber || 0
+      lineNumber: parsed._lineNumber || 0,
     };
   }
 
@@ -311,13 +351,21 @@ export function buildIdentifierRanges(
   for (let i = 1; i < sortedEntries.length; i++) {
     const [eventIndex, identifier] = sortedEntries[i];
     if (identifier !== currentIdentifier) {
-      ranges.push({ identifier: currentIdentifier, startIndex: currentStart, endIndex: eventIndex - 1 });
+      ranges.push({
+        identifier: currentIdentifier,
+        startIndex: currentStart,
+        endIndex: eventIndex - 1,
+      });
       currentIdentifier = identifier;
       currentStart = eventIndex;
     }
   }
 
-  ranges.push({ identifier: currentIdentifier, startIndex: currentStart, endIndex: totalEvents - 1 });
+  ranges.push({
+    identifier: currentIdentifier,
+    startIndex: currentStart,
+    endIndex: totalEvents - 1,
+  });
   return ranges;
 }
 
@@ -372,14 +420,16 @@ export function buildTasks(
           prevTask.status = "failed";
           prevTask.end_time = stringPool.intern(event.timestamp);
           if (prevTask.start_time && prevTask.end_time) {
-            prevTask.duration = new Date(prevTask.end_time).getTime() - new Date(prevTask.start_time).getTime();
+            prevTask.duration =
+              new Date(prevTask.end_time).getTime() - new Date(prevTask.start_time).getTime();
           }
         }
         runningTaskMap.delete(taskKey);
       }
 
       if (taskId && !runningTaskMap.has(taskKey)) {
-        const processInfo = (uuid && taskUuidMap.get(uuid)) || taskProcessMap.get(taskId) || processThread;
+        const processInfo =
+          (uuid && taskUuidMap.get(uuid)) || taskProcessMap.get(taskId) || processThread;
         const identifier = getIdentifierForEventIndex(i);
 
         const task: TaskInfo = {
@@ -395,7 +445,7 @@ export function buildTasks(
           processId: stringPool.intern(processInfo.processId || ""),
           threadId: stringPool.intern(processInfo.threadId || ""),
           identifier,
-          _startEventIndex: i
+          _startEventIndex: i,
         };
         tasks.push(task);
         runningTaskMap.set(taskKey, task);
@@ -409,9 +459,14 @@ export function buildTasks(
       let matchedTask = runningTaskMap.get(taskKey) || null;
 
       if (!matchedTask) {
-        matchedTask = tasks.find(
-          t => t.task_id === taskId && t.processId === event.processId && !t.end_time && (!uuid || t.uuid === uuid)
-        ) || null;
+        matchedTask =
+          tasks.find(
+            (t) =>
+              t.task_id === taskId &&
+              t.processId === event.processId &&
+              !t.end_time &&
+              (!uuid || t.uuid === uuid)
+          ) || null;
       }
 
       if (matchedTask) {
@@ -420,7 +475,8 @@ export function buildTasks(
         matchedTask._endEventIndex = i;
 
         if (matchedTask.start_time && matchedTask.end_time) {
-          matchedTask.duration = new Date(matchedTask.end_time).getTime() - new Date(matchedTask.start_time).getTime();
+          matchedTask.duration =
+            new Date(matchedTask.end_time).getTime() - new Date(matchedTask.start_time).getTime();
         }
         runningTaskMap.delete(taskKey);
       }
@@ -438,7 +494,7 @@ export function buildTasks(
     }
   }
 
-  return tasks.filter(task => task.entry !== "MaaTaskerPostStop");
+  return tasks.filter((task) => task.entry !== "MaaTaskerPostStop");
 }
 
 function buildTaskNodes(
@@ -452,7 +508,7 @@ function buildTaskNodes(
   const endIndex = task._endEventIndex ?? events.length - 1;
   const taskEvents = events
     .slice(startIndex, endIndex + 1)
-    .filter(event => event.processId === task.processId);
+    .filter((event) => event.processId === task.processId);
 
   const recognitionAttempts: RecognitionAttempt[] = [];
   let currentNextList: NextListItem[] = [];
@@ -471,8 +527,8 @@ function buildTaskNodes(
         const list = Array.isArray(details.list) ? details.list : [];
         currentNextList = list.map((item: Record<string, unknown>) => ({
           name: stringPool.intern((item.name as string) || ""),
-          anchor: item.anchor as boolean || false,
-          jump_back: item.jump_back as boolean || false
+          anchor: (item.anchor as boolean) || false,
+          jump_back: (item.jump_back as boolean) || false,
         }));
       }
     }
@@ -488,7 +544,7 @@ function buildTaskNodes(
         name: stringPool.intern((details.name as string) || (details.node_name as string) || ""),
         timestamp: stringPool.intern(event.timestamp),
         status: message === "Node.Recognition.Succeeded" ? "success" : "failed",
-        reco_details: details.reco_details as RecognitionDetail | undefined
+        reco_details: details.reco_details as RecognitionDetail | undefined,
       });
     }
 
@@ -513,12 +569,12 @@ function buildTaskNodes(
         task_id: task.task_id,
         reco_details: details.reco_details as RecognitionDetail | undefined,
         action_details: details.action_details as ActionDetail | undefined,
-        next_list: currentNextList.map(item => ({
+        next_list: currentNextList.map((item) => ({
           name: stringPool.intern(item.name),
           anchor: item.anchor,
-          jump_back: item.jump_back
+          jump_back: item.jump_back,
         })),
-        recognition_attempts: recognitionAttempts.slice()
+        recognition_attempts: recognitionAttempts.slice(),
       });
 
       nodeIdSet.add(nodeId);
@@ -530,7 +586,10 @@ function buildTaskNodes(
   return nodes;
 }
 
-export function associateControllersToTasks(tasks: TaskInfo[], controllers: ControllerInfo[]): void {
+export function associateControllersToTasks(
+  tasks: TaskInfo[],
+  controllers: ControllerInfo[]
+): void {
   if (controllers.length === 0 || tasks.length === 0) return;
 
   const controllerMap = new Map<string, ControllerInfo>();
@@ -599,6 +658,6 @@ export async function parseLogFile(content: string, fileName: string): Promise<P
     rawLines,
     auxLogs: [],
     pipelineCustomActions: {},
-    controllerInfos
+    controllerInfos,
   };
 }

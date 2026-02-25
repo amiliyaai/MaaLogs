@@ -15,10 +15,10 @@ import { createApp } from "vue";
 import App from "./App.vue";
 
 // 导入解析器注册相关模块
-import { parserRegistry } from "./parsers/registry";
-import { maaEndParser, maaEndAuxParser } from "./parsers/maaend";
-import { loguruParser, loguruAuxParser } from "./parsers/m9a";
-import { ParserPriority } from "./parsers/types";
+import { parserRegistry } from "./domains/logs/parsers/registry";
+import { maaEndParser, maaEndAuxParser } from "./domains/logs/parsers/maaend";
+import { loguruParser, loguruAuxParser } from "./domains/logs/parsers/m9a";
+import { ParserPriority } from "./domains/logs/parsers/types";
 
 // 注册文件解析器（用于自动检测文件类型）
 // 按优先级注册：MaaEnd 解析器优先级最高，Loguru 解析器次之

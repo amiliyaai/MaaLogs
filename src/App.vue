@@ -29,7 +29,9 @@ import { appDataDir, appLogDir } from "@tauri-apps/api/path";
 /**
  * 更新检查
  */
-import { checkForUpdate } from "./utils/updater";
+import { checkForUpdate } from "./domains/logs/utils/updater";
+
+import { Store } from "@tauri-apps/plugin-store";
 
 /**
  * 虚拟滚动样式
@@ -39,12 +41,12 @@ import "vue-virtual-scroller/dist/vue-virtual-scroller.css";
 /**
  * 子组件导入
  */
-import AppTopBar from "./components/AppTopBar.vue";
-import HeroPanel from "./components/HeroPanel.vue";
-import FileListPanel from "./components/FileListPanel.vue";
-import AnalysisPanel from "./components/AnalysisPanel.vue";
-import SearchPanel from "./components/SearchPanel.vue";
-import StatisticsPanel from "./components/StatisticsPanel.vue";
+import AppTopBar from "./domains/logs/components/AppTopBar.vue";
+import HeroPanel from "./domains/logs/components/HeroPanel.vue";
+import FileListPanel from "./domains/logs/components/FileListPanel.vue";
+import AnalysisPanel from "./domains/logs/components/AnalysisPanel.vue";
+import SearchPanel from "./domains/logs/components/SearchPanel.vue";
+import StatisticsPanel from "./domains/logs/components/StatisticsPanel.vue";
 
 /**
  * Composables 导入
@@ -55,8 +57,8 @@ import {
   useSearch,
   useStatistics,
   useFileSelection,
-  quickSearchOptions
-} from "./composables";
+  quickSearchOptions,
+} from "./domains/logs/composables";
 
 /**
  * 工具函数导入
@@ -67,6 +69,7 @@ import {
   formatTaskStatus,
   formatTaskTimeParts,
   formatResultStatus,
+  formatCount,
   formatNextName,
   formatBox,
   formatAuxLevel,
@@ -77,12 +80,13 @@ import {
   summarizeNextList,
   summarizeNodeDetail,
   summarizeFocus,
-  splitMatch
-} from "./utils/format";
-import { extractCustomActionFromActionDetails } from "./utils/parse";
-import { isTauriEnv } from "./utils/file";
-import { createLogger, init, flushLogs } from "./utils/logger";
-import type { AuxLogEntry } from "./types/logTypes";
+  splitMatch,
+} from "./domains/logs/utils/format";
+import { extractCustomActionFromActionDetails } from "./domains/logs/utils/parse";
+import { isTauriEnv } from "./domains/logs/utils/file";
+import { createLogger, init, flushLogs, setLoggerContext } from "./domains/logs/utils/logger";
+import { appConfig } from "./config";
+import type { AuxLogEntry } from "./domains/logs/types/logTypes";
 
 // ============================================
 // 日志记录器
@@ -108,7 +112,7 @@ const selectedNodeId = ref<number | null>(null);
 const selectedAuxLevels = ref<string[]>(["error", "warn", "info", "debug", "other"]);
 
 /** 隐藏的调用者列表 */
-const hiddenCallers = ref<string[]>([]);
+let hiddenCallers = ref<string[]>([]);
 
 /** 复制提示消息 */
 const copyMessage = ref("");
@@ -118,10 +122,10 @@ const copyMessage = ref("");
 // ============================================
 
 /** 任务列表项高度 */
-const taskItemHeight = 120;
+const taskItemHeight = 130;
 
 /** 节点列表项高度 */
-const nodeItemHeight = 72;
+const nodeItemHeight = 80;
 
 /** 搜索结果项高度 */
 const searchItemHeight = 64;
@@ -151,7 +155,7 @@ const {
   threadOptions,
   filteredTasks,
   handleParse,
-  resetParseState
+  resetParseState,
 } = logParser;
 
 /**
@@ -178,7 +182,7 @@ const {
   handleDragLeave,
   handleRemoveSelectedFile,
   handleClearSelectedFiles,
-  handleTauriDrop
+  handleTauriDrop,
 } = fileSelector;
 
 /**
@@ -195,7 +199,7 @@ const {
   searchResults,
   searchMessage,
   performSearch: searcherPerformSearch,
-  resetSearch: searcherResetSearch
+  resetSearch: searcherResetSearch,
 } = searcher;
 
 /**
@@ -203,12 +207,7 @@ const {
  * 提供节点统计分析功能
  */
 const statistics = useStatistics(() => tasks.value);
-const {
-  statSort,
-  statKeyword,
-  nodeStatistics,
-  nodeSummary
-} = statistics;
+const { statSort, statKeyword, nodeStatistics, nodeSummary } = statistics;
 
 // ============================================
 // 计算属性
@@ -219,7 +218,7 @@ const {
  */
 const selectedTask = computed(() => {
   if (!selectedTaskKey.value) return null;
-  return filteredTasks.value.find(task => task.key === selectedTaskKey.value) || null;
+  return filteredTasks.value.find((task) => task.key === selectedTaskKey.value) || null;
 });
 
 /**
@@ -227,7 +226,7 @@ const selectedTask = computed(() => {
  */
 const selectedNode = computed(() => {
   if (!selectedTask.value || selectedNodeId.value === null) return null;
-  return selectedTask.value.nodes.find(node => node.node_id === selectedNodeId.value) || null;
+  return selectedTask.value.nodes.find((node) => node.node_id === selectedNodeId.value) || null;
 });
 
 /**
@@ -243,7 +242,7 @@ const selectedNodeCustomActions = computed(() => {
   const name = selectedNode.value.name || selectedNode.value.node_details?.name;
   const items = (name && pipelineCustomActions.value[name]) || [];
   const fromLog = extractCustomActionFromActionDetails(selectedNode.value.action_details);
-  if (fromLog && !items.some(item => item.name === fromLog)) {
+  if (fromLog && !items.some((item) => item.name === fromLog)) {
     return [...items, { name: fromLog, fileName: "日志" }];
   }
   return items;
@@ -271,11 +270,11 @@ const selectedTaskAuxLogs = computed(() => {
   const matchesCaller = (log: AuxLogEntry) => {
     if (hiddenCallers.value.length === 0) return true;
     if (!log.caller) return true;
-    return !hiddenCallers.value.some(hidden => log.caller?.includes(hidden));
+    return !hiddenCallers.value.some((hidden) => log.caller?.includes(hidden));
   };
 
   return auxLogs.value.filter(
-    log =>
+    (log) =>
       log.correlation?.status === "matched" &&
       log.correlation?.taskKey === taskKey &&
       matchesLevel(log) &&
@@ -290,13 +289,20 @@ const callerOptions = computed(() => {
   const callers = new Set<string>();
   for (const log of auxLogs.value) {
     if (log.caller) {
-      const match = log.caller.match(/([^/]+\.go)/);
-      if (match) {
-        callers.add(match[1]);
+      // 提取文件名部分，支持 Unix 路径和 Windows 路径
+      const lastSlash = log.caller.lastIndexOf("/");
+      const lastBackslash = log.caller.lastIndexOf("\\");
+      const lastSeparator = Math.max(lastSlash, lastBackslash);
+      const fileName = lastSeparator >= 0 ? log.caller.slice(lastSeparator + 1) : log.caller;
+      // 提取冒号前的部分（Go日志格式：file.go:123）
+      const colonIndex = fileName.indexOf(":");
+      const cleanFileName = colonIndex >= 0 ? fileName.slice(0, colonIndex) : fileName;
+      if (cleanFileName) {
+        callers.add(cleanFileName);
       }
     }
   }
-  return [...callers].sort().map(c => ({ label: c, value: c }));
+  return [...callers].sort().map((c) => ({ label: c, value: c }));
 });
 
 // ============================================
@@ -327,7 +333,10 @@ watch(selectedTaskKey, () => {
  * 过滤任务变更时，自动选择第一个任务
  */
 watch(filteredTasks, () => {
-  if (!selectedTaskKey.value || !filteredTasks.value.some(task => task.key === selectedTaskKey.value)) {
+  if (
+    !selectedTaskKey.value ||
+    !filteredTasks.value.some((task) => task.key === selectedTaskKey.value)
+  ) {
     selectedTaskKey.value = filteredTasks.value[0]?.key ?? null;
     selectedNodeId.value = filteredTasks.value[0]?.nodes[0]?.node_id ?? null;
   }
@@ -433,14 +442,29 @@ async function resolveLogPath() {
 onMounted(() => {
   if (isTauriEnv()) {
     const setup = async () => {
+      const traceId = (() => {
+        const cryptoObj = globalThis.crypto;
+        if (cryptoObj?.randomUUID) {
+          return cryptoObj.randomUUID();
+        }
+        if (cryptoObj?.getRandomValues) {
+          const bytes = new Uint8Array(8);
+          cryptoObj.getRandomValues(bytes);
+          const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+          return `trace-${Date.now()}-${hex}`;
+        }
+        return `trace-${Date.now()}-0000000000000000`;
+      })();
+      setLoggerContext({ traceId });
+
       // 初始化日志系统
       try {
         const logPath = await resolveLogPath();
         await init({
-          logLevel: "INFO",
+          logLevel: appConfig.log.level,
           logPath,
-          rotationSize: 10 * 1024 * 1024,
-          rotationCount: 5
+          rotationSize: appConfig.log.rotationSize,
+          rotationCount: appConfig.log.rotationCount,
         });
         logger.info("日志系统已初始化", { logPath });
       } catch (error) {
@@ -448,7 +472,7 @@ onMounted(() => {
       }
 
       // 监听 Tauri 拖拽事件
-      unlistenDragDrop = await getCurrentWindow().onDragDropEvent(event => {
+      unlistenDragDrop = await getCurrentWindow().onDragDropEvent((event) => {
         const payload = event.payload as { type: string; paths?: string[] };
         if (payload.type === "over") {
           isDragging.value = true;
@@ -463,6 +487,28 @@ onMounted(() => {
         }
         isDragging.value = false;
       });
+
+      // 初始化 Store 并加载保存的配置
+      const store = await Store.load("app-settings.json", {
+        defaults: {
+          hiddenCallers: [],
+        },
+        autoSave: 500,
+      });
+      const savedHiddenCallers = await store.get<string[]>("hiddenCallers");
+      if (Array.isArray(savedHiddenCallers)) {
+        hiddenCallers.value = savedHiddenCallers;
+      }
+
+      // 监听 hiddenCallers 变化并保存
+      watch(
+        () => hiddenCallers.value,
+        async (newValue) => {
+          await store.set("hiddenCallers", newValue);
+          await store.save();
+        },
+        { deep: true }
+      );
 
       // 检查更新
       await checkForUpdate();
@@ -484,11 +530,7 @@ onBeforeUnmount(() => {
   <n-config-provider>
     <n-message-provider>
       <n-dialog-provider>
-        <div
-          class="app"
-          @dragover.prevent
-          @drop.prevent="handleDrop"
-        >
+        <div class="app" @dragover.prevent @drop.prevent="handleDrop">
           <!-- 顶部导航栏 -->
           <AppTopBar
             :view-mode="viewMode"
@@ -498,20 +540,12 @@ onBeforeUnmount(() => {
           />
 
           <!-- 拖拽遮罩层 -->
-          <div
-            v-if="isDragging"
-            class="drop-mask"
-            @drop="handleDrop"
-            @dragover="handleDragOver"
-          >
+          <div v-if="isDragging" class="drop-mask" @drop="handleDrop" @dragover="handleDragOver">
             松手导入日志/配置文件
           </div>
 
           <!-- 复制提示 -->
-          <div
-            v-if="copyMessage"
-            class="copy-toast"
-          >
+          <div v-if="copyMessage" class="copy-toast">
             {{ copyMessage }}
           </div>
 
@@ -564,6 +598,7 @@ onBeforeUnmount(() => {
               :format-task-time-parts="formatTaskTimeParts"
               :format-duration="formatDuration"
               :format-result-status="formatResultStatus"
+              :format-count="formatCount"
               :format-next-name="formatNextName"
               :format-box="formatBox"
               :summarize-base="summarizeBase"
@@ -999,6 +1034,7 @@ onBeforeUnmount(() => {
   font-size: 13px;
   align-items: flex-start;
   min-height: 120px;
+  margin-bottom: 16px;
   box-sizing: border-box;
 }
 
@@ -1101,6 +1137,7 @@ onBeforeUnmount(() => {
   cursor: pointer;
   align-items: stretch;
   min-height: 72px;
+  margin-bottom: 16px;
   box-sizing: border-box;
 }
 
@@ -1141,6 +1178,8 @@ onBeforeUnmount(() => {
 
 .virtual-scroller {
   height: 100%;
+  padding: 8px;
+  box-sizing: border-box;
 }
 
 .node-badge {
