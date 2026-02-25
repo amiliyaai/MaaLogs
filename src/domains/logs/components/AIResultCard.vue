@@ -55,9 +55,9 @@ defineProps<{
 
 <style scoped>
 .ai-error {
-  color: #dc2626;
+  color: var(--n-error-color);
   padding: 12px;
-  background: #fef2f2;
+  background: var(--n-error-color-supply);
   border-radius: 6px;
 }
 
@@ -69,9 +69,9 @@ defineProps<{
 
 .ai-result-item {
   padding: 12px;
-  background: #f9fafb;
+  background: var(--n-color-modal);
   border-radius: 8px;
-  border-left: 3px solid #3b82f6;
+  border-left: 3px solid var(--n-primary-color);
 }
 
 .ai-result-header {
@@ -83,12 +83,12 @@ defineProps<{
 
 .ai-result-cause {
   font-size: 13px;
-  color: #374151;
+  color: var(--n-text-color);
   margin-bottom: 4px;
 }
 
 .ai-result-suggestion {
   font-size: 13px;
-  color: #6b7280;
+  color: var(--n-text-color-2);
 }
 </style>

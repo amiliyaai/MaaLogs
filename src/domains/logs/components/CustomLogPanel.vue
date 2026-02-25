@@ -261,13 +261,13 @@ onMounted(() => {
   gap: 8px;
   margin-bottom: 12px;
   padding: 8px 12px;
-  background: #f9fafb;
+  background: var(--n-color-modal);
   border-radius: 8px;
 }
 
 .aux-log-filter-label {
   font-size: 12px;
-  color: #6b7280;
+  color: var(--n-text-color-2);
   white-space: nowrap;
 }
 
@@ -294,7 +294,7 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 8px;
-  background: #f9fafb;
+  background: var(--n-color-modal);
   border-radius: 6px;
 }
 
@@ -325,19 +325,19 @@ onMounted(() => {
 
 .aux-log-section-title {
   font-size: 13px;
-  color: #6b7280;
+  color: var(--n-text-color-2);
   margin-bottom: 8px;
 }
 
 .aux-log-list {
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--n-border-color);
   border-radius: 8px;
   overflow: hidden;
 }
 
 .aux-log-item {
   padding: 8px 12px;
-  border-bottom: 1px solid #f3f4f6;
+  border-bottom: 1px solid var(--n-border-color);
 }
 
 .aux-log-item:last-child {
@@ -357,12 +357,12 @@ onMounted(() => {
 
 .aux-log-time {
   font-size: 11px;
-  color: #9ca3af;
+  color: var(--n-text-color-3);
 }
 
 .aux-log-message {
   font-size: 13px;
-  color: #374151;
+  color: var(--n-text-color);
   word-break: break-all;
 }
 
@@ -370,12 +370,12 @@ onMounted(() => {
   display: flex;
   gap: 16px;
   font-size: 11px;
-  color: #9ca3af;
+  color: var(--n-text-color-3);
 }
 
 .empty {
   text-align: center;
-  color: #9ca3af;
+  color: var(--n-text-color-3);
   padding: 24px;
 }
 </style>

@@ -17,7 +17,7 @@
  * Vue 核心导入
  */
 import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
-import { NConfigProvider, NMessageProvider, NDialogProvider } from "naive-ui";
+import { NConfigProvider, NMessageProvider, NDialogProvider, darkTheme, lightTheme } from "naive-ui";
 
 /**
  * Tauri API 导入
@@ -100,6 +100,20 @@ const logger = createLogger("App");
 
 /** 当前视图模式：分析、搜索、统计 */
 const viewMode = ref<"analysis" | "search" | "statistics">("analysis");
+
+/** 主题模式：light, dark, auto */
+const themeMode = ref<"light" | "dark" | "auto">("auto");
+
+/** 当前是否为暗色主题 */
+const isDark = computed(() => {
+  if (themeMode.value === "auto") {
+    return window.matchMedia("(prefers-color-scheme: dark)").matches;
+  }
+  return themeMode.value === "dark";
+});
+
+/** 当前主题对象 */
+const currentTheme = computed(() => (isDark.value ? darkTheme : lightTheme));
 
 /** 当前选中的任务键 */
 const selectedTaskKey = ref<string | null>(null);
@@ -494,6 +508,7 @@ onMounted(() => {
         defaults: {
           hiddenCallers: [],
           searchHistory: [],
+          themeMode: "auto",
         },
         autoSave: 500,
       });
@@ -504,6 +519,10 @@ onMounted(() => {
       const savedSearchHistory = await store.get<string[]>("searchHistory");
       if (Array.isArray(savedSearchHistory)) {
         searchHistory.value = savedSearchHistory;
+      }
+      const savedThemeMode = await store.get<"light" | "dark" | "auto">("themeMode");
+      if (savedThemeMode) {
+        themeMode.value = savedThemeMode;
       }
 
       // 监听 hiddenCallers 变化并保存
@@ -526,6 +545,25 @@ onMounted(() => {
         { deep: true }
       );
 
+      // 监听 themeMode 变化并保存
+      watch(
+        () => themeMode.value,
+        async (newValue) => {
+          await store.set("themeMode", newValue);
+          await store.save();
+        }
+      );
+
+      // 监听系统主题变化（auto 模式下）
+      const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+      const handleSystemThemeChange = () => {
+        if (themeMode.value === "auto") {
+          // 触发 computed 重新计算
+          themeMode.value = "auto";
+        }
+      };
+      mediaQuery.addEventListener("change", handleSystemThemeChange);
+
       // 检查更新
       await checkForUpdate();
     };
@@ -543,7 +581,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <n-config-provider>
+  <n-config-provider :theme="currentTheme">
     <n-message-provider>
       <n-dialog-provider>
         <div class="app" @dragover.prevent @drop.prevent="handleDrop">
@@ -551,8 +589,10 @@ onBeforeUnmount(() => {
           <AppTopBar
             :view-mode="viewMode"
             :is-tauri="isTauriEnv()"
+            :theme-mode="themeMode"
             @change-view="viewMode = $event"
             @open-devtools="openDevtools"
+            @change-theme="themeMode = $event"
           />
 
           <!-- 拖拽遮罩层 -->
@@ -690,8 +730,8 @@ onBeforeUnmount(() => {
  */
 .app {
   height: 100vh;
-  background: #f6f7fb;
-  color: #1f2937;
+  background: var(--n-color);
+  color: var(--n-text-color);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -726,14 +766,14 @@ onBeforeUnmount(() => {
 
 .subtitle {
   font-size: 12px;
-  color: #6b7280;
+  color: var(--n-text-color-2);
 }
 
 .badge {
   padding: 6px 12px;
   border-radius: 999px;
-  background: #ecfeff;
-  color: #0f766e;
+  background: var(--n-color-modal);
+  color: var(--n-primary-color);
   font-size: 12px;
   font-weight: 600;
 }
@@ -753,10 +793,11 @@ onBeforeUnmount(() => {
   right: 24px;
   padding: 8px 12px;
   border-radius: 8px;
-  background: #0f172a;
-  color: #f8fafc;
+  background: var(--n-color-modal);
+  color: var(--n-text-color);
   font-size: 12px;
   z-index: 20;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .view-tabs {
@@ -798,7 +839,7 @@ onBeforeUnmount(() => {
 }
 
 .hero.drop-active {
-  outline: 2px dashed #60a5fa;
+  outline: 2px dashed var(--n-primary-color);
   outline-offset: 6px;
   border-radius: 16px;
 }
@@ -809,12 +850,12 @@ onBeforeUnmount(() => {
 .drop-mask {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.4);
+  background: rgba(0, 0, 0, 0.4);
   border-radius: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #ffffff;
+  color: var(--n-text-color);
   font-weight: 600;
   font-size: 16px;
   z-index: 2;
@@ -827,7 +868,7 @@ onBeforeUnmount(() => {
 }
 
 .hero-text p {
-  color: #6b7280;
+  color: var(--n-text-color-2);
   margin-bottom: 12px;
 }
 
@@ -840,7 +881,7 @@ onBeforeUnmount(() => {
 .drag-hint {
   margin-top: 4px;
   font-size: 12px;
-  color: #9ca3af;
+  color: var(--n-text-color-3);
 }
 
 .upload {
@@ -857,8 +898,8 @@ onBeforeUnmount(() => {
 }
 
 .hero-card {
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
+  background: var(--n-color);
+  border: 1px solid var(--n-border-color);
   border-radius: 12px;
   padding: 8px 12px;
   display: flex;
@@ -868,7 +909,7 @@ onBeforeUnmount(() => {
 
 .card-title {
   font-size: 14px;
-  color: #6b7280;
+  color: var(--n-text-color-2);
 }
 
 .card-stat {
@@ -879,18 +920,18 @@ onBeforeUnmount(() => {
 }
 
 .card-stat-divider {
-  color: #9ca3af;
+  color: var(--n-text-color-3);
   font-size: 12px;
   margin: 0 8px;
 }
 
 .card-stat strong {
-  color: #111827;
+  color: var(--n-text-color);
 }
 
 .card-hint {
   font-size: 12px;
-  color: #9ca3af;
+  color: var(--n-text-color-3);
 }
 
 /**
@@ -922,7 +963,7 @@ onBeforeUnmount(() => {
 }
 
 .empty {
-  color: #9ca3af;
+  color: var(--n-text-color-3);
   padding: 12px 0;
 }
 
@@ -950,18 +991,18 @@ onBeforeUnmount(() => {
   gap: 12px;
   padding: 8px 10px;
   border-radius: 10px;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
+  background: var(--n-color-modal);
+  border: 1px solid var(--n-border-color);
   font-size: 13px;
 }
 
 .file-name {
-  color: #111827;
+  color: var(--n-text-color);
   word-break: break-all;
 }
 
 .file-meta {
-  color: #6b7280;
+  color: var(--n-text-color-2);
   text-align: right;
 }
 
@@ -1051,8 +1092,8 @@ onBeforeUnmount(() => {
   gap: 10px;
   padding: 8px 10px;
   border-radius: 10px;
-  border: 1px solid #e5e7eb;
-  background: #f9fafb;
+  border: 1px solid var(--n-border-color);
+  background: var(--n-color-modal);
   cursor: pointer;
   font-size: 13px;
   align-items: flex-start;
@@ -1062,8 +1103,8 @@ onBeforeUnmount(() => {
 }
 
 .task-row.active {
-  border-color: #93c5fd;
-  background: #eff6ff;
+  border-color: var(--n-primary-color);
+  background: var(--n-primary-color-supply);
 }
 
 .task-main {
@@ -1074,7 +1115,7 @@ onBeforeUnmount(() => {
 }
 
 .task-title {
-  color: #111827;
+  color: var(--n-text-color);
   font-weight: 600;
 }
 
@@ -1082,7 +1123,7 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  color: #6b7280;
+  color: var(--n-text-color-2);
   font-size: 12px;
   min-width: 0;
 }
@@ -1091,7 +1132,7 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  color: #6b7280;
+  color: var(--n-text-color-2);
   font-size: 12px;
   text-align: right;
   align-items: flex-end;
@@ -1117,11 +1158,11 @@ onBeforeUnmount(() => {
 
 .task-side-label {
   font-size: 11px;
-  color: #9ca3af;
+  color: var(--n-text-color-3);
 }
 
 .task-side-value {
-  color: #111827;
+  color: var(--n-text-color);
   font-weight: 600;
   display: flex;
   flex-direction: column;
@@ -1145,7 +1186,7 @@ onBeforeUnmount(() => {
  */
 .node-header {
   font-size: 13px;
-  color: #6b7280;
+  color: var(--n-text-color-2);
 }
 
 .node-row {
@@ -1154,8 +1195,8 @@ onBeforeUnmount(() => {
   gap: 10px;
   padding: 10px 12px;
   border-radius: 10px;
-  border: 1px solid #e5e7eb;
-  background: #f9fafb;
+  border: 1px solid var(--n-border-color);
+  background: var(--n-color-modal);
   font-size: 13px;
   cursor: pointer;
   align-items: stretch;
@@ -1165,12 +1206,12 @@ onBeforeUnmount(() => {
 }
 
 .node-row.active {
-  border-color: #a7f3d0;
-  background: #ecfdf3;
+  border-color: var(--n-success-color);
+  background: var(--n-success-color-supply);
 }
 
 .node-name {
-  color: #111827;
+  color: var(--n-text-color);
   font-weight: 600;
 }
 
@@ -1184,7 +1225,7 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  color: #6b7280;
+  color: var(--n-text-color-2);
   font-size: 12px;
   min-width: 0;
 }
@@ -1208,8 +1249,8 @@ onBeforeUnmount(() => {
 .node-badge {
   padding: 6px 10px;
   border-radius: 999px;
-  background: #eef2ff;
-  color: #3730a3;
+  background: var(--n-primary-color-supply);
+  color: var(--n-primary-color);
   font-size: 12px;
   font-weight: 600;
   max-width: 100%;
@@ -1219,7 +1260,7 @@ onBeforeUnmount(() => {
 }
 
 .node-meta {
-  color: #6b7280;
+  color: var(--n-text-color-2);
 }
 
 /**
@@ -1234,7 +1275,7 @@ onBeforeUnmount(() => {
 }
 
 .search-message {
-  color: #6b7280;
+  color: var(--n-text-color-2);
   font-size: 12px;
   margin-bottom: 8px;
 }
@@ -1254,8 +1295,8 @@ onBeforeUnmount(() => {
 .search-row {
   padding: 10px 12px;
   border-radius: 10px;
-  border: 1px solid #e5e7eb;
-  background: #f9fafb;
+  border: 1px solid var(--n-border-color);
+  background: var(--n-color-modal);
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -1265,17 +1306,17 @@ onBeforeUnmount(() => {
 }
 
 .search-meta {
-  color: #6b7280;
+  color: var(--n-text-color-2);
 }
 
 .search-line {
   font-family: "Consolas", "Monaco", "Courier New", monospace;
-  color: #111827;
+  color: var(--n-text-color);
   word-break: break-all;
 }
 
 .search-hit {
-  background: #fef08a;
+  background: var(--n-warning-color-supply);
   padding: 0 4px;
   border-radius: 4px;
   font-weight: 600;
@@ -1298,20 +1339,20 @@ onBeforeUnmount(() => {
   gap: 12px;
   padding: 12px;
   border-radius: 12px;
-  border: 1px solid #e5e7eb;
-  background: #f9fafb;
+  border: 1px solid var(--n-border-color);
+  background: var(--n-color-modal);
   margin-bottom: 16px;
 }
 
 .stat-label {
   font-size: 12px;
-  color: #6b7280;
+  color: var(--n-text-color-2);
 }
 
 .stat-value {
   font-size: 14px;
   font-weight: 600;
-  color: #111827;
+  color: var(--n-text-color);
 }
 
 .stat-table {
@@ -1326,19 +1367,19 @@ onBeforeUnmount(() => {
   gap: 8px;
   padding: 10px 12px;
   border-radius: 10px;
-  border: 1px solid #e5e7eb;
-  background: #f9fafb;
+  border: 1px solid var(--n-border-color);
+  background: var(--n-color-modal);
   font-size: 12px;
 }
 
 .stat-row.header {
-  background: #eef2ff;
-  color: #3730a3;
+  background: var(--n-primary-color-supply);
+  color: var(--n-primary-color);
   font-weight: 600;
 }
 
 .stat-name {
-  color: #111827;
+  color: var(--n-text-color);
   font-weight: 600;
   word-break: break-all;
 }
@@ -1374,14 +1415,14 @@ onBeforeUnmount(() => {
 .aux-log-section-title {
   font-size: 12px;
   font-weight: 600;
-  color: #374151;
+  color: var(--n-text-color);
   padding-top: 4px;
 }
 
 .aux-log-item {
   border-radius: 10px;
-  border: 1px solid #e5e7eb;
-  background: #f9fafb;
+  border: 1px solid var(--n-border-color);
+  background: var(--n-color-modal);
   padding: 10px 12px;
   display: flex;
   flex-direction: column;
@@ -1393,7 +1434,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #6b7280;
+  color: var(--n-text-color-2);
   font-size: 12px;
 }
 
@@ -1403,7 +1444,7 @@ onBeforeUnmount(() => {
 
 .aux-log-message {
   font-weight: 600;
-  color: #111827;
+  color: var(--n-text-color);
   word-break: break-word;
 }
 
@@ -1411,7 +1452,7 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  color: #6b7280;
+  color: var(--n-text-color-2);
 }
 
 .detail-actions {
@@ -1428,7 +1469,7 @@ onBeforeUnmount(() => {
 
 .collapse-summary {
   margin-left: auto;
-  color: #6b7280;
+  color: var(--n-text-color-2);
   font-size: 12px;
   white-space: nowrap;
   overflow: hidden;

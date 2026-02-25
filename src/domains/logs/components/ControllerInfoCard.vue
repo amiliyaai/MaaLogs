@@ -81,7 +81,7 @@ defineProps<{
   align-items: flex-start;
   gap: 8px;
   padding: 8px;
-  background: #f9fafb;
+  background: var(--n-color-modal);
   border-radius: 6px;
 }
 
@@ -94,11 +94,11 @@ defineProps<{
 }
 
 .controller-info-detail {
-  color: #374151;
+  color: var(--n-text-color);
 }
 
 .controller-info-label {
-  color: #6b7280;
+  color: var(--n-text-color-2);
   margin-right: 2px;
 }
 </style>

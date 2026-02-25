@@ -364,8 +364,8 @@ const searchMaxOptions = [
 }
 
 .search-hit {
-  background: rgba(24, 144, 255, 0.2);
-  color: #1890ff;
+  background: var(--n-primary-color-supply);
+  color: var(--n-primary-color);
   padding: 1px 3px;
   border-radius: 2px;
   font-weight: 500;

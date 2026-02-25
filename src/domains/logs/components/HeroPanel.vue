@@ -208,6 +208,6 @@ const emitParse = () => emit("parse");
 
 .parser-label {
   font-size: 12px;
-  color: #6b7280;
+  color: var(--n-text-color-2);
 }
 </style>
