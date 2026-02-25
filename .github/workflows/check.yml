@@ -44,6 +44,12 @@ jobs:
         with:
           components: clippy
 
+      - name: Install Linux dependencies
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev libgtk-3-dev
+          version: 1.0
+
       - name: Rust lint
         run: cargo clippy -- -D warnings
         working-directory: src-tauri
