@@ -199,6 +199,71 @@ const emitParse = () => emit("parse");
   - 标签样式
 -->
 <style scoped>
+.hero {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 12px;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.hero-text h1 {
+  font-size: 22px;
+  margin: 0 0 6px;
+}
+
+.hero-subtitle {
+  color: var(--n-text-color-2);
+  margin-bottom: 12px;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.drag-hint {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--n-text-color-3);
+}
+
+.hint-line {
+  margin: 4px 0;
+}
+
+.hint-line code {
+  background: var(--n-color-modal);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: "Consolas", "Monaco", monospace;
+}
+
+.hint-line.highlight {
+  color: var(--n-primary-color);
+  font-weight: 500;
+}
+
+.upload {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.upload input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.hero-card {
+  background: var(--n-color-modal);
+  border: 1px solid var(--n-border-color);
+  border-radius: 12px;
+}
+
 .parser-select {
   display: flex;
   align-items: center;
@@ -209,5 +274,27 @@ const emitParse = () => emit("parse");
 .parser-label {
   font-size: 12px;
   color: var(--n-text-color-2);
+}
+
+.card-hint {
+  font-size: 12px;
+  color: var(--n-text-color-3);
+}
+
+.card-stat-divider {
+  color: var(--n-text-color-3);
+  margin: 0 4px;
+}
+
+.hero.drop-active {
+  outline: 2px dashed var(--n-primary-color);
+  outline-offset: 6px;
+  border-radius: 16px;
+}
+
+@media (max-width: 900px) {
+  .hero {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

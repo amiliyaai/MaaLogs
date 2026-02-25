@@ -351,7 +351,7 @@ const handleNodeSelect = (nodeId: number) => {
                 :item="item"
                 :active="active"
                 class="scroller-item"
-                :style="{ paddingBottom: '0.012px' }"
+                :style="{ paddingBottom: '0.325px' }"
               >
                 <!-- 任务行 -->
                 <div
@@ -441,6 +441,7 @@ const handleNodeSelect = (nodeId: number) => {
                 :active="active"
                 :size-dependencies="[item.name, item.status, item.recognition_attempts?.length]"
                 class="scroller-item"
+                :style="{ paddingBottom: '0.325px' }"
               >
                 <!-- 节点行 -->
                 <div

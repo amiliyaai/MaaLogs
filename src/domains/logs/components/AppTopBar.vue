@@ -142,6 +142,18 @@ const handleThemeSelect = (key: string) => {
 </template>
 
 <style scoped>
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.brand {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .top-actions {
   display: flex;
   align-items: center;
