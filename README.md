@@ -167,32 +167,38 @@ MaaLogs/
 
 - Node.js >= 18
 - Rust >= 1.70
-- pnpm 或 npm
 
 ### 安装依赖
 
 ```bash
+# npm
+npm install
+
+# 或 pnpm
 pnpm install
+
+# 或 yarn
+yarn
 ```
 
 ### 开发模式
 
 ```bash
 # 桌面应用
-pnpm tauri:dev
+npm run tauri:dev
 
 # Web 版本
-pnpm dev
+npm run dev
 ```
 
 ### 构建发布
 
 ```bash
 # Web 版本
-pnpm build
+npm run build
 
 # Tauri 桌面应用
-pnpm tauri:build
+npm run tauri:build
 ```
 
 ## 🔗 相关链接
