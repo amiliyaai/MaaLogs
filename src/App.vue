@@ -57,7 +57,6 @@ import {
   useSearch,
   useStatistics,
   useFileSelection,
-  quickSearchOptions,
 } from "./domains/logs/composables";
 
 /**
@@ -198,8 +197,10 @@ const {
   searchMaxResults,
   searchResults,
   searchMessage,
+  searchHistory,
   performSearch: searcherPerformSearch,
   resetSearch: searcherResetSearch,
+  clearHistory,
 } = searcher;
 
 /**
@@ -492,6 +493,7 @@ onMounted(() => {
       const store = await Store.load("app-settings.json", {
         defaults: {
           hiddenCallers: [],
+          searchHistory: [],
         },
         autoSave: 500,
       });
@@ -499,12 +501,26 @@ onMounted(() => {
       if (Array.isArray(savedHiddenCallers)) {
         hiddenCallers.value = savedHiddenCallers;
       }
+      const savedSearchHistory = await store.get<string[]>("searchHistory");
+      if (Array.isArray(savedSearchHistory)) {
+        searchHistory.value = savedSearchHistory;
+      }
 
       // 监听 hiddenCallers 变化并保存
       watch(
         () => hiddenCallers.value,
         async (newValue) => {
           await store.set("hiddenCallers", newValue);
+          await store.save();
+        },
+        { deep: true }
+      );
+
+      // 监听 searchHistory 变化并保存
+      watch(
+        () => searchHistory.value,
+        async (newValue) => {
+          await store.set("searchHistory", newValue);
           await store.save();
         },
         { deep: true }
@@ -638,7 +654,7 @@ onBeforeUnmount(() => {
             :search-max-results="searchMaxResults"
             :search-results="searchResults"
             :search-message="searchMessage"
-            :quick-search-options="quickSearchOptions"
+            :search-history="searchHistory"
             :has-raw-lines="rawLines.length > 0"
             :search-item-height="searchItemHeight"
             :split-match="splitMatch"
@@ -648,6 +664,7 @@ onBeforeUnmount(() => {
             @update:hide-debug-info="hideDebugInfo = $event"
             @update:search-max-results="searchMaxResults = $event"
             @perform-search="doPerformSearch"
+            @clear-history="clearHistory"
           />
 
           <!-- 统计面板 -->
@@ -922,7 +939,7 @@ onBeforeUnmount(() => {
 }
 
 .file-list-wrapper {
-  max-height: 100px;
+  max-height: 120px;
   overflow: auto;
   padding-right: 4px;
 }

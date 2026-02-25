@@ -20,7 +20,7 @@ export { useLogParser, setSelectedFiles } from "./useLogParser";
 export type { LogParserResult, ParseState, LogParserConfig } from "./useLogParser";
 
 // 导出搜索相关
-export { useSearch, quickSearchOptions } from "./useSearch";
+export { useSearch } from "./useSearch";
 export type { SearcherResult } from "./useSearch";
 
 // 导出统计相关

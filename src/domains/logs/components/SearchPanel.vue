@@ -9,13 +9,13 @@
 - 搜索输入框
 - 搜索选项（区分大小写、正则表达式、隐藏调试信息）
 - 最大结果数选择
-- 快捷搜索按钮
+- 搜索历史按钮
 - 搜索结果列表（虚拟滚动）
 
 @features
 - 支持普通文本和正则表达式搜索
 - 支持区分大小写选项
-- 快捷搜索按钮
+- 搜索历史记录（最多10条）
 - 虚拟滚动优化大列表性能
 - 搜索结果高亮显示
 
@@ -25,6 +25,7 @@
 @emits update:hideDebugInfo - 隐藏调试信息选项更新事件
 @emits update:searchMaxResults - 最大结果数更新事件
 @emits perform-search - 执行搜索事件
+@emits clear-history - 清空历史事件
 
 @example
 <SearchPanel
@@ -35,7 +36,7 @@
   :search-max-results="200"
   :search-results="results"
   :search-message="message"
-  :quick-search-options="['error', 'fail', 'exception']"
+  :search-history="['error', 'fail', 'exception']"
   :has-raw-lines="true"
   :search-item-height="60"
   :split-match="splitMatch"
@@ -45,6 +46,7 @@
   @update:hide-debug-info="handleHideDebug"
   @update:search-max-results="handleMaxResults"
   @perform-search="handleSearch"
+  @clear-history="handleClearHistory"
 />
 -->
 
@@ -67,7 +69,7 @@ import type { SearchResult } from "../types/logTypes";
  * @property {number} searchMaxResults - 最大搜索结果数
  * @property {SearchResult[]} searchResults - 搜索结果列表
  * @property {string} searchMessage - 搜索状态消息
- * @property {string[]} quickSearchOptions - 快捷搜索选项列表
+ * @property {string[]} searchHistory - 搜索历史列表
  * @property {boolean} hasRawLines - 是否有原始日志行数据
  * @property {number} searchItemHeight - 搜索结果项高度（用于虚拟滚动）
  * @property {Function} splitMatch - 分割匹配文本函数，返回 before/match/after 三部分
@@ -80,7 +82,7 @@ defineProps<{
   searchMaxResults: number;
   searchResults: SearchResult[];
   searchMessage: string;
-  quickSearchOptions: string[];
+  searchHistory: string[];
   hasRawLines: boolean;
   searchItemHeight: number;
   splitMatch: (line: string, start: number, end: number) => { before: string; match: string; after: string };
@@ -94,6 +96,7 @@ defineProps<{
  * @event update:hideDebugInfo - 更新隐藏调试信息选项
  * @event update:searchMaxResults - 更新最大结果数
  * @event perform-search - 执行搜索
+ * @event clear-history - 清空搜索历史
  */
 const emit = defineEmits<{
   (e: "update:searchText", value: string): void;
@@ -102,6 +105,7 @@ const emit = defineEmits<{
   (e: "update:hideDebugInfo", value: boolean): void;
   (e: "update:searchMaxResults", value: number): void;
   (e: "perform-search"): void;
+  (e: "clear-history"): void;
 }>();
 
 /**
@@ -110,15 +114,15 @@ const emit = defineEmits<{
  */
 const searchMaxOptions = [
   { label: "200条", value: 200 },
-  { label: "500条", value: 500 },
-  { label: "1000条", value: 1000 }
+  { label: "1000条", value: 1000 },
+  { label: "无限制", value: 999999 },
 ];
 </script>
 
 <!--
   模板部分
   - 搜索控制区域：输入框、选项、按钮
-  - 快捷搜索按钮
+  - 搜索历史按钮
   - 搜索结果列表（虚拟滚动）
 -->
 <template>
@@ -138,6 +142,7 @@ const searchMaxOptions = [
         placeholder="输入搜索内容"
         :disabled="!hasRawLines"
         @update:value="emit('update:searchText', $event)"
+        @keyup.enter="emit('perform-search')"
       />
       <!-- 区分大小写选项 -->
       <n-checkbox
@@ -158,7 +163,7 @@ const searchMaxOptions = [
         :checked="hideDebugInfo"
         @update:checked="emit('update:hideDebugInfo', $event)"
       >
-        隐藏调试信息
+        格式化调试信息
       </n-checkbox>
       <!-- 最大结果数选择 -->
       <n-select
@@ -177,10 +182,14 @@ const searchMaxOptions = [
         搜索
       </n-button>
     </div>
-    <!-- 快捷搜索按钮 -->
-    <div class="search-quick">
+    <!-- 搜索历史 -->
+    <div
+      v-if="searchHistory.length > 0"
+      class="search-history"
+    >
+      <span class="history-label">历史：</span>
       <n-button
-        v-for="item in quickSearchOptions"
+        v-for="item in searchHistory"
         :key="item"
         size="tiny"
         @click="
@@ -190,24 +199,30 @@ const searchMaxOptions = [
       >
         {{ item }}
       </n-button>
+      <n-button
+        size="tiny"
+        quaternary
+        @click="emit('clear-history')"
+      >
+        清空
+      </n-button>
     </div>
     <!-- 搜索状态消息 -->
     <div class="search-message">
       {{ searchMessage || '输入关键字后点击搜索' }}
     </div>
-    <!-- 空状态：无搜索结果 -->
-    <div
-      v-if="searchResults.length === 0"
-      class="empty"
-    >
-      暂无搜索结果
-    </div>
-    <!-- 搜索结果列表（虚拟滚动） -->
-    <div
-      v-else
-      class="search-results"
-    >
+    <!-- 搜索结果容器 -->
+    <div class="search-results-container">
+      <!-- 空状态：无搜索结果 -->
+      <div
+        v-if="searchResults.length === 0"
+        class="empty"
+      >
+        暂无搜索结果
+      </div>
+      <!-- 搜索结果列表（虚拟滚动） -->
       <DynamicScroller
+        v-else
         class="virtual-scroller"
         :items="searchResults"
         key-field="key"
@@ -238,3 +253,121 @@ const searchMaxOptions = [
     </div>
   </n-card>
 </template>
+
+<style scoped>
+.panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.panel :deep(.n-card__content) {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.search-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
+
+.search-controls > :first-child {
+  flex: 1;
+  min-width: 150px;
+}
+
+.search-controls .n-select {
+  width: 100px;
+}
+
+.search-history {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  margin-bottom: 8px;
+  padding: 4px 0;
+  flex-shrink: 0;
+}
+
+.history-label {
+  font-size: 12px;
+  color: var(--n-text-color-3);
+  margin-right: 4px;
+}
+
+.search-message {
+  font-size: 12px;
+  color: var(--n-text-color-3);
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
+
+.search-results-container {
+  flex: 1;
+  min-height: 0;
+  border: 1px solid var(--n-border-color);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--n-color);
+}
+
+.empty {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--n-text-color-3);
+  font-size: 14px;
+}
+
+.virtual-scroller {
+  height: 100%;
+}
+
+.search-row {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--n-border-color);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.search-row:last-child {
+  border-bottom: none;
+}
+
+.search-row:hover {
+  background: var(--n-item-color-hover);
+}
+
+.search-meta {
+  font-size: 11px;
+  color: var(--n-text-color-3);
+  margin-bottom: 4px;
+}
+
+.search-line {
+  font-family: var(--n-font-family-mono);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.5;
+}
+
+.search-hit {
+  background: rgba(24, 144, 255, 0.2);
+  color: #1890ff;
+  padding: 1px 3px;
+  border-radius: 2px;
+  font-weight: 500;
+}
+</style>

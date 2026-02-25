@@ -7,6 +7,7 @@
  * - 大小写敏感选项
  * - 调试信息隐藏
  * - 结果数量限制
+ * - 搜索历史记录
  *
  * @module composables/useSearch
  * @author MaaLogs Team
@@ -24,16 +25,9 @@ import { createLogger } from "../utils/logger";
 const logger = createLogger("Search");
 
 /**
- * 快速搜索选项
- *
- * 预定义的常用搜索关键词，方便用户快速选择。
+ * 搜索历史最大数量
  */
-export const quickSearchOptions = [
-  "reco hit",
-  "Version",
-  "[ERR]",
-  "display_width_="
-];
+const SEARCH_HISTORY_MAX = 10;
 
 /**
  * 搜索器返回值
@@ -47,8 +41,11 @@ export const quickSearchOptions = [
  * @property {Ref<number>} searchMaxResults - 最大结果数量
  * @property {Ref<SearchResult[]>} searchResults - 搜索结果列表
  * @property {Ref<string>} searchMessage - 搜索状态消息
+ * @property {Ref<string[]>} searchHistory - 搜索历史列表
  * @property {function} performSearch - 执行搜索
  * @property {function} resetSearch - 重置搜索状态
+ * @property {function} addToHistory - 添加到搜索历史
+ * @property {function} clearHistory - 清空搜索历史
  */
 export interface SearcherResult {
   /** 搜索文本 */
@@ -65,10 +62,16 @@ export interface SearcherResult {
   searchResults: Ref<SearchResult[]>;
   /** 搜索状态消息 */
   searchMessage: Ref<string>;
+  /** 搜索历史列表 */
+  searchHistory: Ref<string[]>;
   /** 执行搜索 */
   performSearch: (rawLines: RawLine[]) => void;
   /** 重置搜索状态 */
   resetSearch: () => void;
+  /** 添加到搜索历史 */
+  addToHistory: (keyword: string) => void;
+  /** 清空搜索历史 */
+  clearHistory: () => void;
 }
 
 /**
@@ -107,6 +110,8 @@ export function useSearch(): SearcherResult {
   const searchResults = ref<SearchResult[]>([]);
   /** 搜索状态消息 */
   const searchMessage = ref("");
+  /** 搜索历史列表 */
+  const searchHistory = ref<string[]>([]);
 
   // ============================================
   // 搜索方法
@@ -121,6 +126,41 @@ export function useSearch(): SearcherResult {
     searchText.value = "";
     searchResults.value = [];
     searchMessage.value = "";
+  }
+
+  /**
+   * 添加关键词到搜索历史
+   *
+   * 将搜索关键词添加到历史记录，自动去重并限制数量。
+   *
+   * @param {string} keyword - 要添加的关键词
+   */
+  function addToHistory(keyword: string): void {
+    const trimmed = keyword.trim();
+    if (!trimmed) return;
+
+    const history = searchHistory.value;
+    const existingIndex = history.indexOf(trimmed);
+
+    if (existingIndex !== -1) {
+      history.splice(existingIndex, 1);
+    }
+
+    history.unshift(trimmed);
+
+    if (history.length > SEARCH_HISTORY_MAX) {
+      history.pop();
+    }
+
+    logger.debug("添加搜索历史", { keyword: trimmed, historyLength: history.length });
+  }
+
+  /**
+   * 清空搜索历史
+   */
+  function clearHistory(): void {
+    searchHistory.value = [];
+    logger.debug("清空搜索历史");
   }
 
   /**
@@ -222,6 +262,10 @@ export function useSearch(): SearcherResult {
       results.length > 0
         ? `找到 ${results.length} 条结果${results.length >= searchMaxResults.value ? "（已达上限）" : ""}`
         : "未找到匹配结果";
+
+    // 添加到搜索历史
+    addToHistory(searchText.value);
+
     logger.info("搜索完成", { resultCount: results.length });
   }
 
@@ -233,7 +277,10 @@ export function useSearch(): SearcherResult {
     searchMaxResults,
     searchResults,
     searchMessage,
+    searchHistory,
     performSearch,
-    resetSearch
+    resetSearch,
+    addToHistory,
+    clearHistory
   };
 }
