@@ -24,10 +24,10 @@ import { randomUUID } from "crypto";
 export class Logger {
   /** VSCode 输出通道 */
   private outputChannel: vscode.OutputChannel;
-  
+
   /** 模块名称 */
   private module: string;
-  
+
   /** 追踪 ID，用于关联日志 */
   private traceId: string;
 

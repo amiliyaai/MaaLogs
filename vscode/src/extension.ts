@@ -50,12 +50,12 @@ export function activate(context: vscode.ExtensionContext) {
 
     // 注册打开日志文件命令
     vscode.commands.registerCommand("maaLogs.openLog", () => openLogFile(sidebarProvider)),
-    
+
     // 注册分析当前文件命令
     vscode.commands.registerCommand("maaLogs.analyzeCurrent", () =>
       analyzeCurrentFile(sidebarProvider)
     ),
-    
+
     // 注册刷新任务命令
     vscode.commands.registerCommand("maaLogs.refreshTasks", () => {
       vscode.window.showInformationMessage("任务已刷新");
