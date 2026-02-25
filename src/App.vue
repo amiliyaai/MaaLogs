@@ -783,7 +783,7 @@ onBeforeUnmount(() => {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
   overflow: hidden;
 }
 
@@ -793,7 +793,7 @@ onBeforeUnmount(() => {
   overflow: hidden;
 }
 
-.main-content > .panel:first-child {
+.main-content > .file-list-panel {
   flex: none;
 }
 
@@ -978,8 +978,8 @@ onBeforeUnmount(() => {
   display: grid;
   grid-template-columns: 1fr 1.2fr 1.4fr;
   gap: 16px;
-  --panel-content-height: 520px;
-  --panel-top-gap: 8px;
+  flex: 1;
+  min-height: 0;
 }
 
 .task-list,
@@ -988,12 +988,15 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .panel-top {
   display: flex;
   flex-direction: column;
-  gap: var(--panel-top-gap);
+  gap: 8px;
+  flex: none;
 }
 
 .panel-tools {
@@ -1011,8 +1014,9 @@ onBeforeUnmount(() => {
 }
 
 .task-list-content {
-  height: var(--panel-content-height);
-  display: block;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .task-list-scroll {
@@ -1026,12 +1030,14 @@ onBeforeUnmount(() => {
 }
 
 .node-list-content {
-  height: var(--panel-content-height);
-  display: block;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .detail-panel .detail-content {
-  height: var(--panel-content-height);
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding-right: 6px;
 }

@@ -55,54 +55,50 @@ const showAbout = ref(false);
 <template>
   <header class="topbar">
     <!-- 品牌区域 -->
-    <div class="brand">
-      <div class="subtitle">
-        日志解析 · 任务与节点可视化
-      </div>
-    </div>
+    <div class="brand" />
     <!-- 操作区域 -->
     <div class="top-actions">
+      <!-- 关于按钮 -->
+      <n-button
+        size="small"
+        quaternary
+        @click="showAbout = true"
+      >
+        关于
+      </n-button>
+      <!-- 开发者工具按钮（仅 Tauri 环境） -->
+      <n-button
+        v-if="isTauri"
+        size="small"
+        quaternary
+        @click="emit('open-devtools')"
+      >
+        开发者工具
+      </n-button>
+      <!-- 分隔线 -->
+      <div class="divider" />
+      <!-- 视图切换按钮组 -->
       <div class="view-tabs">
-        <!-- 关于按钮 -->
-        <n-button
-          size="small"
-          secondary
-          @click="showAbout = true"
-        >
-          关于
-        </n-button>
-        <!-- 开发者工具按钮（仅 Tauri 环境） -->
-        <n-button
-          v-if="isTauri"
-          size="small"
-          secondary
-          @click="emit('open-devtools')"
-        >
-          开发者工具
-        </n-button>
-        <!-- 日志分析视图切换按钮 -->
         <n-button
           size="small"
           :type="viewMode === 'analysis' ? 'primary' : 'default'"
           @click="emitView('analysis')"
         >
-          日志分析
+          📊 日志分析
         </n-button>
-        <!-- 文本搜索视图切换按钮 -->
         <n-button
           size="small"
           :type="viewMode === 'search' ? 'primary' : 'default'"
           @click="emitView('search')"
         >
-          文本搜索
+          🔍 文本搜索
         </n-button>
-        <!-- 节点统计视图切换按钮 -->
         <n-button
           size="small"
           :type="viewMode === 'statistics' ? 'primary' : 'default'"
           @click="emitView('statistics')"
         >
-          节点统计
+          📈 节点统计
         </n-button>
       </div>
     </div>
@@ -111,3 +107,23 @@ const showAbout = ref(false);
   <!-- 关于弹窗 -->
   <AboutModal v-model:show="showAbout" />
 </template>
+
+<style scoped>
+.top-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.divider {
+  width: 1px;
+  height: 16px;
+  background: var(--n-border-color);
+  margin: 0 4px;
+}
+
+.view-tabs {
+  display: flex;
+  gap: 4px;
+}
+</style>

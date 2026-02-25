@@ -126,11 +126,12 @@ const emitParse = () => emit("parse");
   >
     <!-- 主标题和操作区域 -->
     <div class="hero-text">
-      <h1>快速定位任务节点与异常</h1>
+      <h1>📊 日志解析 · 任务与节点可视化</h1>
+      <p class="hero-subtitle">请选择你的日志文件以开始分析</p>
       <div class="actions">
         <!-- 文件选择按钮（隐藏的 input） -->
         <label class="upload">
-          <NButton size="small">选择日志文件</NButton>
+          <NButton size="small">📁 选择日志文件</NButton>
           <input
             type="file"
             multiple
@@ -150,11 +151,9 @@ const emitParse = () => emit("parse");
       </div>
       <!-- 拖拽提示 -->
       <div class="drag-hint">
-        导入 maa.log 、导入Custom日志（可选），支持拖拽导入(日志压缩包或日志目录)
-        <br>
-        <span class="drag-hint-note">
-          注：导入Custom日志可增强AI分析和显示任务相关Custom日志
-        </span>
+        <div class="hint-line">💡 导入 <code>maa.log</code>、导入 Custom 日志（可选）</div>
+        <div class="hint-line">📂 支持拖拽导入（日志压缩包或日志目录）</div>
+        <div class="hint-line highlight">✨ 导入 Custom 日志可增强 AI 分析和显示任务相关日志</div>
       </div>
     </div>
     <!-- 状态信息卡片 -->
