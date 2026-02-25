@@ -108,9 +108,7 @@ jobs:
 
       - name: Install cross for ARM64
         if: matrix.target == 'aarch64-unknown-linux-gnu'
-        uses: taiki-e/install-rust-cross-toolchain-action@v1
-        with:
-          target: aarch64-unknown-linux-gnu
+        run: cargo install cross --git https://github.com/cross-rs/cross
 
       - name: Install dependencies
         run: npm ci
@@ -118,7 +116,7 @@ jobs:
       - name: Build
         run: |
           if [[ "${{ matrix.target }}" == "aarch64-unknown-linux-gnu" ]]; then
-            cross build --release --target aarch64-unknown-linux-gnu
+            cd src-tauri && cross build --release --target aarch64-unknown-linux-gnu
           else
             npx tauri build --target ${{ matrix.target }}
           fi
