@@ -62,12 +62,22 @@ jobs:
         include:
           - platform: 'macos-latest'
             target: 'x86_64-apple-darwin'
+            arch: 'x86_64'
           - platform: 'macos-latest'
             target: 'aarch64-apple-darwin'
+            arch: 'aarch64'
           - platform: 'windows-latest'
             target: 'x86_64-pc-windows-msvc'
+            arch: 'x86_64'
+          - platform: 'windows-latest'
+            target: 'aarch64-pc-windows-msvc'
+            arch: 'aarch64'
           - platform: 'ubuntu-latest'
             target: 'x86_64-unknown-linux-gnu'
+            arch: 'x86_64'
+          - platform: 'ubuntu-latest'
+            target: 'aarch64-unknown-linux-gnu'
+            arch: 'aarch64'
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
     steps:
@@ -105,11 +115,41 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
 
+      - name: Rename and prepare artifacts
+        shell: bash
+        run: |
+          VERSION="${{ needs.meta.outputs.version }}"
+          ARCH="${{ matrix.arch }}"
+          PLATFORM="${{ matrix.platform }}"
+          TARGET="${{ matrix.target }}"
+          BUNDLE_DIR="src-tauri/target/${TARGET}/release/bundle"
+          
+          mkdir -p release-files
+          
+          if [[ "$PLATFORM" == "macos-latest" ]]; then
+            cp "$BUNDLE_DIR/dmg/"*.dmg "release-files/MaaLogs-macos-${ARCH}-v${VERSION}.dmg" || true
+            if [[ -f "$BUNDLE_DIR/macos/MaaLogs.app.tar.gz" ]]; then
+              cp "$BUNDLE_DIR/macos/MaaLogs.app.tar.gz" "release-files/MaaLogs-macos-${ARCH}-v${VERSION}.app.tar.gz"
+            fi
+            if [[ -f "$BUNDLE_DIR/macos/MaaLogs.app.tar.gz.sig" ]]; then
+              cp "$BUNDLE_DIR/macos/MaaLogs.app.tar.gz.sig" "release-files/MaaLogs-macos-${ARCH}-v${VERSION}.app.tar.gz.sig"
+            fi
+          elif [[ "$PLATFORM" == "windows-latest" ]]; then
+            cp "$BUNDLE_DIR/nsis/"*-setup.exe "release-files/MaaLogs-win-${ARCH}-v${VERSION}-setup.exe" || true
+            cp "$BUNDLE_DIR/nsis/"*-setup.exe.sig "release-files/MaaLogs-win-${ARCH}-v${VERSION}-setup.exe.sig" || true
+          elif [[ "$PLATFORM" == "ubuntu-latest" ]]; then
+            cp "$BUNDLE_DIR/appimage/"*.AppImage "release-files/MaaLogs-linux-${ARCH}-v${VERSION}.AppImage" || true
+            cp "$BUNDLE_DIR/appimage/"*.AppImage.sig "release-files/MaaLogs-linux-${ARCH}-v${VERSION}.AppImage.sig" || true
+          fi
+          
+          echo "=== Release files ==="
+          ls -la release-files/
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: bundle-${{ matrix.target }}
-          path: src-tauri/target/${{ matrix.target }}/release/bundle/**/*
+          path: release-files/*
           if-no-files-found: error
           retention-days: 1
 
@@ -161,11 +201,9 @@ jobs:
       - name: Prepare release files
         run: |
           mkdir -p release-files
-          find assets -type f \( -name "*.dmg" -o -name "*.app.tar.gz*" -o -name "*.exe" -o -name "*.msi" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.sig" \) -exec cp {} release-files/ \;
+          find assets -type f -exec cp {} release-files/ \;
           echo "=== All files in release-files ==="
           ls -la release-files/
-          echo "=== Signature files ==="
-          find release-files -name "*.sig" -exec echo "Found: {}" \;
 
       - name: Generate latest.json
         run: |
@@ -174,46 +212,90 @@ jobs:
           REPO="amiliyaai/MaaLogs"
           BASE_URL="https://github.com/${REPO}/releases/download/${TAG}"
           
-          MAC_SIG=$(find release-files -name "*.app.tar.gz.sig" | head -1 | xargs cat 2>/dev/null || echo "")
-          WIN_SIG=$(find release-files -name "*-setup.exe.sig" | head -1 | xargs cat 2>/dev/null || echo "")
-          LINUX_SIG=$(find release-files -name "*.AppImage.sig" | head -1 | xargs cat 2>/dev/null || echo "")
+          MAC_X64_SIG=$(cat release-files/MaaLogs-macos-x86_64-v${VERSION}.app.tar.gz.sig 2>/dev/null || echo "")
+          MAC_ARM_SIG=$(cat release-files/MaaLogs-macos-aarch64-v${VERSION}.app.tar.gz.sig 2>/dev/null || echo "")
+          WIN_X64_SIG=$(cat release-files/MaaLogs-win-x86_64-v${VERSION}-setup.exe.sig 2>/dev/null || echo "")
+          WIN_ARM_SIG=$(cat release-files/MaaLogs-win-aarch64-v${VERSION}-setup.exe.sig 2>/dev/null || echo "")
+          LINUX_X64_SIG=$(cat release-files/MaaLogs-linux-x86_64-v${VERSION}.AppImage.sig 2>/dev/null || echo "")
+          LINUX_ARM_SIG=$(cat release-files/MaaLogs-linux-aarch64-v${VERSION}.AppImage.sig 2>/dev/null || echo "")
           
           echo "=== Signatures found ==="
-          echo "macOS: ${MAC_SIG:0:50}..."
-          echo "Windows: ${WIN_SIG:0:50}..."
-          echo "Linux: ${LINUX_SIG:0:50}..."
+          echo "macOS x86_64: ${MAC_X64_SIG:0:50}..."
+          echo "macOS aarch64: ${MAC_ARM_SIG:0:50}..."
+          echo "Windows x86_64: ${WIN_X64_SIG:0:50}..."
+          echo "Windows aarch64: ${WIN_ARM_SIG:0:50}..."
+          echo "Linux x86_64: ${LINUX_X64_SIG:0:50}..."
+          echo "Linux aarch64: ${LINUX_ARM_SIG:0:50}..."
           
           jq -n \
             --arg version "$VERSION" \
             --arg notes "See release notes for details" \
             --arg pub_date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            --arg mac_sig "$MAC_SIG" \
-            --arg win_sig "$WIN_SIG" \
-            --arg linux_sig "$LINUX_SIG" \
-            --arg mac_url "${BASE_URL}/MaaLogs.app.tar.gz" \
-            --arg win_url "${BASE_URL}/MaaLogs_${VERSION}_x64-setup.exe" \
-            --arg linux_url "${BASE_URL}/MaaLogs_${VERSION}_amd64.AppImage" \
+            --arg mac_x64_sig "$MAC_X64_SIG" \
+            --arg mac_arm_sig "$MAC_ARM_SIG" \
+            --arg win_x64_sig "$WIN_X64_SIG" \
+            --arg win_arm_sig "$WIN_ARM_SIG" \
+            --arg linux_x64_sig "$LINUX_X64_SIG" \
+            --arg linux_arm_sig "$LINUX_ARM_SIG" \
+            --arg mac_x64_url "${BASE_URL}/MaaLogs-macos-x86_64-v${VERSION}.app.tar.gz" \
+            --arg mac_arm_url "${BASE_URL}/MaaLogs-macos-aarch64-v${VERSION}.app.tar.gz" \
+            --arg win_x64_url "${BASE_URL}/MaaLogs-win-x86_64-v${VERSION}-setup.exe" \
+            --arg win_arm_url "${BASE_URL}/MaaLogs-win-aarch64-v${VERSION}-setup.exe" \
+            --arg linux_x64_url "${BASE_URL}/MaaLogs-linux-x86_64-v${VERSION}.AppImage" \
+            --arg linux_arm_url "${BASE_URL}/MaaLogs-linux-aarch64-v${VERSION}.AppImage" \
             '{
               version: $version,
               notes: $notes,
               pub_date: $pub_date,
               platforms: {
-                "darwin-x86_64": { signature: $mac_sig, url: $mac_url },
-                "darwin-aarch64": { signature: $mac_sig, url: $mac_url },
-                "linux-x86_64": { signature: $linux_sig, url: $linux_url },
-                "windows-x86_64": { signature: $win_sig, url: $win_url }
+                "darwin-x86_64": { signature: $mac_x64_sig, url: $mac_x64_url },
+                "darwin-aarch64": { signature: $mac_arm_sig, url: $mac_arm_url },
+                "linux-x86_64": { signature: $linux_x64_sig, url: $linux_x64_url },
+                "linux-aarch64": { signature: $linux_arm_sig, url: $linux_arm_url },
+                "windows-x86_64": { signature: $win_x64_sig, url: $win_x64_url },
+                "windows-aarch64": { signature: $win_arm_sig, url: $win_arm_url }
               }
             }' > release-files/latest.json
           
           echo "Generated latest.json:"
           cat release-files/latest.json
 
+      - name: Create release body
+        id: body
+        run: |
+          VERSION="${{ needs.meta.outputs.version }}"
+          cat > release_body.md << 'EOF'
+          ## 📦 下载说明
+          
+          ### Windows
+          - **x64**: 下载 `win-x86_64-setup.exe` 安装包
+          - **ARM64**: 下载 `win-aarch64-setup.exe` 安装包
+          
+          ### macOS
+          - **Intel 芯片**: 下载 `macos-x86_64.dmg` 文件
+          - **Apple Silicon (M1/M2/M3)**: 下载 `macos-aarch64.dmg` 文件
+          
+          ### Linux
+          - **x64**: 下载 `linux-x86_64.AppImage` 文件
+          - **ARM64**: 下载 `linux-aarch64.AppImage` 文件
+          
+          ---
+          
+          ## 📝 更新日志
+          
+          EOF
+          
+          echo "${{ needs.changelog.outputs.release_body }}" >> release_body.md
+          
+          echo "=== Release body ==="
+          cat release_body.md
+
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.meta.outputs.tag }}
           files: release-files/*
-          body: ${{ needs.changelog.outputs.release_body }}
+          body_path: release_body.md
           prerelease: ${{ needs.meta.outputs.is_prerelease == 'true' }}
           make_latest: ${{ needs.meta.outputs.is_prerelease == 'false' && 'true' || 'false' }}
         env:
