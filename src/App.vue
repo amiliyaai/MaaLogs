@@ -962,11 +962,6 @@ onBeforeUnmount(() => {
   width: 100%;
 }
 
-.empty {
-  color: var(--n-text-color-3);
-  padding: 12px 0;
-}
-
 /**
  * 文件列表样式
  */
@@ -1010,77 +1005,6 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: flex-end;
   align-items: center;
-}
-
-/**
- * 任务布局样式
- */
-.task-layout {
-  display: grid;
-  grid-template-columns: 1fr 1.2fr 1.4fr;
-  gap: 16px;
-  flex: 1;
-  min-height: 0;
-}
-
-.task-list,
-.node-list,
-.detail-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.panel-top {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  flex: none;
-}
-
-.panel-tools {
-  display: flex;
-  align-items: center;
-}
-
-.panel-filters {
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.filter-select {
-  width: 160px;
-}
-
-.task-list-content {
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.task-list-scroll {
-  height: 100%;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding-right: 6px;
-  box-sizing: border-box;
-}
-
-.node-list-content {
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.detail-panel .detail-content {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding-right: 6px;
 }
 
 /**
@@ -1240,12 +1164,6 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 
-.virtual-scroller {
-  height: 100%;
-  padding: 8px;
-  box-sizing: border-box;
-}
-
 .node-badge {
   padding: 6px 10px;
   border-radius: 999px;
@@ -1387,11 +1305,6 @@ onBeforeUnmount(() => {
 /**
  * 详情面板样式
  */
-.detail-content {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
 
 .aux-log-list {
   display: flex;

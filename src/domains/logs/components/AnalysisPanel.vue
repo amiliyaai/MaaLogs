@@ -1109,6 +1109,20 @@ const handleNodeSelect = (nodeId: number) => {
   样式部分
 -->
 <style scoped>
+.panel {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel :deep(.n-card__content) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .node-header {
   display: flex;
   justify-content: space-between;
@@ -1118,5 +1132,86 @@ const handleNodeSelect = (nodeId: number) => {
 .ai-controls {
   display: flex;
   gap: 8px;
+}
+
+.panel-top {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: none;
+}
+
+.panel-tools {
+  display: flex;
+  align-items: center;
+}
+
+.panel-filters {
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.filter-select {
+  width: 160px;
+}
+
+.empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--n-text-color-3);
+}
+
+.task-layout {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr 1.4fr;
+  gap: 16px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.task-list,
+.node-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.task-list-content,
+.node-list-content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.virtual-scroller {
+  height: 100%;
+  padding: 8px;
+  padding-bottom: 24px;
+  box-sizing: border-box;
+}
+
+.detail-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.detail-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px;
+  padding-bottom: 24px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 </style>
