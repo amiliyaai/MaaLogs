@@ -16,6 +16,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Debug list src/domains files
+        run: ls -la src/domains/logs/utils/ src/domains/logs/composables/ src/domains/logs/parsers/ 2>&1 || echo "Some directories missing"
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
