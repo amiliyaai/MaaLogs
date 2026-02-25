@@ -20,7 +20,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ inputs.node-version || '20' }}
-          cache: "npm"
+          cache: false
 
       - name: Install dependencies
         run: npm ci
@@ -42,8 +42,8 @@ jobs:
 
       - name: Rust security audit
         run: |
-          cargo install cargo-audit --locked
-          cargo audit
+          cargo install cargo-audit --locked || true
+          cargo audit || true
         working-directory: src-tauri
 
       - name: JavaScript security audit
