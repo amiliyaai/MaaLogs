@@ -3,7 +3,7 @@
  *
  * 本文件实现了一个完整的客户端日志系统，支持：
  * - 多级别日志输出（DEBUG, INFO, WARN, ERROR, FATAL）
- * - 日志持久化到 localStorage 和文件系统
+ * - 日志持久化到文件系统
  * - 日志轮转（按大小自动分割）
  * - 模块化日志记录器
  * - 异步批量写入优化
@@ -71,14 +71,6 @@ export interface LoggerConfig {
 // 常量定义
 // ============================================
 
-/** 运行时日志存储键 */
-const LOG_STORE_KEY = "maaLogs:runtime";
-/** 归档日志存储键 */
-const LOG_ARCHIVE_KEY = "maaLogs:archive";
-/** 运行时日志最大条目数 */
-const MAX_ACTIVE_ENTRIES = 2000;
-/** 归档日志最大条目数 */
-const MAX_ARCHIVE_ENTRIES = 8000;
 /** 异步刷盘间隔（毫秒） */
 const FLUSH_INTERVAL_MS = 800;
 
@@ -137,57 +129,6 @@ function formatEntry(entry: LogEntry) {
       }
     });
   }
-}
-
-/**
- * 从 localStorage 读取日志数组
- *
- * @param {string} key - 存储键
- * @returns {string[]} 日志字符串数组
- */
-function readStore(key: string) {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-/**
- * 将日志数组写入 localStorage
- *
- * @param {string} key - 存储键
- * @param {string[]} value - 日志字符串数组
- */
-function writeStore(key: string, value: string[]) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // 存储失败时静默忽略
-    return;
-  }
-}
-
-/**
- * 将超出阈值的日志移入归档区
- *
- * 当运行时日志超过最大条目数时，将旧日志移至归档区。
- * 归档区也有上限，超出时删除最旧的日志。
- *
- * @param {string[]} entries - 当前日志列表
- * @returns {string[]} 处理后的当前日志
- */
-function rotateIfNeeded(entries: string[]) {
-  if (entries.length <= MAX_ACTIVE_ENTRIES) return entries;
-  const overflow = entries.length - MAX_ACTIVE_ENTRIES;
-  const archive = readStore(LOG_ARCHIVE_KEY);
-  const moved = entries.splice(0, overflow);
-  const updatedArchive = archive.concat(moved).slice(-MAX_ARCHIVE_ENTRIES);
-  writeStore(LOG_ARCHIVE_KEY, updatedArchive);
-  return entries;
 }
 
 /**
@@ -309,20 +250,15 @@ async function writeToFile(lines: string[]) {
 }
 
 /**
- * 将缓冲日志写入本地存储和文件系统
+ * 将缓冲日志写入文件系统
  *
  * 批量处理缓冲区中的日志，提高写入效率。
  */
 function flushBuffer() {
   if (buffer.length === 0) return;
   const lines = buffer.map(formatEntry);
-  const linesCopy = [...lines]; // 复制用于文件写入
+  const linesCopy = [...lines];
   buffer = [];
-
-  // 写入 localStorage
-  const current = readStore(LOG_STORE_KEY);
-  const merged = rotateIfNeeded(current.concat(lines));
-  writeStore(LOG_STORE_KEY, merged);
 
   // 写入文件系统
   if (config) {
@@ -402,23 +338,18 @@ export function setLoggerContext(next: LoggerContext) {
 }
 
 /**
- * 创建带模块名的日志记录器
+ * 创建模块级日志记录器
  *
- * 返回一个日志对象，所有方法都会自动填充模块名。
- * 这是推荐的日志使用方式。
+ * 返回一个日志函数集，用于记录特定模块的日志。
+ * 所有日志会自动填充模块名称。
  *
- * @param {string} module - 业务模块名称
- * @returns {Object} 具备不同级别输出的日志对象
- *   - debug: 输出 DEBUG 级别日志
- *   - info: 输出 INFO 级别日志
- *   - warn: 输出 WARN 级别日志
- *   - error: 输出 ERROR 级别日志
- *   - fatal: 输出 FATAL 级别日志
+ * @param {string} module - 模块名称
+ * @returns {Object} 日志函数对象
  *
  * @example
- * const logger = createLogger('MyModule');
- * logger.info('操作成功', { taskId: 123 });
- * logger.error('操作失败', { error: 'Network timeout' });
+ * const logger = createLogger('Network');
+ * logger.info('请求发送', { url: '/api/data' });
+ * logger.error('请求失败', { error: e.message });
  */
 export function createLogger(module: string) {
   return {
@@ -426,15 +357,18 @@ export function createLogger(module: string) {
     info: (message: string, data?: unknown) => emit("INFO", module, message, data),
     warn: (message: string, data?: unknown) => emit("WARN", module, message, data),
     error: (message: string, data?: unknown) => emit("ERROR", module, message, data),
-    fatal: (message: string, data?: unknown) => emit("FATAL", module, message, data),
-    init
+    fatal: (message: string, data?: unknown) => emit("FATAL", module, message, data)
   };
 }
 
 /**
- * 立即将缓冲区日志写入本地存储
+ * 强制刷新所有待写入日志
  *
- * 通常在应用退出前调用，确保所有日志都已持久化。
+ * 调用此函数会立即将缓冲区中的日志写入文件系统，
+ * 而不是等待定时器触发。适用于需要立即保存日志的场景，
+ * 如应用关闭前。
+ *
+ * @returns {Promise<void>} 刷新完成后 resolve
  *
  * @example
  * // 在应用关闭前
