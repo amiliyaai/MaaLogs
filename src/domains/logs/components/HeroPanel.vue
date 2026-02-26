@@ -151,7 +151,7 @@ const emitParse = () => emit("parse");
       </div>
       <!-- 拖拽提示 -->
       <div class="drag-hint">
-        <div class="hint-line">💡 导入 <code>maa.log</code>、导入 Custom 日志（可选）</div>
+        <div class="hint-line">💡 导入 maa.log、导入 Custom 日志（可选）</div>
         <div class="hint-line">📂 支持拖拽导入（日志压缩包或日志目录）</div>
         <div class="hint-line highlight">✨ 导入 Custom 日志可增强 AI 分析和显示任务相关日志</div>
       </div>
