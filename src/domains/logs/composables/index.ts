@@ -30,3 +30,6 @@ export type { StatisticsResult, StatSort } from "./useStatistics";
 // 导出文件选择相关
 export { useFileSelection } from "./useFileSelection";
 export type { FileSelectorResult } from "./useFileSelection";
+
+// 导出 Store 相关
+export { useStorage } from "./useStore";

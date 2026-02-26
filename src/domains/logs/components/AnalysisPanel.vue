@@ -69,9 +69,10 @@
  * - Naive UI 组件：按钮、卡片、折叠面板、代码显示、选择器、标签、复选框
  * - vue-virtual-scroller：虚拟滚动组件，用于优化大列表性能
  */
-import { NButton, NCard, NCollapse, NCollapseItem, NCode, NModal, NSelect, NTag, NSpin } from "naive-ui";
+import { NButton, NCard, NCheckbox, NCollapse, NCollapseItem, NCode, NModal, NSelect, NTag, NSpin } from "naive-ui";
 import { DynamicScroller, DynamicScrollerItem } from "vue-virtual-scroller";
 import { ref, watch, onMounted } from "vue";
+import { useStorage } from "../composables";
 import type {
   NodeInfo,
   NextListItem,
@@ -104,6 +105,8 @@ const aiAnalyzing = ref(false);
 const aiResults = ref<FailureAnalysis[]>([]);
 const showAISettings = ref(false);
 const showFlowChart = ref(false);
+const showAIConfirm = ref(false);
+const skipAIConfirm = useStorage("skipAIConfirm", false);
 const aiError = ref("");
 
 /**
@@ -118,6 +121,17 @@ async function handleSaveAIConfig(config: AIConfig) {
  * 执行 AI 分析
  */
 async function handleAIAnalyze() {
+  if (!props.selectedTask) return;
+  
+  if (!skipAIConfirm.value) {
+    showAIConfirm.value = true;
+    return;
+  }
+  
+  doAIAnalyze();
+}
+
+async function doAIAnalyze() {
   if (!props.selectedTask) return;
   if (!aiConfig.value) return;
 
@@ -425,16 +439,6 @@ const handleNodeSelect = (nodeId: number) => {
             </n-button>
           </div>
         </div>
-        <!-- 节点流程图 -->
-        <n-collapse v-if="selectedTaskNodes.length > 0">
-          <n-collapse-item title="节点流程图" name="flow-chart">
-            <NodeFlowChart
-              :nodes="selectedTaskNodes"
-              :selected-node-id="selectedNodeId"
-              @select-node="handleNodeSelect"
-            />
-          </n-collapse-item>
-        </n-collapse>
         <!-- 空状态：未选择任务 -->
         <div v-if="!selectedTaskKey" class="empty">请选择左侧任务</div>
         <div v-else class="node-list-content">
@@ -932,6 +936,20 @@ const handleNodeSelect = (nodeId: number) => {
     </div>
     <!-- AI 设置 Modal -->
     <AISettingsModal v-model:show="showAISettings" :config="aiConfig" @save="handleSaveAIConfig" />
+    <!-- AI 分析确认弹窗 -->
+    <n-modal
+      v-model:show="showAIConfirm"
+      preset="dialog"
+      title="确认开始分析"
+      positive-text="确认"
+      negative-text="取消"
+      @positive-click="doAIAnalyze"
+      @update:show="(val: boolean) => { if (!val) showAIConfirm = val }"
+    >
+      <n-checkbox v-model:checked="skipAIConfirm">
+        不再提醒
+      </n-checkbox>
+    </n-modal>
     <!-- 节点流程图大面板 -->
     <n-modal
       v-model:show="showFlowChart"
@@ -973,6 +991,12 @@ const handleNodeSelect = (nodeId: number) => {
 .node-header {
   display: flex;
   justify-content: space-between;
+  align-items: center;
+}
+
+.ai-controls {
+  display: flex;
+  gap: 8px;
   align-items: center;
 }
 
@@ -1063,6 +1087,10 @@ const handleNodeSelect = (nodeId: number) => {
   gap: 10px;
   min-height: 0;
   overflow: hidden;
+  border: 1px solid var(--n-border-color);
+  border-radius: 6px;
+  padding: 8px;
+  background: var(--n-color);
 }
 
 .task-list-content,
@@ -1085,6 +1113,10 @@ const handleNodeSelect = (nodeId: number) => {
   gap: 10px;
   min-height: 0;
   overflow: hidden;
+  border: 1px solid var(--n-border-color);
+  border-radius: 6px;
+  padding: 8px;
+  background: var(--n-color);
 }
 
 .detail-content {

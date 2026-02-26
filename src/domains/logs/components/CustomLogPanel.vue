@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref } from "vue";
 import { NTag, NCheckboxGroup, NCheckbox, NSpace, NSelect, NButton, NModal, NInput } from "naive-ui";
 import { DynamicScroller, DynamicScrollerItem } from "vue-virtual-scroller";
+import { useStorage } from "../composables";
 import type { AuxLogEntry, PipelineCustomActionInfo } from "../types/logTypes";
 
 const props = defineProps<{
@@ -27,40 +28,21 @@ const auxLevelOptions = [
 ];
 
 const DEFAULT_HIDDEN_CALLERS_KEY = "maa-logs-default-hidden-callers";
-const showDefaultHiddenModal = ref(false);
-const defaultHiddenCallers = ref<string[]>([]);
-const newHiddenCallerInput = ref("");
 const DEFAULT_HIDDEN_CALLERS_INITIAL = ["main.go", "register.go", "checker.go"];
-
-function loadDefaultHiddenCallers() {
-  try {
-    const saved = localStorage.getItem(DEFAULT_HIDDEN_CALLERS_KEY);
-    if (saved) {
-      defaultHiddenCallers.value = JSON.parse(saved);
-    } else {
-      defaultHiddenCallers.value = [...DEFAULT_HIDDEN_CALLERS_INITIAL];
-    }
-  } catch {
-    defaultHiddenCallers.value = [...DEFAULT_HIDDEN_CALLERS_INITIAL];
-  }
-}
-
-function saveDefaultHiddenCallers() {
-  localStorage.setItem(DEFAULT_HIDDEN_CALLERS_KEY, JSON.stringify(defaultHiddenCallers.value));
-}
+const showDefaultHiddenModal = ref(false);
+const defaultHiddenCallers = useStorage<string[]>(DEFAULT_HIDDEN_CALLERS_KEY, [...DEFAULT_HIDDEN_CALLERS_INITIAL]);
+const newHiddenCallerInput = ref("");
 
 function addDefaultHiddenCaller() {
   const value = newHiddenCallerInput.value.trim();
   if (value && !defaultHiddenCallers.value.includes(value)) {
     defaultHiddenCallers.value.push(value);
-    saveDefaultHiddenCallers();
   }
   newHiddenCallerInput.value = "";
 }
 
 function removeDefaultHiddenCaller(index: number) {
   defaultHiddenCallers.value.splice(index, 1);
-  saveDefaultHiddenCallers();
 }
 
 function applyDefaultHiddenCallers() {
@@ -73,10 +55,6 @@ function applyDefaultHiddenCallers() {
   emit("update:hiddenCallers", currentHidden);
   showDefaultHiddenModal.value = false;
 }
-
-onMounted(() => {
-  loadDefaultHiddenCallers();
-});
 </script>
 
 <template>

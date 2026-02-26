@@ -3,6 +3,7 @@ const KEY_LENGTH = 256;
 const IV_LENGTH = 12;
 const SALT_LENGTH = 16;
 const ITERATIONS = 100000;
+const STORAGE_KEY = "maalogsEncryptionKey";
 
 async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey> {
   const encoder = new TextEncoder();
@@ -69,23 +70,32 @@ export async function decrypt(encryptedData: string, password: string): Promise<
   return new TextDecoder().decode(decrypted);
 }
 
-const STORAGE_KEY = "maalogsEncryptionKey";
+let store: any = null;
 
-function getOrCreateKey(): string {
-  let key = localStorage.getItem(STORAGE_KEY);
+async function getStore() {
+  if (!store) {
+    const { Store } = await import("@tauri-apps/plugin-store");
+    store = await Store.load("app-settings.json", { autoSave: 500, defaults: {} });
+  }
+  return store;
+}
+
+async function getOrCreateKey(): Promise<string> {
+  const s = await getStore();
+  let key = await s.get(STORAGE_KEY) as string | undefined;
   if (!key) {
     const array = new Uint8Array(32);
     crypto.getRandomValues(array);
     key = btoa(String.fromCharCode(...array));
-    localStorage.setItem(STORAGE_KEY, key);
+    await s.set(STORAGE_KEY, key);
   }
   return key;
 }
 
 export async function encryptSecure(data: string): Promise<string> {
-  return encrypt(data, getOrCreateKey());
+  return encrypt(data, await getOrCreateKey());
 }
 
 export async function decryptSecure(encryptedData: string): Promise<string> {
-  return decrypt(encryptedData, getOrCreateKey());
+  return decrypt(encryptedData, await getOrCreateKey());
 }
