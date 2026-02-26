@@ -272,7 +272,7 @@ export function summarizeBase(node: NodeInfo): string {
 export function summarizeRecognition(node: NodeInfo): string {
   const attempts = node.recognition_attempts || [];
   if (attempts.length === 0) return "无";
-  const successCount = attempts.filter(item => item.status === "success").length;
+  const successCount = attempts.filter((item) => item.status === "success").length;
   return `${attempts.length} 次（成功 ${successCount} / 失败 ${attempts.length - successCount}）`;
 }
 
@@ -298,7 +298,7 @@ export function summarizeRecognition(node: NodeInfo): string {
 export function summarizeNestedActions(node: NodeInfo): string {
   const items = node.nested_action_nodes || [];
   if (items.length === 0) return "无";
-  const successCount = items.filter(item => item.status === "success").length;
+  const successCount = items.filter((item) => item.status === "success").length;
   return `${items.length} 个（成功 ${successCount} / 失败 ${items.length - successCount}）`;
 }
 
@@ -385,6 +385,6 @@ export function splitMatch(
   return {
     before: line.slice(0, start),
     match: line.slice(start, end),
-    after: line.slice(end)
+    after: line.slice(end),
   };
 }

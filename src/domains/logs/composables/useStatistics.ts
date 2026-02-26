@@ -104,7 +104,7 @@ export function useStatistics(tasks: () => TaskInfo[]): StatisticsResult {
     // 应用关键词过滤
     if (statKeyword.value.trim()) {
       const keyword = statKeyword.value.trim().toLowerCase();
-      stats = stats.filter(item => item.name.toLowerCase().includes(keyword));
+      stats = stats.filter((item) => item.name.toLowerCase().includes(keyword));
     }
 
     // 应用排序
@@ -138,7 +138,7 @@ export function useStatistics(tasks: () => TaskInfo[]): StatisticsResult {
       totalDuration,
       avgDuration,
       slowestNode,
-      uniqueNodes: nodeStatistics.value.length
+      uniqueNodes: nodeStatistics.value.length,
     };
   });
 
@@ -161,6 +161,6 @@ export function useStatistics(tasks: () => TaskInfo[]): StatisticsResult {
     statKeyword,
     nodeStatistics,
     nodeSummary,
-    resetStatistics
+    resetStatistics,
   };
 }

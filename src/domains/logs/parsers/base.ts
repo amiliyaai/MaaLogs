@@ -38,11 +38,14 @@ export abstract class BaseParser implements AuxLogParser {
       caller: options?.caller,
       details: options?.details,
       fileName: options?.fileName || "",
-      lineNumber: options?.lineNumber || 0
+      lineNumber: options?.lineNumber || 0,
     };
   }
 
-  protected parseTimestamp(ts: string, baseDate: string | null): { timestamp: string; timestampMs: number | null } {
+  protected parseTimestamp(
+    ts: string,
+    baseDate: string | null
+  ): { timestamp: string; timestampMs: number | null } {
     if (!ts) {
       return { timestamp: "", timestampMs: null };
     }

@@ -43,7 +43,7 @@ export const DEFAULT_CORRELATION_CONFIG: CorrelationConfig = {
   enableIdentifierMatch: true,
   enableTaskIdMatch: true,
   enableTimeWindowMatch: true,
-  enableKeywordMatch: true
+  enableKeywordMatch: true,
 };
 
 /**
@@ -110,7 +110,7 @@ export function correlateAuxLogsWithTasks(
   }
 
   // 处理每条日志
-  return entries.map(entry => {
+  return entries.map((entry) => {
     const result = correlateEntry(entry, tasks, taskByIdentifier, taskByTaskId, config);
     if (result) {
       entry.correlation = result;
@@ -149,7 +149,7 @@ function correlateEntry(
         status: "matched",
         reason: "identifier_match",
         taskKey: task.key,
-        score: 1.0
+        score: 1.0,
       };
     }
   }
@@ -164,7 +164,7 @@ function correlateEntry(
           status: "matched",
           reason: "task_id_match",
           taskKey: taskList[0].key,
-          score: 0.9
+          score: 0.9,
         };
       }
 
@@ -176,7 +176,7 @@ function correlateEntry(
           reason: "task_id_time_match",
           taskKey: bestMatch.task.key,
           score: bestMatch.score,
-          driftMs: bestMatch.driftMs
+          driftMs: bestMatch.driftMs,
         };
       }
     }
@@ -191,7 +191,7 @@ function correlateEntry(
         reason: "time_window_match",
         taskKey: bestMatch.task.key,
         score: bestMatch.score,
-        driftMs: bestMatch.driftMs
+        driftMs: bestMatch.driftMs,
       };
     }
   }
@@ -199,7 +199,7 @@ function correlateEntry(
   // 未匹配
   return {
     status: "unmatched",
-    reason: "no_matching_task"
+    reason: "no_matching_task",
   };
 }
 
@@ -229,7 +229,10 @@ function findBestTimeMatch(
     const endTime = task.end_time ? new Date(task.end_time).getTime() : startTime + 60000;
 
     // 检查日志时间是否在任务时间范围内
-    if (entry.timestampMs >= startTime - timeWindowMs && entry.timestampMs <= endTime + timeWindowMs) {
+    if (
+      entry.timestampMs >= startTime - timeWindowMs &&
+      entry.timestampMs <= endTime + timeWindowMs
+    ) {
       // 计算时间漂移
       const driftToStart = Math.abs(entry.timestampMs - startTime);
       const driftToEnd = Math.abs(entry.timestampMs - endTime);
@@ -276,7 +279,7 @@ export async function batchCorrelate(
 
     // 让出主线程
     if (i + batchSize < entries.length) {
-      await new Promise(resolve => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 0));
     }
   }
 
@@ -296,7 +299,7 @@ export async function batchCorrelate(
  * const taskLogs = getLogsForTask(correlatedEntries, 'task-0');
  */
 export function getLogsForTask(entries: AuxLogEntry[], taskKey: string): AuxLogEntry[] {
-  return entries.filter(entry => entry.correlation?.taskKey === taskKey);
+  return entries.filter((entry) => entry.correlation?.taskKey === taskKey);
 }
 
 /**
@@ -311,9 +314,7 @@ export function getLogsForTask(entries: AuxLogEntry[], taskKey: string): AuxLogE
  * const unmatchedLogs = getUnmatchedLogs(correlatedEntries);
  */
 export function getUnmatchedLogs(entries: AuxLogEntry[]): AuxLogEntry[] {
-  return entries.filter(
-    entry => !entry.correlation || entry.correlation.status === "unmatched"
-  );
+  return entries.filter((entry) => !entry.correlation || entry.correlation.status === "unmatched");
 }
 
 /**
@@ -338,7 +339,7 @@ export function getCorrelationStats(entries: AuxLogEntry[]): {
     matched: 0,
     unmatched: 0,
     failed: 0,
-    byReason: {} as Record<string, number>
+    byReason: {} as Record<string, number>,
   };
 
   for (const entry of entries) {
@@ -360,7 +361,8 @@ export function getCorrelationStats(entries: AuxLogEntry[]): {
     }
 
     if (entry.correlation.reason) {
-      stats.byReason[entry.correlation.reason] = (stats.byReason[entry.correlation.reason] || 0) + 1;
+      stats.byReason[entry.correlation.reason] =
+        (stats.byReason[entry.correlation.reason] || 0) + 1;
     }
   }
 

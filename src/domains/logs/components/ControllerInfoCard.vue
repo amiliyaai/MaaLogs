@@ -10,56 +10,41 @@ defineProps<{
 <template>
   <div class="detail-section-card">
     <div class="detail-section-header">
-      <div class="detail-section-title">
-        控制器信息
-      </div>
+      <div class="detail-section-title">控制器信息</div>
     </div>
     <div class="controller-info-list">
       <div class="controller-info-item">
-        <n-tag
-          size="small"
-          :type="controllerInfo.type === 'adb' ? 'info' : 'success'"
-        >
-          {{ controllerInfo.type === 'adb' ? 'ADB' : 'Win32' }}
+        <n-tag size="small" :type="controllerInfo.type === 'adb' ? 'info' : 'success'">
+          {{ controllerInfo.type === "adb" ? "ADB" : "Win32" }}
         </n-tag>
         <div class="controller-info-details">
           <template v-if="controllerInfo.type === 'adb'">
-            <span
-              v-if="controllerInfo.address"
-              class="controller-info-detail"
-            >
+            <span v-if="controllerInfo.address" class="controller-info-detail">
               <span class="controller-info-label">地址:</span> {{ controllerInfo.address }}
             </span>
             <span
               v-if="controllerInfo.screencapMethods && controllerInfo.screencapMethods.length > 0"
               class="controller-info-detail"
             >
-              <span class="controller-info-label">截图:</span> {{ controllerInfo.screencapMethods.join(', ') }}
+              <span class="controller-info-label">截图:</span>
+              {{ controllerInfo.screencapMethods.join(", ") }}
             </span>
             <span
               v-if="controllerInfo.inputMethods && controllerInfo.inputMethods.length > 0"
               class="controller-info-detail"
             >
-              <span class="controller-info-label">输入:</span> {{ controllerInfo.inputMethods.join(', ') }}
+              <span class="controller-info-label">输入:</span>
+              {{ controllerInfo.inputMethods.join(", ") }}
             </span>
           </template>
           <template v-else-if="controllerInfo.type === 'win32'">
-            <span
-              v-if="controllerInfo.screencapMethod"
-              class="controller-info-detail"
-            >
+            <span v-if="controllerInfo.screencapMethod" class="controller-info-detail">
               <span class="controller-info-label">截图:</span> {{ controllerInfo.screencapMethod }}
             </span>
-            <span
-              v-if="controllerInfo.mouseMethod"
-              class="controller-info-detail"
-            >
+            <span v-if="controllerInfo.mouseMethod" class="controller-info-detail">
               <span class="controller-info-label">鼠标:</span> {{ controllerInfo.mouseMethod }}
             </span>
-            <span
-              v-if="controllerInfo.keyboardMethod"
-              class="controller-info-detail"
-            >
+            <span v-if="controllerInfo.keyboardMethod" class="controller-info-detail">
               <span class="controller-info-label">键盘:</span> {{ controllerInfo.keyboardMethod }}
             </span>
           </template>

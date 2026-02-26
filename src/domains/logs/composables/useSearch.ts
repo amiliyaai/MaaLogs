@@ -207,9 +207,7 @@ export function useSearch(): SearcherResult {
 
     // 执行搜索
     const results: SearchResult[] = [];
-    const keyword = searchCaseSensitive.value
-      ? searchText.value
-      : searchText.value.toLowerCase();
+    const keyword = searchCaseSensitive.value ? searchText.value : searchText.value.toLowerCase();
 
     for (const line of rawLines) {
       // 检查结果数量限制
@@ -251,7 +249,7 @@ export function useSearch(): SearcherResult {
           rawLine: line.line,
           matchStart,
           matchEnd,
-          key
+          key,
         });
       }
     }
@@ -281,6 +279,6 @@ export function useSearch(): SearcherResult {
     performSearch,
     resetSearch,
     addToHistory,
-    clearHistory
+    clearHistory,
   };
 }

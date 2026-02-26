@@ -24,7 +24,7 @@ import {
   expandSelectedFiles,
   handleFileInputChange,
   applySelectedPaths,
-  isFileDrag
+  isFileDrag,
 } from "../utils/file";
 import { createLogger } from "../utils/logger";
 
@@ -127,7 +127,7 @@ export function useFileSelection(
     if (result.files.length > 0) {
       logger.info("已选择日志文件", {
         count: result.files.length,
-        names: result.files.map(file => file.name)
+        names: result.files.map((file) => file.name),
       });
     }
 
@@ -244,7 +244,7 @@ export function useFileSelection(
         logger.error("拖拽路径未解析到文件", {
           errors: result.errors,
           hasDirectory: result.hasDirectory,
-          pathCount: paths.length
+          pathCount: paths.length,
         });
       }
       return;
@@ -269,6 +269,6 @@ export function useFileSelection(
     handleDragLeave,
     handleRemoveSelectedFile,
     handleClearSelectedFiles,
-    handleTauriDrop
+    handleTauriDrop,
   };
 }

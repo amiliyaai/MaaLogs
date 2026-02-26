@@ -82,7 +82,7 @@ const FLUSH_INTERVAL_MS = 800;
 let context: Required<LoggerContext> = {
   userId: "anonymous",
   threadId: "ui",
-  traceId: "trace"
+  traceId: "trace",
 };
 
 /** 日志缓冲区 */
@@ -125,8 +125,8 @@ function formatEntry(entry: LogEntry) {
       trace_id: entry.trace_id,
       message: entry.message,
       context: {
-        module: entry.context.module
-      }
+        module: entry.context.module,
+      },
     });
   }
 }
@@ -294,7 +294,7 @@ function emit(level: LogLevel, module: string, message: string, data?: unknown) 
   const logContext: Record<string, unknown> = {
     module,
     thread_id: context.threadId,
-    user_id: context.userId
+    user_id: context.userId,
   };
   if (data !== undefined) {
     logContext.data = data;
@@ -304,7 +304,7 @@ function emit(level: LogLevel, module: string, message: string, data?: unknown) 
     level,
     trace_id: context.traceId,
     message,
-    context: logContext
+    context: logContext,
   };
   buffer.push(entry);
   scheduleFlush();
@@ -324,7 +324,7 @@ export function setLoggerContext(next: LoggerContext) {
   context = {
     userId: next.userId ?? context.userId,
     threadId: next.threadId ?? context.threadId,
-    traceId: next.traceId ?? context.traceId
+    traceId: next.traceId ?? context.traceId,
   };
 }
 
@@ -348,7 +348,7 @@ export function createLogger(module: string) {
     info: (message: string, data?: unknown) => emit("INFO", module, message, data),
     warn: (message: string, data?: unknown) => emit("WARN", module, message, data),
     error: (message: string, data?: unknown) => emit("ERROR", module, message, data),
-    fatal: (message: string, data?: unknown) => emit("FATAL", module, message, data)
+    fatal: (message: string, data?: unknown) => emit("FATAL", module, message, data),
   };
 }
 

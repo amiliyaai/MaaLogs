@@ -17,7 +17,13 @@
  * Vue 核心导入
  */
 import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
-import { NConfigProvider, NMessageProvider, NDialogProvider, darkTheme, lightTheme } from "naive-ui";
+import {
+  NConfigProvider,
+  NMessageProvider,
+  NDialogProvider,
+  darkTheme,
+  lightTheme,
+} from "naive-ui";
 
 /**
  * Tauri API 导入

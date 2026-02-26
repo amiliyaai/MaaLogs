@@ -1,6 +1,15 @@
 <script setup lang="ts">
 import { ref } from "vue";
-import { NTag, NCheckboxGroup, NCheckbox, NSpace, NSelect, NButton, NModal, NInput } from "naive-ui";
+import {
+  NTag,
+  NCheckboxGroup,
+  NCheckbox,
+  NSpace,
+  NSelect,
+  NButton,
+  NModal,
+  NInput,
+} from "naive-ui";
 import { DynamicScroller, DynamicScrollerItem } from "vue-virtual-scroller";
 import { useStorage } from "../composables";
 import type { AuxLogEntry, PipelineCustomActionInfo } from "../types/logTypes";
@@ -11,7 +20,9 @@ const props = defineProps<{
   selectedAuxLevels: string[];
   hiddenCallers: string[];
   callerOptions: { label: string; value: string }[];
-  formatAuxLevel: (value: string) => "default" | "primary" | "info" | "success" | "warning" | "error";
+  formatAuxLevel: (
+    value: string
+  ) => "default" | "primary" | "info" | "success" | "warning" | "error";
 }>();
 
 const emit = defineEmits<{
@@ -24,13 +35,15 @@ const auxLevelOptions = [
   { label: "Warn", value: "warn" },
   { label: "Info", value: "info" },
   { label: "Debug", value: "debug" },
-  { label: "Other", value: "other" }
+  { label: "Other", value: "other" },
 ];
 
 const DEFAULT_HIDDEN_CALLERS_KEY = "maa-logs-default-hidden-callers";
 const DEFAULT_HIDDEN_CALLERS_INITIAL = ["main.go", "register.go", "checker.go"];
 const showDefaultHiddenModal = ref(false);
-const defaultHiddenCallers = useStorage<string[]>(DEFAULT_HIDDEN_CALLERS_KEY, [...DEFAULT_HIDDEN_CALLERS_INITIAL]);
+const defaultHiddenCallers = useStorage<string[]>(DEFAULT_HIDDEN_CALLERS_KEY, [
+  ...DEFAULT_HIDDEN_CALLERS_INITIAL,
+]);
 const newHiddenCallerInput = ref("");
 
 function addDefaultHiddenCaller() {
@@ -60,9 +73,7 @@ function applyDefaultHiddenCallers() {
 <template>
   <div class="detail-section-card">
     <div class="detail-section-header">
-      <div class="detail-section-title">
-        Custom日志
-      </div>
+      <div class="detail-section-title">Custom日志</div>
     </div>
     <div class="aux-log-filters">
       <span class="aux-log-filter-label">级别过滤：</span>
@@ -88,22 +99,17 @@ function applyDefaultHiddenCallers() {
         multiple
         clearable
         placeholder="选择要隐藏的日志来源文件"
-        style="flex: 1; max-width: 400px;"
+        style="flex: 1; max-width: 400px"
         @update:value="emit('update:hiddenCallers', $event as string[])"
       />
-      <n-button
-        size="small"
-        @click="showDefaultHiddenModal = true"
-      >
-        默认设置
-      </n-button>
+      <n-button size="small" @click="showDefaultHiddenModal = true"> 默认设置 </n-button>
     </div>
 
     <n-modal
       v-model:show="showDefaultHiddenModal"
       preset="card"
       title="默认隐藏来源"
-      style="width: 400px;"
+      style="width: 400px"
     >
       <div class="default-hidden-callers-modal">
         <div class="default-hidden-callers-list">
@@ -113,20 +119,11 @@ function applyDefaultHiddenCallers() {
             class="default-hidden-caller-item"
           >
             <span>{{ caller }}</span>
-            <n-button
-              size="tiny"
-              type="error"
-              @click="removeDefaultHiddenCaller(index)"
-            >
+            <n-button size="tiny" type="error" @click="removeDefaultHiddenCaller(index)">
               删除
             </n-button>
           </div>
-          <div
-            v-if="defaultHiddenCallers.length === 0"
-            class="empty"
-          >
-            暂无默认隐藏来源
-          </div>
+          <div v-if="defaultHiddenCallers.length === 0" class="empty">暂无默认隐藏来源</div>
         </div>
         <div class="default-hidden-callers-add">
           <n-input
@@ -134,29 +131,15 @@ function applyDefaultHiddenCallers() {
             placeholder="输入来源文件名（如 actions.go）"
             @keyup.enter="addDefaultHiddenCaller"
           />
-          <n-button
-            size="small"
-            type="primary"
-            @click="addDefaultHiddenCaller"
-          >
-            添加
-          </n-button>
+          <n-button size="small" type="primary" @click="addDefaultHiddenCaller"> 添加 </n-button>
         </div>
         <div class="default-hidden-callers-actions">
-          <n-button
-            type="primary"
-            @click="applyDefaultHiddenCallers"
-          >
-            应用并关闭
-          </n-button>
+          <n-button type="primary" @click="applyDefaultHiddenCallers"> 应用并关闭 </n-button>
         </div>
       </div>
     </n-modal>
 
-    <div
-      v-if="customActions.length > 0"
-      class="detail-tag-list"
-    >
+    <div v-if="customActions.length > 0" class="detail-tag-list">
       <n-tag
         v-for="item in customActions"
         :key="`${item.name}-${item.fileName}`"
@@ -169,26 +152,11 @@ function applyDefaultHiddenCallers() {
 
     <div class="aux-log-section">
       <div class="aux-log-summary">
-        <n-tag
-          size="small"
-          type="success"
-        >
-          关联日志 {{ auxLogs.length }}
-        </n-tag>
+        <n-tag size="small" type="success"> 关联日志 {{ auxLogs.length }} </n-tag>
       </div>
-      <div class="aux-log-section-title">
-        当前任务 · Custom日志
-      </div>
-      <div
-        v-if="auxLogs.length === 0"
-        class="empty"
-      >
-        无关联日志
-      </div>
-      <div
-        v-else
-        class="aux-log-list"
-      >
+      <div class="aux-log-section-title">当前任务 · Custom日志</div>
+      <div v-if="auxLogs.length === 0" class="empty">无关联日志</div>
+      <div v-else class="aux-log-list">
         <DynamicScroller
           class="virtual-scroller aux-log-scroller"
           :items="auxLogs"
@@ -196,17 +164,11 @@ function applyDefaultHiddenCallers() {
           :min-item-size="60"
         >
           <template #default="{ item, active }">
-            <DynamicScrollerItem
-              :item="item"
-              :active="active"
-            >
+            <DynamicScrollerItem :item="item" :active="active">
               <div class="aux-log-item">
                 <div class="aux-log-main">
                   <div class="aux-log-header">
-                    <n-tag
-                      size="small"
-                      :type="formatAuxLevel(item.level)"
-                    >
+                    <n-tag size="small" :type="formatAuxLevel(item.level)">
                       {{ item.level }}
                     </n-tag>
                     <span class="aux-log-time">{{ item.timestamp }}</span>
@@ -216,12 +178,8 @@ function applyDefaultHiddenCallers() {
                   </div>
                 </div>
                 <div class="aux-log-meta">
-                  <div v-if="item.entry">
-                    入口：{{ item.entry }}
-                  </div>
-                  <div v-if="item.caller">
-                    来源：{{ item.caller }}
-                  </div>
+                  <div v-if="item.entry">入口：{{ item.entry }}</div>
+                  <div v-if="item.caller">来源：{{ item.caller }}</div>
                 </div>
               </div>
             </DynamicScrollerItem>

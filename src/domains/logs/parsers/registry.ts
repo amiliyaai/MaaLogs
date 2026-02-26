@@ -14,7 +14,14 @@
  */
 
 import type { AuxLogEntry, RawLine } from "../types/logTypes";
-import type { LogParser, ParseResult, ParserPriority, ParserRegistration, AuxLogParserInfo, AuxLogParser } from "./types";
+import type {
+  LogParser,
+  ParseResult,
+  ParserPriority,
+  ParserRegistration,
+  AuxLogParserInfo,
+  AuxLogParser,
+} from "./types";
 
 /**
  * 解析器注册表类
@@ -81,7 +88,7 @@ class ParserRegistry {
    */
   public register(parser: LogParser, priority: ParserPriority = 50): void {
     // 检查是否已注册
-    const existing = this.parsers.findIndex(r => r.parser.name === parser.name);
+    const existing = this.parsers.findIndex((r) => r.parser.name === parser.name);
     if (existing >= 0) {
       // 更新现有注册
       this.parsers[existing] = { parser, priority, enabled: true };
@@ -106,7 +113,7 @@ class ParserRegistry {
    * registry.unregister('LoguruParser');
    */
   public unregister(name: string): boolean {
-    const index = this.parsers.findIndex(r => r.parser.name === name);
+    const index = this.parsers.findIndex((r) => r.parser.name === name);
     if (index >= 0) {
       this.parsers.splice(index, 1);
       return true;
@@ -127,7 +134,7 @@ class ParserRegistry {
    * registry.setEnabled('LoguruParser', false);
    */
   public setEnabled(name: string, enabled: boolean): boolean {
-    const registration = this.parsers.find(r => r.parser.name === name);
+    const registration = this.parsers.find((r) => r.parser.name === name);
     if (registration) {
       registration.enabled = enabled;
       return true;
@@ -152,10 +159,10 @@ class ParserRegistry {
    * @returns {AuxLogParserInfo[]} 解析器信息列表
    */
   public getInfoList(): AuxLogParserInfo[] {
-    return Array.from(this.auxParsers.values()).map(parser => ({
+    return Array.from(this.auxParsers.values()).map((parser) => ({
       id: parser.id,
       name: parser.name,
-      description: parser.description
+      description: parser.description,
     }));
   }
 
@@ -204,7 +211,8 @@ class ParserRegistry {
 
       // 检查文件名是否匹配
       const matchesFileName = parser.supportedFiles.some(
-        pattern => lowerFileName === pattern.toLowerCase() || lowerFileName.includes(pattern.toLowerCase())
+        (pattern) =>
+          lowerFileName === pattern.toLowerCase() || lowerFileName.includes(pattern.toLowerCase())
       );
 
       if (matchesFileName) {
@@ -247,7 +255,7 @@ class ParserRegistry {
     // 没有找到合适的解析器，返回原始行
     return {
       entries: [],
-      rawLines: this.buildRawLines(content, fileName)
+      rawLines: this.buildRawLines(content, fileName),
     };
   }
 
@@ -295,9 +303,9 @@ class ParserRegistry {
       .map((line, index) => ({
         fileName,
         lineNumber: index + 1,
-        line
+        line,
       }))
-      .filter(rawLine => rawLine.line.trim().length > 0);
+      .filter((rawLine) => rawLine.line.trim().length > 0);
   }
 
   /**

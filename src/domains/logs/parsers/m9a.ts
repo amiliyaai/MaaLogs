@@ -34,7 +34,8 @@ import type { LogParser, AuxLogParser, AuxLogParserConfig, AuxLogParseResult } f
 function parseLoguruLine(line: string, lineNumber: number, fileName: string): AuxLogEntry | null {
   // Loguru 格式正则表达式
   // 格式：timestamp | level | caller | message
-  const regex = /^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3})\s*\|\s*(\w+)\s*\|\s*([^|]+)\s*\|\s*(.*)$/;
+  const regex =
+    /^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3})\s*\|\s*(\w+)\s*\|\s*([^|]+)\s*\|\s*(.*)$/;
   const match = line.match(regex);
 
   if (!match) return null;
@@ -72,7 +73,7 @@ function parseLoguruLine(line: string, lineNumber: number, fileName: string): Au
     entry,
     caller: callerInfo,
     fileName,
-    lineNumber
+    lineNumber,
   };
 }
 
@@ -121,7 +122,7 @@ export const loguruParser: LogParser = {
     }
 
     // 如果超过 50% 的非空行匹配，则认为是 Loguru 格式
-    return matchCount > 0 && matchCount / lines.filter(l => l.trim().length > 0).length > 0.5;
+    return matchCount > 0 && matchCount / lines.filter((l) => l.trim().length > 0).length > 0.5;
   },
 
   /**
@@ -146,7 +147,7 @@ export const loguruParser: LogParser = {
     }
 
     return entries;
-  }
+  },
 };
 
 /**
@@ -192,7 +193,7 @@ export const loguruAuxParser: AuxLogParser = {
     }
 
     return { entries };
-  }
+  },
 };
 
 /**

@@ -107,28 +107,14 @@ const handleThemeSelect = (key: string) => {
         trigger="click"
         @select="handleThemeSelect"
       >
-        <n-button
-          size="small"
-          quaternary
-        >
+        <n-button size="small" quaternary>
           {{ themeLabels[props.themeMode] }}
         </n-button>
       </n-dropdown>
       <!-- 关于按钮 -->
-      <n-button
-        size="small"
-        quaternary
-        @click="showAbout = true"
-      >
-        关于
-      </n-button>
+      <n-button size="small" quaternary @click="showAbout = true"> 关于 </n-button>
       <!-- 开发者工具按钮（仅 Tauri 环境） -->
-      <n-button
-        v-if="isTauri"
-        size="small"
-        quaternary
-        @click="emit('open-devtools')"
-      >
+      <n-button v-if="isTauri" size="small" quaternary @click="emit('open-devtools')">
         开发者工具
       </n-button>
     </div>

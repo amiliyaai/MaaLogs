@@ -41,17 +41,11 @@ const expanded = ref(false);
 </script>
 
 <template>
-  <n-card
-    class="panel file-list-panel"
-    size="small"
-  >
+  <n-card class="panel file-list-panel" size="small">
     <template #header>
-      <div
-        class="header-content"
-        @click="expanded = !expanded"
-      >
+      <div class="header-content" @click="expanded = !expanded">
         <div class="header-left">
-          <span class="expand-icon">{{ expanded ? '▼' : '▶' }}</span>
+          <span class="expand-icon">{{ expanded ? "▼" : "▶" }}</span>
           <span class="header-title">📁 文件列表</span>
           <span class="header-count">{{ selectedFiles.length }} 个文件</span>
         </div>
@@ -67,34 +61,14 @@ const expanded = ref(false);
       </div>
     </template>
 
-    <div
-      v-show="expanded"
-      class="file-list-wrapper"
-    >
-      <div
-        v-if="selectedFiles.length === 0"
-        class="empty"
-      >
-        请先选择日志/配置文件
-      </div>
-      <ul
-        v-else
-        class="file-list"
-      >
-        <li
-          v-for="(file, index) in selectedFiles"
-          :key="file.name"
-          class="file-row"
-        >
+    <div v-show="expanded" class="file-list-wrapper">
+      <div v-if="selectedFiles.length === 0" class="empty">请先选择日志/配置文件</div>
+      <ul v-else class="file-list">
+        <li v-for="(file, index) in selectedFiles" :key="file.name" class="file-row">
           <span class="file-name">{{ file.name }}</span>
           <span class="file-meta">{{ formatSize(file.size) }}</span>
           <span class="file-type">{{ file.type }}</span>
-          <n-button
-            size="tiny"
-            quaternary
-            type="error"
-            @click="emit('remove', index)"
-          >
+          <n-button size="tiny" quaternary type="error" @click="emit('remove', index)">
             移除
           </n-button>
         </li>
