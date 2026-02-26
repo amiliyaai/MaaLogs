@@ -14,6 +14,11 @@
 import { createApp } from "vue";
 import App from "./App.vue";
 
+import "@vue-flow/core/dist/style.css";
+import "@vue-flow/core/dist/theme-default.css";
+import "@vue-flow/controls/dist/style.css";
+import "@vue-flow/minimap/dist/style.css";
+
 // 导入解析器注册相关模块
 import { parserRegistry } from "./domains/logs/parsers/registry";
 import { maaEndParser, maaEndAuxParser } from "./domains/logs/parsers/maaend";

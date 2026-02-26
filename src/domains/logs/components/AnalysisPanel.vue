@@ -69,7 +69,7 @@
  * - Naive UI 组件：按钮、卡片、折叠面板、代码显示、选择器、标签、复选框
  * - vue-virtual-scroller：虚拟滚动组件，用于优化大列表性能
  */
-import { NButton, NCard, NCollapse, NCollapseItem, NCode, NSelect, NTag, NSpin } from "naive-ui";
+import { NButton, NCard, NCollapse, NCollapseItem, NCode, NModal, NSelect, NTag, NSpin } from "naive-ui";
 import { DynamicScroller, DynamicScrollerItem } from "vue-virtual-scroller";
 import { ref, watch, onMounted } from "vue";
 import type {
@@ -90,6 +90,7 @@ import AISettingsModal from "./AISettingsModal.vue";
 import AIResultCard from "./AIResultCard.vue";
 import ControllerInfoCard from "./ControllerInfoCard.vue";
 import CustomLogPanel from "./CustomLogPanel.vue";
+import NodeFlowChart from "./NodeFlowChart.vue";
 
 /**
  * AI 分析状态
@@ -102,6 +103,7 @@ onMounted(async () => {
 const aiAnalyzing = ref(false);
 const aiResults = ref<FailureAnalysis[]>([]);
 const showAISettings = ref(false);
+const showFlowChart = ref(false);
 const aiError = ref("");
 
 /**
@@ -412,8 +414,27 @@ const handleNodeSelect = (nodeId: number) => {
       <!-- 中栏：节点列表 -->
       <div class="node-list">
         <div class="panel-top">
-          <div class="node-header">节点列表</div>
+          <div class="node-header">
+            <span>节点列表</span>
+            <n-button
+              v-if="selectedTaskNodes.length > 0"
+              size="small"
+              @click="showFlowChart = true"
+            >
+              展开流程图
+            </n-button>
+          </div>
         </div>
+        <!-- 节点流程图 -->
+        <n-collapse v-if="selectedTaskNodes.length > 0">
+          <n-collapse-item title="节点流程图" name="flow-chart">
+            <NodeFlowChart
+              :nodes="selectedTaskNodes"
+              :selected-node-id="selectedNodeId"
+              @select-node="handleNodeSelect"
+            />
+          </n-collapse-item>
+        </n-collapse>
         <!-- 空状态：未选择任务 -->
         <div v-if="!selectedTaskKey" class="empty">请选择左侧任务</div>
         <div v-else class="node-list-content">
@@ -911,6 +932,23 @@ const handleNodeSelect = (nodeId: number) => {
     </div>
     <!-- AI 设置 Modal -->
     <AISettingsModal v-model:show="showAISettings" :config="aiConfig" @save="handleSaveAIConfig" />
+    <!-- 节点流程图大面板 -->
+    <n-modal
+      v-model:show="showFlowChart"
+      preset="card"
+      title="节点流程图"
+      :closable="true"
+      style="width: 90vw; max-width: 1200px; height: 80vh;"
+    >
+      <div style="height: 100%;">
+        <NodeFlowChart
+          :nodes="selectedTaskNodes"
+          :selected-node-id="selectedNodeId"
+          style="height: calc(100% - 20px);"
+          @select-node="handleNodeSelect"
+        />
+      </div>
+    </n-modal>
   </n-card>
 </template>
 
