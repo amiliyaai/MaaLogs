@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { ref, watch, defineComponent, h } from "vue";
 import { VueFlow, useVueFlow, Position } from "@vue-flow/core";
 import { Background } from "@vue-flow/background";
 import { Controls } from "@vue-flow/controls";
 import { MiniMap } from "@vue-flow/minimap";
 import { NEmpty } from "naive-ui";
-import dagre from "dagre";
+import ELK from "elkjs/lib/elk.bundled.js";
 import type { NodeInfo } from "../types/logTypes";
 
 interface Props {
@@ -24,11 +24,10 @@ const emit = defineEmits<{
 
 const { fitView } = useVueFlow();
 
-const dagreGraph = new dagre.graphlib.Graph();
-dagreGraph.setDefaultEdgeLabel(() => ({}));
+const elk = new ELK();
 
-const nodeWidth = 160;
-const nodeHeight = 56;
+const nodeWidth = 180;
+const nodeHeight = 64;
 
 const flowNodes = ref<any[]>([]);
 const flowEdges = ref<any[]>([]);
@@ -36,64 +35,68 @@ const flowEdges = ref<any[]>([]);
 const getMiniMapNodeColor = (node: any) => {
   if (node.data?.isSuccess) return "#52c41a";
   if (node.data?.isFailed) return "#f5222d";
-  return "#8c8c8c";
+  return "#1890ff";
 };
 
-const statusConfig: Record<string, { bg: string; border: string; text: string; icon: string; label: string }> = {
-  success: { 
-    bg: "linear-gradient(135deg, #f6ffed 0%, #d9f7be 100%)", 
-    border: "#52c41a", 
-    text: "#237804",
-    icon: "✓",
-    label: "成功"
-  },
-  failed: { 
-    bg: "linear-gradient(135deg, #fff1f0 0%, #ffccc7 100%)", 
-    border: "#f5222d", 
-    text: "#a8071a",
-    icon: "✗",
-    label: "失败"
-  },
-  running: { 
-    bg: "linear-gradient(135deg, #e6f7ff 0%, #bae7ff 100%)", 
-    border: "#1890ff", 
-    text: "#0050b3",
-    icon: "⟳",
-    label: "运行中"
-  },
-  waiting: { 
-    bg: "linear-gradient(135deg, #fafafa 0%, #f0f0f0 100%)", 
-    border: "#8c8c8c", 
-    text: "#595959",
-    icon: "○",
-    label: "等待"
-  },
-};
+const getNodeStatus = (status?: string) => (status || "waiting") as string;
 
-const getStatus = (status?: string) => statusConfig[status || "waiting"];
-const getNodeName = (node: { node_id: number; name: string }) => node.name || `Node ${node.node_id}`;
 const getEdgeColor = (isJumpBack: boolean, isRunning: boolean) => {
   if (isJumpBack) return "#f5222d";
   if (isRunning) return "#1890ff";
-  return "#bfbfbf";
+  return "#91d5ff";
 };
-const getNodeStatus = (status?: string) => (status || "waiting") as string;
 
-const getLayoutedElements = () => {
+const statusStyles: Record<string, { bg: string; border: string; icon: string; label: string; shadow: string }> = {
+  success: { 
+    bg: "linear-gradient(135deg, #52c41a 0%, #73d13d 100%)", 
+    border: "#52c41a", 
+    icon: "✓",
+    label: "成功",
+    shadow: "0 4px 12px rgba(82, 196, 26, 0.3)"
+  },
+  failed: { 
+    bg: "linear-gradient(135deg, #f5222d 0%, #ff7875 100%)", 
+    border: "#f5222d", 
+    icon: "✗",
+    label: "失败",
+    shadow: "0 4px 12px rgba(245, 34, 45, 0.3)"
+  },
+  running: { 
+    bg: "linear-gradient(135deg, #1890ff 0%, #40a9ff 100%)", 
+    border: "#1890ff", 
+    icon: "⟳",
+    label: "运行中",
+    shadow: "0 4px 12px rgba(24, 144, 255, 0.3)"
+  },
+  waiting: { 
+    bg: "linear-gradient(135deg, #8c8c8c 0%, #bfbfbf 100%)", 
+    border: "#8c8c8c", 
+    icon: "○",
+    label: "等待",
+    shadow: "0 4px 12px rgba(140, 140, 140, 0.3)"
+  },
+};
+
+const getLayoutedElements = async () => {
   if (!props.nodes || props.nodes.length === 0) {
     return { nodes: [], edges: [] };
   }
 
-  dagreGraph.setGraph({ rankdir: "TB", nodesep: 50, ranksep: 70 });
+  const uniqueNodeMap = new Map<string, { node: typeof props.nodes[0]; index: number }>();
+  props.nodes.forEach((node, index) => {
+    const nodeName = node.name || `Node ${node.node_id}`;
+    if (!uniqueNodeMap.has(nodeName)) {
+      uniqueNodeMap.set(nodeName, { node, index });
+    }
+  });
 
-  const nodesWithEdges = props.nodes.map((node, index) => {
+  const nodesWithEdges = Array.from(uniqueNodeMap.entries()).map(([nodeName, { node, index }]) => {
     const nodeStatus = getNodeStatus(node.status);
-    const status = getStatus(nodeStatus);
+    const style = statusStyles[nodeStatus] || statusStyles.waiting;
     const orderNum = index + 1;
-    const nodeName = getNodeName(node);
     
     return {
-      id: String(node.node_id),
+      id: nodeName,
       type: "custom",
       position: { x: 0, y: 0 },
       sourcePosition: Position.Bottom,
@@ -101,140 +104,153 @@ const getLayoutedElements = () => {
       data: {
         orderNum,
         nodeName,
-        status: status.label,
-        icon: status.icon,
+        status: style.label,
+        icon: style.icon,
+        bg: style.bg,
+        border: style.border,
+        shadow: style.shadow,
         isSuccess: nodeStatus === "success",
         isFailed: nodeStatus === "failed",
         isRunning: nodeStatus === "running",
-      },
-      style: {
-        background: "transparent",
-        border: "none",
-        boxShadow: "none",
       },
     };
   });
 
   const edges: any[] = [];
-  const nodeMap = new Map(props.nodes.map((n, idx) => [n.name || `Node ${n.node_id}`, { id: n.node_id, index: idx }]));
+  const nameToNodeMap = new Map(Array.from(uniqueNodeMap.entries()).map(([name, { index }]) => [name, { id: name, index }]));
 
   props.nodes.forEach((node, nodeIdx) => {
     const nodeStatus = getNodeStatus(node.status);
     const isRunning = nodeStatus === "running";
+    const sourceName = node.name || `Node ${node.node_id}`;
     node.next_list?.forEach((nextItem) => {
-      const nodeInfo = nodeMap.get(nextItem.name);
-      if (nodeInfo) {
+      const targetInfo = nameToNodeMap.get(nextItem.name);
+      if (targetInfo) {
         const jumpBack = nextItem.jump_back;
         const isJumpBack = Boolean(jumpBack);
         const edgeOrder = nodeIdx + 1;
         edges.push({
-          id: `${node.node_id}-${nodeInfo.id}`,
-          source: String(node.node_id),
-          target: String(nodeInfo.id),
+          id: `${sourceName}-${targetInfo.id}-${nodeIdx}`,
+          source: sourceName,
+          target: targetInfo.id,
           type: "smoothstep",
           animated: isJumpBack || isRunning,
           style: {
             stroke: getEdgeColor(isJumpBack, isRunning),
-            strokeWidth: isJumpBack ? 2.5 : 2,
+            strokeWidth: isJumpBack ? 3 : 2,
           },
           markerEnd: {
             type: "arrowclosed",
             color: getEdgeColor(isJumpBack, isRunning),
           },
-          label: nextItem.anchor ? "🔗" : `${edgeOrder}→${nodeInfo.index + 1}`,
-          labelStyle: { fill: "#8c8c8c", fontSize: 10, fontWeight: 500 },
-          labelBgStyle: { fill: "#fff", stroke: "#e8e8e8" },
-          labelBgPadding: [4, 2] as [number, number],
+          label: nextItem.anchor ? "🔗" : `${edgeOrder}→${targetInfo.index + 1}`,
+          labelStyle: { fill: "#fff", fontSize: 10, fontWeight: 600 },
+          labelBgStyle: { fill: getEdgeColor(isJumpBack, isRunning), stroke: "none" },
+          labelBgPadding: [6, 2] as [number, number],
           labelBgBorderRadius: 4,
         });
       }
     });
   });
 
-  nodesWithEdges.forEach((node) => {
-    dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
-  });
+  const elkNodes = nodesWithEdges.map((node) => ({
+    id: node.id,
+    width: nodeWidth,
+    height: nodeHeight,
+  }));
 
-  edges.forEach((edge) => {
-    dagreGraph.setEdge(edge.source, edge.target);
-  });
+  const elkEdges = edges.map((edge) => ({
+    id: edge.id,
+    sources: [edge.source],
+    targets: [edge.target],
+  }));
 
-  dagre.layout(dagreGraph);
+  try {
+    const layoutedGraph = await elk.layout({
+      id: "root",
+      layoutOptions: {
+        "elk.algorithm": "layered",
+        "elk.layered.spacing.nodeNodeBetweenLayers": "80",
+        "elk.spacing.nodeNode": "60",
+        "elk.direction": "DOWN",
+      },
+      children: elkNodes,
+      edges: elkEdges,
+    });
 
-  nodesWithEdges.forEach((node) => {
-    const nodeWithPosition = dagreGraph.node(node.id);
-    if (nodeWithPosition) {
-      node.position = {
-        x: nodeWithPosition.x - nodeWidth / 2,
-        y: nodeWithPosition.y - nodeHeight / 2,
-      };
+    if (layoutedGraph.children) {
+      layoutedGraph.children.forEach((elkNode) => {
+        const node = nodesWithEdges.find((n) => n.id === elkNode.id);
+        if (node && elkNode.x && elkNode.y) {
+          node.position = {
+            x: elkNode.x,
+            y: elkNode.y,
+          };
+        }
+      });
     }
-  });
+  } catch (e) {
+    console.error("ELK layout error:", e);
+  }
 
-  return { nodes: nodesWithEdges, edges };
+  const validNodes = nodesWithEdges.filter((n) => n.position && Number.isFinite(n.position.x) && Number.isFinite(n.position.y));
+  const validEdges = edges.filter((e) => e.source && e.target);
+
+  return { nodes: validNodes, edges: validEdges };
 };
+
+const CustomNode = defineComponent({
+  props: ["data", "selected"],
+  setup(props) {
+    return () => {
+      const { data, selected } = props;
+      return h("div", { 
+        class: ["flow-node", selected && "is-selected", data.isSuccess && "is-success", data.isFailed && "is-failed", data.isRunning && "is-running"],
+        style: { background: data.bg, boxShadow: data.shadow }
+      }, [
+        h("div", { class: "node-order" }, data.orderNum),
+        h("div", { class: "node-content" }, [
+          h("div", { class: "node-icon" }, data.icon),
+          h("div", { class: "node-info" }, [
+            h("div", { class: "node-name" }, data.nodeName),
+            h("div", { class: "node-status" }, data.status),
+          ]),
+        ]),
+      ]);
+    };
+  },
+});
 
 watch(
   () => [props.nodes, props.selectedNodeId],
-  () => {
-    const result = getLayoutedElements();
+  async () => {
+    const result = await getLayoutedElements();
     flowNodes.value = result.nodes;
     flowEdges.value = result.edges;
     setTimeout(() => {
-      fitView({ padding: 0.15 });
+      fitView({ padding: 0.2 });
     }, 100);
   },
   { immediate: true, deep: true }
 );
-
-const handleNodeClick = (_event: any) => {
-  // 点击节点不触发选中
-};
-
-const CustomNode = {
-  props: ["data", "selected"],
-  template: `
-    <div 
-      class="custom-node"
-      :class="{ 
-        'is-success': data.isSuccess, 
-        'is-failed': data.isFailed,
-        'is-running': data.isRunning,
-        'is-selected': selected
-      }"
-    >
-      <div class="node-order">{{ data.orderNum }}</div>
-      <div class="node-content">
-        <div class="node-icon">{{ data.icon }}</div>
-        <div class="node-info">
-          <div class="node-name">{{ data.nodeName }}</div>
-          <div class="node-status">{{ data.status }}</div>
-        </div>
-      </div>
-    </div>
-  `,
-};
-
-defineExpose({ CustomNode });
 </script>
 
 <template>
-  <div v-if="flowNodes.length > 0" class="flow-chart" :style="{ height }">
+  <div v-if="flowNodes.length > 0 && flowEdges.length > 0" class="flow-chart" :style="{ height }">
     <VueFlow
       v-model:nodes="flowNodes"
       v-model:edges="flowEdges"
       :fit-view-on-init="true"
-      :default-viewport="{ zoom: 0.7 }"
-      :node-types="{ custom: CustomNode }"
-      @node-click="handleNodeClick"
+      :default-viewport="{ zoom: 0.8 }"
+      :node-types="{ custom: CustomNode as any }"
     >
-      <Background pattern-color="#f0f0f0" :gap="20" />
+      <Background pattern-color="#e8f4ff" :gap="16" />
       <Controls position="bottom-right" />
       <MiniMap
         position="bottom-left"
         :node-color="getMiniMapNodeColor"
-        :mask-color="'rgba(0, 0, 0, 0.08)'"
-        style="width: 120px; height: 80px"
+        :mask-color="'rgba(24, 144, 255, 0.1)'"
+        style="width: 100px; height: 60px"
       />
     </VueFlow>
   </div>
@@ -246,14 +262,14 @@ defineExpose({ CustomNode });
 <style scoped>
 .flow-chart {
   width: 100%;
-  border-radius: 12px;
+  border-radius: 16px;
   overflow: hidden;
-  background: #fafafa;
+  background: linear-gradient(180deg, #f0f9ff 0%, #e6f7ff 100%);
 }
 
 .flow-chart-empty {
   width: 100%;
-  border-radius: 12px;
+  border-radius: 16px;
   overflow: hidden;
   background: var(--n-color);
   display: flex;
@@ -262,83 +278,55 @@ defineExpose({ CustomNode });
 }
 
 :deep(.vue-flow__node-custom) {
-  width: 160px;
-  height: 56px;
+  width: 180px;
+  height: 64px;
 }
 
-:deep(.custom-node) {
+:deep(.flow-node) {
   width: 100%;
   height: 100%;
-  border-radius: 10px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
-  padding: 6px;
+  padding: 8px;
   gap: 10px;
   cursor: pointer;
-  transition: all 0.25s ease;
-  border: 2px solid transparent;
-  background: linear-gradient(135deg, #fafafa 0%, #f0f0f0 100%);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  color: #fff;
 }
 
-:deep(.custom-node:hover) {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+:deep(.flow-node:hover) {
+  transform: scale(1.05);
 }
 
-:deep(.custom-node.is-selected) {
-  border-color: #1890ff;
-  box-shadow: 0 0 0 4px rgba(24, 144, 255, 0.2), 0 6px 16px rgba(0, 0, 0, 0.12);
+:deep(.flow-node.is-selected) {
+  border-color: #fff;
+  transform: scale(1.08);
 }
 
-:deep(.custom-node.is-success) {
-  background: linear-gradient(135deg, #f6ffed 0%, #d9f7be 100%);
-  border-color: #b7eb8f;
+:deep(.flow-node.is-running .node-icon) {
+  animation: spin 1s linear infinite;
 }
 
-:deep(.custom-node.is-failed) {
-  background: linear-gradient(135deg, #fff1f0 0%, #ffccc7 100%);
-  border-color: #ffccc7;
-}
-
-:deep(.custom-node.is-running) {
-  background: linear-gradient(135deg, #e6f7ff 0%, #bae7ff 100%);
-  border-color: #91d5ff;
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 :deep(.node-order) {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.25);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
-  color: #595959;
+  color: #fff;
   flex-shrink: 0;
-}
-
-:deep(.is-success .node-order) {
-  background: #52c41a;
-  color: #fff;
-}
-
-:deep(.is-failed .node-order) {
-  background: #f5222d;
-  color: #fff;
-}
-
-:deep(.is-running .node-order) {
-  background: #1890ff;
-  color: #fff;
-  animation: pulse 1.5s infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+  backdrop-filter: blur(4px);
 }
 
 :deep(.node-content) {
@@ -350,33 +338,15 @@ defineExpose({ CustomNode });
 }
 
 :deep(.node-icon) {
-  font-size: 18px;
-  width: 28px;
-  height: 28px;
+  font-size: 20px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.25);
   flex-shrink: 0;
-}
-
-:deep(.is-success .node-icon) {
-  color: #52c41a;
-}
-
-:deep(.is-failed .node-icon) {
-  color: #f5222d;
-}
-
-:deep(.is-running .node-icon) {
-  color: #1890ff;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
 }
 
 :deep(.node-info) {
@@ -387,65 +357,54 @@ defineExpose({ CustomNode });
 :deep(.node-name) {
   font-size: 13px;
   font-weight: 600;
-  color: #262626;
+  color: #fff;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 :deep(.node-status) {
   font-size: 11px;
-  color: #8c8c8c;
+  color: rgba(255, 255, 255, 0.85);
   margin-top: 2px;
-}
-
-:deep(.is-success .node-status) {
-  color: #52c41a;
-}
-
-:deep(.is-failed .node-status) {
-  color: #f5222d;
-}
-
-:deep(.is-running .node-status) {
-  color: #1890ff;
 }
 
 :deep(.vue-flow__edge-text) {
   font-size: 10px;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 :deep(.vue-flow__controls) {
-  border-radius: 8px;
+  border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(24, 144, 255, 0.15);
   border: none;
 }
 
 :deep(.vue-flow__controls-button) {
   border: none;
   background: #fff;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
 }
 
 :deep(.vue-flow__controls-button:hover) {
-  background: #f5f5f5;
+  background: #e6f7ff;
 }
 
 :deep(.vue-flow__controls-button svg) {
-  fill: #595959;
+  fill: #1890ff;
 }
 
 :deep(.vue-flow__minimap) {
-  border-radius: 8px;
+  border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(24, 144, 255, 0.15);
   border: none;
 }
 
 :deep(.vue-flow__background) {
-  background: #fafafa;
+  background: linear-gradient(180deg, #f0f9ff 0%, #e6f7ff 100%);
 }
 </style>

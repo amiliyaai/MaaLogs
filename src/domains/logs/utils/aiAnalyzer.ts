@@ -12,7 +12,7 @@
  */
 
 import type { TaskInfo, NodeInfo, AuxLogEntry } from "../types/logTypes";
-import { encryptSecure, decryptSecure } from "./crypto";
+import { encryptSecure, decryptSecure, getStore } from "./crypto";
 
 /**
  * AI 服务商类型
@@ -489,13 +489,14 @@ interface EncryptedConfig {
 const CONFIG_VERSION = 2;
 
 /**
- * 从 localStorage 加载 AI 配置（支持加密和未加密格式）
+ * 从 Tauri store 加载 AI 配置（支持加密和未加密格式）
  *
  * @returns AI 配置对象
  */
 export async function getAIConfig(): Promise<AIConfig> {
   try {
-    const stored = localStorage.getItem(AI_CONFIG_KEY);
+    const s = await getStore();
+    const stored = await s.get(AI_CONFIG_KEY) as string | null;
     if (stored) {
       let parsed: unknown;
       
@@ -512,11 +513,16 @@ export async function getAIConfig(): Promise<AIConfig> {
       const storedConfig = parsed as Partial<AIConfig> & Partial<EncryptedConfig>;
       if (storedConfig.encrypted && storedConfig.version === CONFIG_VERSION && storedConfig.data) {
         try {
-          const decrypted = await decryptSecure(storedConfig.data);
+          const dataStr = String(storedConfig.data).trim();
+          if (!dataStr) {
+            return { ...DEFAULT_AI_CONFIG };
+          }
+          const decrypted = await decryptSecure(dataStr);
           const decryptedConfig = JSON.parse(decrypted);
           return { ...DEFAULT_AI_CONFIG, ...decryptedConfig };
-        } catch (e) {
-          console.error("Failed to decrypt AI config", e);
+        } catch (e: any) {
+          await s.delete(AI_CONFIG_KEY);
+          await s.save();
           return { ...DEFAULT_AI_CONFIG };
         }
       }
@@ -530,12 +536,13 @@ export async function getAIConfig(): Promise<AIConfig> {
 }
 
 /**
- * 保存 AI 配置到 localStorage（加密敏感数据）
+ * 保存 AI 配置到 Tauri store（加密敏感数据）
  *
  * @param config - AI 配置对象
  */
 export async function saveAIConfig(config: AIConfig): Promise<void> {
   try {
+    const s = await getStore();
     const configToSave = { ...config };
     const configString = JSON.stringify(configToSave);
     const encrypted = await encryptSecure(configString);
@@ -546,10 +553,17 @@ export async function saveAIConfig(config: AIConfig): Promise<void> {
       data: encrypted
     };
     
-    localStorage.setItem(AI_CONFIG_KEY, JSON.stringify(encryptedConfig));
+    await s.set(AI_CONFIG_KEY, JSON.stringify(encryptedConfig));
+    await s.save();
   } catch (e) {
     console.error("Failed to save AI config", e);
-    localStorage.setItem(AI_CONFIG_KEY, JSON.stringify(config));
+    try {
+      const s = await getStore();
+      await s.set(AI_CONFIG_KEY, JSON.stringify(config));
+      await s.save();
+    } catch (e2) {
+      console.error("Failed to save AI config (fallback)", e2);
+    }
   }
 }
 

@@ -308,15 +308,6 @@ function emit(level: LogLevel, module: string, message: string, data?: unknown) 
   };
   buffer.push(entry);
   scheduleFlush();
-
-  // 输出到控制台
-  const consoleFn =
-    level === "ERROR" || level === "FATAL"
-      ? console.error
-      : level === "WARN"
-      ? console.warn
-      : console.log;
-  consoleFn(formatEntry(entry));
 }
 
 /**

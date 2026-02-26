@@ -935,7 +935,7 @@ const handleNodeSelect = (nodeId: number) => {
       </div>
     </div>
     <!-- AI 设置 Modal -->
-    <AISettingsModal v-model:show="showAISettings" :config="aiConfig" @save="handleSaveAIConfig" />
+    <AISettingsModal v-model:show="showAISettings" :config="aiConfig" @update:config="aiConfig = $event" @save="handleSaveAIConfig" />
     <!-- AI 分析确认弹窗 -->
     <n-modal
       v-model:show="showAIConfirm"
@@ -960,11 +960,15 @@ const handleNodeSelect = (nodeId: number) => {
     >
       <div style="height: 100%;">
         <NodeFlowChart
+          v-if="selectedTaskNodes.length > 0"
           :nodes="selectedTaskNodes"
           :selected-node-id="selectedNodeId"
           style="height: calc(100% - 20px);"
           @select-node="handleNodeSelect"
         />
+        <div v-else style="display: flex; align-items: center; justify-content: center; height: 100%;">
+          暂无节点数据
+        </div>
       </div>
     </n-modal>
   </n-card>
