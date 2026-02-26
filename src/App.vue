@@ -934,24 +934,44 @@ body,
  * 任务行样式
  */
 .task-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   padding: 8px 10px;
   border-radius: 10px;
   border: 1px solid var(--n-border-color);
   background: var(--n-color-modal);
   cursor: pointer;
   font-size: 13px;
-  align-items: flex-start;
-  min-height: 120px;
-  margin-bottom: 16px;
+  min-height: auto;
+  margin-bottom: 8px;
   box-sizing: border-box;
+}
+
+.task-row-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.task-row-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  color: var(--n-text-color-2);
+  font-size: 12px;
 }
 
 .task-row.active {
   border-color: var(--n-primary-color);
   background: var(--n-primary-color-supply);
+}
+
+.task-row.failed {
+  border-color: #f5222d;
+  background: rgba(245, 34, 45, 0.1);
 }
 
 .task-main {
@@ -1055,6 +1075,11 @@ body,
 .node-row.active {
   border-color: var(--n-success-color);
   background: var(--n-success-color-supply);
+}
+
+.node-row.failed {
+  border-color: #f5222d;
+  background: rgba(245, 34, 45, 0.1);
 }
 
 .node-name {

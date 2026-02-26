@@ -69,20 +69,25 @@
  * - Naive UI 组件：按钮、卡片、折叠面板、代码显示、选择器、标签、复选框
  * - vue-virtual-scroller：虚拟滚动组件，用于优化大列表性能
  */
-import { NButton, NCard, NCollapse, NCollapseItem, NCode, NSelect, NTag, NSpin } from "naive-ui";
+import { NButton, NCard, NCollapse, NCollapseItem, NCode, NSelect, NTag, NSpin, NTabs, NTabPane } from "naive-ui";
 import { DynamicScroller, DynamicScrollerItem } from "vue-virtual-scroller";
-import { ref, watch } from "vue";
+import { ref, watch, onMounted } from "vue";
 import type { NodeInfo, NextListItem, TaskInfo, PipelineCustomActionInfo, AuxLogEntry } from "../types/logTypes";
 import { analyzeWithAI, getAIConfig, saveAIConfig, type AIConfig, type FailureAnalysis } from "../utils/aiAnalyzer";
 import AISettingsModal from "./AISettingsModal.vue";
 import AIResultCard from "./AIResultCard.vue";
 import ControllerInfoCard from "./ControllerInfoCard.vue";
 import CustomLogPanel from "./CustomLogPanel.vue";
+import TimelinePanel from "./TimelinePanel.vue";
 
 /**
  * AI 分析状态
  */
-const aiConfig = ref<AIConfig>(getAIConfig());
+const aiConfig = ref<AIConfig | null>(null);
+
+onMounted(async () => {
+  aiConfig.value = await getAIConfig();
+});
 const aiAnalyzing = ref(false);
 const aiResults = ref<FailureAnalysis[]>([]);
 const showAISettings = ref(false);
@@ -91,9 +96,9 @@ const aiError = ref("");
 /**
  * 保存 AI 设置
  */
-function handleSaveAIConfig(config: AIConfig) {
+async function handleSaveAIConfig(config: AIConfig) {
   aiConfig.value = config;
-  saveAIConfig(config);
+  await saveAIConfig(config);
 }
 
 /**
@@ -101,6 +106,7 @@ function handleSaveAIConfig(config: AIConfig) {
  */
 async function handleAIAnalyze() {
   if (!props.selectedTask) return;
+  if (!aiConfig.value) return;
   
   if (!aiConfig.value.apiKeys[aiConfig.value.provider]) {
     showAISettings.value = true;
@@ -208,6 +214,11 @@ const props = withDefaults(defineProps<{
 });
 
 /**
+ * 视图模式
+ */
+const viewMode = ref<"list" | "timeline">("list");
+
+/**
  * AI 分析结果缓存（按任务 key 存储）
  */
 const aiResultsCache = new Map<string, FailureAnalysis[]>();
@@ -276,26 +287,37 @@ const handleNodeSelect = (nodeId: number) => {
     <!-- 标题栏，包含进程/线程过滤器 -->
     <template #header>
       <div class="panel-header">
-        <div>任务与节点</div>
-        <div class="panel-tools panel-filters">
-          <!-- 进程过滤器 -->
-          <n-select
+        <div class="panel-title">任务与节点</div>
+        <div class="panel-tools">
+          <n-tabs
+            v-model:value="viewMode"
             size="small"
-            :options="processOptions"
-            :value="selectedProcessId"
-            placeholder="进程"
-            class="filter-select"
-            @update:value="emit('update:processId', $event)"
-          />
-          <!-- 线程过滤器 -->
-          <n-select
-            size="small"
-            :options="threadOptions"
-            :value="selectedThreadId"
-            placeholder="线程"
-            class="filter-select"
-            @update:value="emit('update:threadId', $event)"
-          />
+            type="segment"
+            class="view-mode-tabs"
+          >
+            <n-tab-pane name="list" tab="列表视图" />
+            <n-tab-pane name="timeline" tab="时序图" />
+          </n-tabs>
+          <div class="panel-filters">
+            <!-- 进程过滤器 -->
+            <n-select
+              size="small"
+              :options="processOptions"
+              :value="selectedProcessId"
+              placeholder="进程"
+              class="filter-select"
+              @update:value="emit('update:processId', $event)"
+            />
+            <!-- 线程过滤器 -->
+            <n-select
+              size="small"
+              :options="threadOptions"
+              :value="selectedThreadId"
+              placeholder="线程"
+              class="filter-select"
+              @update:value="emit('update:threadId', $event)"
+            />
+          </div>
         </div>
       </div>
     </template>
@@ -306,11 +328,18 @@ const handleNodeSelect = (nodeId: number) => {
     >
       解析后将在此显示任务与节点
     </div>
-    <!-- 主内容区域：三栏布局 -->
+    <!-- 主内容区域 -->
     <div
       v-else
       class="task-layout"
     >
+      <!-- 时序图视图 -->
+      <TimelinePanel
+        v-if="viewMode === 'timeline'"
+        :tasks="tasks"
+      />
+      <!-- 列表视图 -->
+      <template v-else>
       <!-- 左栏：任务列表 -->
       <div class="task-list">
         <div class="panel-top">
@@ -356,52 +385,39 @@ const handleNodeSelect = (nodeId: number) => {
                 <!-- 任务行 -->
                 <div
                   class="task-row"
-                  :class="{ active: item.key === selectedTaskKey }"
+                  :class="{ active: item.key === selectedTaskKey, failed: item.status === 'failed' }"
                   @click="handleTaskSelect(item)"
                 >
-                  <!-- 任务主要信息 -->
-                  <div class="task-main">
-                    <div class="task-title">
-                      {{ item.entry || "未命名任务" }}
+                  <!-- 任务行顶部：任务名 + 状态 -->
+                  <div class="task-row-top">
+                    <div class="task-main">
+                      <div class="task-title">
+                        {{ item.entry || "未命名任务" }}
+                      </div>
+                      <div class="task-tags">
+                        <n-tag
+                          size="small"
+                          type="info"
+                        >
+                          进程ID：{{ item.processId || "P?" }}
+                        </n-tag>
+                        <n-tag size="small">
+                          线程ID：{{ item.threadId || "T?" }}
+                        </n-tag>
+                      </div>
                     </div>
-                    <div class="task-tags">
-                      <n-tag
-                        size="small"
-                        type="info"
-                      >
-                        进程ID：{{ item.processId || "P?" }}
-                      </n-tag>
-                      <n-tag size="small">
-                        线程ID：{{ item.threadId || "T?" }}
-                      </n-tag>
+                    <div class="task-side">
+                      <div>状态： {{ formatTaskStatus(item.status) }}</div>
                     </div>
                   </div>
-                  <!-- 任务次要信息 -->
-                  <div class="task-sub">
-                    <div>文件： {{ item.fileName }}</div>
-                    <div>节点： {{ item.nodes.length }}个</div>
-                  </div>
-                  <!-- 任务侧边信息 -->
-                  <div class="task-side">
-                    <div>状态： {{ formatTaskStatus(item.status) }}</div>
-                    <div class="task-side-row">
-                      <div class="task-side-label">
-                        开始时间：
-                      </div>
-                      <div class="task-side-value">
-                        <span>{{ formatTaskTimeParts(item.start_time).date }}</span>
-                        <span v-if="formatTaskTimeParts(item.start_time).time">
-                          {{ formatTaskTimeParts(item.start_time).time }}
-                        </span>
-                      </div>
+                  <!-- 任务行底部：节点 + 时间 -->
+                  <div class="task-row-bottom">
+                    <div class="task-sub">
+                      <span>节点： {{ item.nodes.length }}个</span>
                     </div>
-                    <div class="task-side-row task-side-row-inline">
-                      <div class="task-side-label">
-                        耗时：
-                      </div>
-                      <div class="task-side-value">
-                        {{ item.duration ? formatDuration(item.duration) : "-" }}
-                      </div>
+                    <div class="task-side">
+                      <span>{{ formatTaskTimeParts(item.start_time).date }} {{ formatTaskTimeParts(item.start_time).time }}</span>
+                      <span>耗时： {{ item.duration ? formatDuration(item.duration) : "-" }}</span>
                     </div>
                   </div>
                 </div>
@@ -446,7 +462,7 @@ const handleNodeSelect = (nodeId: number) => {
                 <!-- 节点行 -->
                 <div
                   class="node-row"
-                  :class="{ active: item.node_id === selectedNodeId }"
+                  :class="{ active: item.node_id === selectedNodeId, failed: item.status === 'failed' }"
                   @click="handleNodeSelect(item.node_id)"
                 >
                   <!-- 节点主要信息 -->
@@ -1095,12 +1111,13 @@ const handleNodeSelect = (nodeId: number) => {
           />
         </div>
       </div>
+      </template>
     </div>
 
     <!-- AI 设置 Modal -->
     <AISettingsModal
       v-model:show="showAISettings"
-      v-model:config="aiConfig"
+      :config="aiConfig"
       @save="handleSaveAIConfig"
     />
   </n-card>
@@ -1142,9 +1159,25 @@ const handleNodeSelect = (nodeId: number) => {
   flex: none;
 }
 
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.panel-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
 .panel-tools {
   display: flex;
   align-items: center;
+  gap: 16px;
+}
+
+.view-mode-tabs {
+  flex-shrink: 0;
 }
 
 .panel-filters {

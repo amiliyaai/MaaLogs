@@ -8,17 +8,21 @@
 该组件是应用的主导航栏，包含：
 - 品牌标识和副标题
 - 视图模式切换按钮（日志分析、文本搜索、节点统计）
+- 主题切换
 - 开发者工具按钮（仅 Tauri 环境下显示）
 
 @emits change-view - 视图模式切换事件，参数为新视图模式
 @emits open-devtools - 打开开发者工具事件
+@emits change-theme - 主题切换事件
 
 @example
 <AppTopBar
   :view-mode="currentView"
   :is-tauri="isTauri"
+  :theme-mode="themeMode"
   @change-view="handleViewChange"
   @open-devtools="openDevTools"
+  @change-theme="handleThemeChange"
 />
 -->
 
@@ -65,18 +69,37 @@ const handleThemeSelect = (key: string) => {
 };
 </script>
 
-<!--
-  模板部分
-  - 顶部栏布局：左侧品牌，右侧操作按钮
-  - 视图切换按钮组：当前激活的按钮显示为 primary 类型
-  - 开发者工具按钮：仅 Tauri 环境下显示
--->
 <template>
   <header class="topbar">
     <!-- 品牌区域 -->
     <div class="brand" />
     <!-- 操作区域 -->
     <div class="top-actions">
+      <!-- 视图切换按钮组 -->
+      <div class="view-tabs">
+        <n-button
+          size="small"
+          :type="viewMode === 'analysis' ? 'primary' : 'default'"
+          @click="emitView('analysis')"
+        >
+          📊 日志分析
+        </n-button>
+        <n-button
+          size="small"
+          :type="viewMode === 'search' ? 'primary' : 'default'"
+          @click="emitView('search')"
+        >
+          🔍 文本搜索
+        </n-button>
+        <n-button
+          size="small"
+          :type="viewMode === 'statistics' ? 'primary' : 'default'"
+          @click="emitView('statistics')"
+        >
+          📈 节点统计
+        </n-button>
+      </div>
+      <div class="divider" />
       <!-- 主题切换 -->
       <n-dropdown
         :options="themeOptions"
@@ -108,32 +131,6 @@ const handleThemeSelect = (key: string) => {
       >
         开发者工具
       </n-button>
-      <!-- 分隔线 -->
-      <div class="divider" />
-      <!-- 视图切换按钮组 -->
-      <div class="view-tabs">
-        <n-button
-          size="small"
-          :type="viewMode === 'analysis' ? 'primary' : 'default'"
-          @click="emitView('analysis')"
-        >
-          📊 日志分析
-        </n-button>
-        <n-button
-          size="small"
-          :type="viewMode === 'search' ? 'primary' : 'default'"
-          @click="emitView('search')"
-        >
-          🔍 文本搜索
-        </n-button>
-        <n-button
-          size="small"
-          :type="viewMode === 'statistics' ? 'primary' : 'default'"
-          @click="emitView('statistics')"
-        >
-          📈 节点统计
-        </n-button>
-      </div>
     </div>
   </header>
 

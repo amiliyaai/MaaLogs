@@ -12,6 +12,7 @@
  */
 
 import type { TaskInfo, NodeInfo, AuxLogEntry } from "../types/logTypes";
+import { encryptSecure, decryptSecure } from "./crypto";
 
 /**
  * AI 服务商类型
@@ -474,29 +475,82 @@ export function buildAnalysisPrompt(tasks: TaskInfo[], failedNodes: NodeInfo[], 
 }
 
 /**
- * 从 localStorage 加载 AI 配置
+ * 加密的配置存储格式
+ */
+interface EncryptedConfig {
+  version: number;
+  encrypted: boolean;
+  data: string;
+}
+
+/**
+ * 当前配置版本
+ */
+const CONFIG_VERSION = 2;
+
+/**
+ * 从 localStorage 加载 AI 配置（支持加密和未加密格式）
  *
  * @returns AI 配置对象
  */
-export function getAIConfig(): AIConfig {
+export async function getAIConfig(): Promise<AIConfig> {
   try {
     const stored = localStorage.getItem(AI_CONFIG_KEY);
     if (stored) {
-      return { ...DEFAULT_AI_CONFIG, ...JSON.parse(stored) };
+      let parsed: unknown;
+      
+      try {
+        parsed = JSON.parse(stored);
+      } catch {
+        return { ...DEFAULT_AI_CONFIG };
+      }
+      
+      if (!parsed || typeof parsed !== "object") {
+        return { ...DEFAULT_AI_CONFIG };
+      }
+
+      const storedConfig = parsed as Partial<AIConfig> & Partial<EncryptedConfig>;
+      if (storedConfig.encrypted && storedConfig.version === CONFIG_VERSION && storedConfig.data) {
+        try {
+          const decrypted = await decryptSecure(storedConfig.data);
+          const decryptedConfig = JSON.parse(decrypted);
+          return { ...DEFAULT_AI_CONFIG, ...decryptedConfig };
+        } catch (e) {
+          console.error("Failed to decrypt AI config", e);
+          return { ...DEFAULT_AI_CONFIG };
+        }
+      }
+
+      return { ...DEFAULT_AI_CONFIG, ...storedConfig };
     }
-  } catch {
-    console.error("Failed to load AI config");
+  } catch (e) {
+    console.error("Failed to load AI config", e);
   }
   return { ...DEFAULT_AI_CONFIG };
 }
 
 /**
- * 保存 AI 配置到 localStorage
+ * 保存 AI 配置到 localStorage（加密敏感数据）
  *
  * @param config - AI 配置对象
  */
-export function saveAIConfig(config: AIConfig): void {
-  localStorage.setItem(AI_CONFIG_KEY, JSON.stringify(config));
+export async function saveAIConfig(config: AIConfig): Promise<void> {
+  try {
+    const configToSave = { ...config };
+    const configString = JSON.stringify(configToSave);
+    const encrypted = await encryptSecure(configString);
+    
+    const encryptedConfig: EncryptedConfig = {
+      version: CONFIG_VERSION,
+      encrypted: true,
+      data: encrypted
+    };
+    
+    localStorage.setItem(AI_CONFIG_KEY, JSON.stringify(encryptedConfig));
+  } catch (e) {
+    console.error("Failed to save AI config", e);
+    localStorage.setItem(AI_CONFIG_KEY, JSON.stringify(config));
+  }
 }
 
 /**

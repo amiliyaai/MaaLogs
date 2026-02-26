@@ -207,14 +207,20 @@ const emitParse = () => emit("parse");
   flex-shrink: 0;
 }
 
+.hero-text {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .hero-text h1 {
-  font-size: 22px;
-  margin: 0 0 6px;
+  font-size: 20px;
+  margin: 0;
 }
 
 .hero-subtitle {
   color: var(--n-text-color-2);
-  margin-bottom: 12px;
+  margin: 0;
 }
 
 .actions {
@@ -224,13 +230,13 @@ const emitParse = () => emit("parse");
 }
 
 .drag-hint {
-  margin-top: 8px;
-  font-size: 12px;
+  margin-top: 4px;
+  font-size: 11px;
   color: var(--n-text-color-3);
 }
 
 .hint-line {
-  margin: 4px 0;
+  margin: 2px 0;
 }
 
 .hint-line code {
@@ -264,11 +270,16 @@ const emitParse = () => emit("parse");
   border-radius: 12px;
 }
 
+.hero-card :deep(.n-card__header),
+.hero-card :deep(.n-card__content) {
+  padding: 8px 12px;
+}
+
 .parser-select {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .parser-label {

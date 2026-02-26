@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { NModal, NForm, NFormItem, NSelect, NInput, NButton } from "naive-ui";
-import { PROVIDER_INFO, PROVIDER_MODELS, type AIConfig, type AIProvider } from "../utils/aiAnalyzer";
+import { PROVIDER_INFO, PROVIDER_MODELS, type AIConfig, type AIProvider, DEFAULT_AI_CONFIG } from "../utils/aiAnalyzer";
 
 const props = defineProps<{
   show: boolean;
-  config: AIConfig;
+  config: AIConfig | null;
 }>();
 
 const emit = defineEmits<{
@@ -14,27 +14,33 @@ const emit = defineEmits<{
   (e: "save", config: AIConfig): void;
 }>();
 
+const currentConfig = computed(() => props.config || DEFAULT_AI_CONFIG);
+
 const providerOptions = computed(() =>
   Object.entries(PROVIDER_INFO).map(([value, info]) => ({ label: info.name, value }))
 );
 
 const modelOptions = computed(() => {
-  const models = PROVIDER_MODELS[props.config.provider as AIProvider] || [];
+  const models = PROVIDER_MODELS[currentConfig.value.provider as AIProvider] || [];
   return models.map(m => ({ label: m, value: m }));
 });
 
-const isCustomProvider = computed(() => props.config.provider === "custom");
+const isCustomProvider = computed(() => currentConfig.value.provider === "custom");
 
 function handleClose() {
   emit("update:show", false);
 }
 
 function handleSave() {
-  emit("save", props.config);
+  if (props.config) {
+    emit("save", props.config);
+  }
   emit("update:show", false);
 }
 
 function updateConfig<K extends keyof AIConfig>(key: K, value: AIConfig[K]) {
+  if (!props.config) return;
+  
   const newConfig = { ...props.config, [key]: value };
   
   if (key === "provider") {
@@ -46,15 +52,17 @@ function updateConfig<K extends keyof AIConfig>(key: K, value: AIConfig[K]) {
     }
   }
   
-  emit("update:config", newConfig);
+  emit("update:config", newConfig as AIConfig);
 }
 
 function updateApiKey(value: string) {
+  if (!props.config) return;
+  
   const newConfig = { 
     ...props.config, 
     apiKeys: { ...props.config.apiKeys, [props.config.provider]: value } 
   };
-  emit("update:config", newConfig);
+  emit("update:config", newConfig as AIConfig);
 }
 </script>
 
@@ -66,7 +74,7 @@ function updateApiKey(value: string) {
     style="width: 500px;"
     @update:show="emit('update:show', $event)"
   >
-    <n-form>
+    <n-form v-if="config">
       <n-form-item label="服务商">
         <n-select
           :value="config.provider"
@@ -110,6 +118,7 @@ function updateApiKey(value: string) {
       </n-button>
       <n-button
         type="primary"
+        :disabled="!config"
         @click="handleSave"
       >
         保存
