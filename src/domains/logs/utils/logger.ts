@@ -368,3 +368,7 @@ export function createLogger(module: string) {
 export function flushLogs() {
   flushBuffer();
 }
+
+export function getLogPath(): string | null {
+  return config?.logPath ?? null;
+}

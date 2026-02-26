@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { NModal, NCard, NSpace, NText, NDivider, NButton, NTag, NDescriptions, NDescriptionsItem } from "naive-ui";
 import { ref, onMounted } from "vue";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { checkForUpdate, getCurrentVersion } from "../utils/updater";
+import { getLogPath } from "../utils/logger";
 
 const props = defineProps<{
   show: boolean;
@@ -31,6 +32,13 @@ async function openGitHub() {
 
 async function openIssues() {
   await openUrl("https://github.com/amiliyaai/MaaLogs/issues");
+}
+
+async function openLogDir() {
+  const logPath = getLogPath();
+  if (logPath) {
+    await revealItemInDir(logPath);
+  }
 }
 </script>
 
@@ -132,6 +140,12 @@ async function openIssues() {
             @click="openIssues"
           >
             问题反馈
+          </n-button>
+          <n-button
+            quaternary
+            @click="openLogDir"
+          >
+            打开日志目录
           </n-button>
         </n-space>
 
