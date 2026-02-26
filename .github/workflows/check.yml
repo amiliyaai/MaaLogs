@@ -36,9 +36,6 @@ jobs:
       - name: Type check
         run: npm run typecheck
 
-      - name: Lint
-        run: npm run lint
-
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:

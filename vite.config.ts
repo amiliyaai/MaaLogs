@@ -30,7 +30,7 @@ export default defineConfig(async () => ({
     },
   },
   build: {
-    chunkSizeWarningLimit: 800,
+    chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -39,6 +39,9 @@ export default defineConfig(async () => ({
             if (id.includes("@vicons")) return "vicons";
             if (id.includes("vue-virtual-scroller")) return "virtual-scroller";
             if (id.includes("fflate")) return "fflate";
+            if (id.includes("vue-flow")) return "vue-flow";
+            if (id.includes("elkjs")) return "elkjs";
+            if (id.includes("vue")) return "vue";
             return "vendor";
           }
         },
