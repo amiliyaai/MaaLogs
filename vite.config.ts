@@ -41,7 +41,6 @@ export default defineConfig(async () => ({
             if (id.includes("fflate")) return "fflate";
             if (id.includes("vue-flow")) return "vue-flow";
             if (id.includes("elkjs")) return "elkjs";
-            if (id.includes("vue")) return "vue";
             return "vendor";
           }
         },
