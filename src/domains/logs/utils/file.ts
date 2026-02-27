@@ -103,7 +103,7 @@ export function isTauriEnv(): boolean {
  * filterLogFiles(files); // 返回 maa.log 和 config.json
  */
 export function filterLogFiles(fileList: File[]): File[] {
-  return fileList.filter(file => {
+  return fileList.filter((file) => {
     const lower = file.name.toLowerCase();
     return lower.endsWith(".log") || lower.endsWith(".json") || lower.endsWith(".jsonc");
   });
@@ -401,28 +401,29 @@ export function applySelectedFiles(
   statusMessage: string;
 } {
   // 转换为 SelectedFile 格式
-  const newFiles = fileList.map(file => ({
+  const newFiles = fileList.map((file) => ({
     name: file.name,
     size: file.size,
     type: getFileType(file),
-    file
+    file,
   }));
 
   // 替换同名文件：移除旧的同名文件，添加新文件
-  const newFileNames = new Set(newFiles.map(f => f.name));
-  const remainingFiles = existingFiles.filter(f => !newFileNames.has(f.name));
+  const newFileNames = new Set(newFiles.map((f) => f.name));
+  const remainingFiles = existingFiles.filter((f) => !newFileNames.has(f.name));
   const updatedFiles = [...remainingFiles, ...newFiles];
   const totalSize = updatedFiles.reduce((sum, file) => sum + file.size, 0);
 
   const replacedCount = existingFiles.length - remainingFiles.length;
-  const statusMessage = replacedCount > 0
-    ? `已替换 ${replacedCount} 个同名文件，共 ${updatedFiles.length} 个文件`
-    : `已选择 ${updatedFiles.length} 个文件`;
+  const statusMessage =
+    replacedCount > 0
+      ? `已替换 ${replacedCount} 个同名文件，共 ${updatedFiles.length} 个文件`
+      : `已选择 ${updatedFiles.length} 个文件`;
 
   return {
     files: updatedFiles,
     totalSize,
-    statusMessage
+    statusMessage,
   };
 }
 

@@ -13,7 +13,22 @@
  * @license MIT
  */
 
-import type { LogLine, EventNotification, ActionDetail, NodeInfo, TaskInfo, RecognitionAttempt, ActionAttempt, NextListItem, ControllerInfo, AdbScreencapMethod, AdbInputMethod, Win32ScreencapMethod, Win32InputMethod, RecognitionDetail } from "../types/logTypes";
+import type {
+  LogLine,
+  EventNotification,
+  ActionDetail,
+  NodeInfo,
+  TaskInfo,
+  RecognitionAttempt,
+  ActionAttempt,
+  NextListItem,
+  ControllerInfo,
+  AdbScreencapMethod,
+  AdbInputMethod,
+  Win32ScreencapMethod,
+  Win32InputMethod,
+  RecognitionDetail,
+} from "../types/logTypes";
 import { createLogger } from "./logger";
 
 const logger = createLogger("Parse");
@@ -32,7 +47,7 @@ const ADB_SCREENCAP_METHOD_MAP: Record<number, AdbScreencapMethod> = {
   8: "RawByNetcat",
   16: "MinicapDirect",
   32: "MinicapStream",
-  64: "EmulatorExtras"
+  64: "EmulatorExtras",
 };
 
 /**
@@ -46,7 +61,7 @@ const ADB_INPUT_METHOD_MAP: Record<number, AdbInputMethod> = {
   1: "AdbShell",
   2: "MinitouchAndAdbKey",
   4: "Maatouch",
-  8: "EmulatorExtras"
+  8: "EmulatorExtras",
 };
 
 /**
@@ -62,7 +77,7 @@ const WIN32_SCREENCAP_METHOD_MAP: Record<number, Win32ScreencapMethod> = {
   4: "DXGI_DesktopDup",
   8: "DXGI_DesktopDup_Window",
   16: "PrintWindow",
-  32: "ScreenDC"
+  32: "ScreenDC",
 };
 
 /**
@@ -81,7 +96,7 @@ const WIN32_INPUT_METHOD_MAP: Record<number, Win32InputMethod> = {
   32: "SendMessageWithCursorPos",
   64: "PostMessageWithCursorPos",
   128: "SendMessageWithWindowPos",
-  256: "PostMessageWithWindowPos"
+  256: "PostMessageWithWindowPos",
 };
 
 /**
@@ -182,7 +197,7 @@ export function parseWin32InputMethod(value: number): Win32InputMethod {
  */
 export function parseControllerInfo(parsed: LogLine, fileName: string): ControllerInfo | null {
   const { functionName, params, timestamp, status, processId } = parsed;
-  
+
   if (functionName !== "MaaAdbControllerCreate" && functionName !== "MaaWin32ControllerCreate") {
     return null;
   }
@@ -194,9 +209,17 @@ export function parseControllerInfo(parsed: LogLine, fileName: string): Controll
   if (functionName === "MaaAdbControllerCreate") {
     const adbPath = params["adb_path"] as string | undefined;
     const address = params["address"] as string | undefined;
-    const screencapMethodsBitmask = typeof params["screencap_methods"] === "number" ? params["screencap_methods"] : parseInt(String(params["screencap_methods"] || "0"));
+    const screencapMethodsBitmask =
+      typeof params["screencap_methods"] === "number"
+        ? params["screencap_methods"]
+        : parseInt(String(params["screencap_methods"] || "0"));
     const inputMethodsValue = params["input_methods"];
-    const inputMethodsBitmask = typeof inputMethodsValue === "bigint" ? inputMethodsValue : (typeof inputMethodsValue === "number" ? BigInt(inputMethodsValue) : 0n);
+    const inputMethodsBitmask =
+      typeof inputMethodsValue === "bigint"
+        ? inputMethodsValue
+        : typeof inputMethodsValue === "number"
+          ? BigInt(inputMethodsValue)
+          : 0n;
     const config = params["config"] as Record<string, unknown> | undefined;
     const agentPath = params["agent_path"] as string | undefined;
 
@@ -211,14 +234,23 @@ export function parseControllerInfo(parsed: LogLine, fileName: string): Controll
       agentPath,
       timestamp,
       fileName,
-      lineNumber: parsed._lineNumber || 0
+      lineNumber: parsed._lineNumber || 0,
     };
   }
 
   if (functionName === "MaaWin32ControllerCreate") {
-    const screencapMethodValue = typeof params["screencap_method"] === "number" ? params["screencap_method"] : parseInt(String(params["screencap_method"] || "0"));
-    const mouseMethodValue = typeof params["mouse_method"] === "number" ? params["mouse_method"] : parseInt(String(params["mouse_method"] || "0"));
-    const keyboardMethodValue = typeof params["keyboard_method"] === "number" ? params["keyboard_method"] : parseInt(String(params["keyboard_method"] || "0"));
+    const screencapMethodValue =
+      typeof params["screencap_method"] === "number"
+        ? params["screencap_method"]
+        : parseInt(String(params["screencap_method"] || "0"));
+    const mouseMethodValue =
+      typeof params["mouse_method"] === "number"
+        ? params["mouse_method"]
+        : parseInt(String(params["mouse_method"] || "0"));
+    const keyboardMethodValue =
+      typeof params["keyboard_method"] === "number"
+        ? params["keyboard_method"]
+        : parseInt(String(params["keyboard_method"] || "0"));
 
     return {
       type: "win32",
@@ -228,7 +260,7 @@ export function parseControllerInfo(parsed: LogLine, fileName: string): Controll
       keyboardMethod: parseWin32InputMethod(keyboardMethodValue),
       timestamp,
       fileName,
-      lineNumber: parsed._lineNumber || 0
+      lineNumber: parsed._lineNumber || 0,
     };
   }
 
@@ -261,7 +293,7 @@ export function extractControllerInfos(lines: LogLine[], fileName: string): Cont
     logger.info("提取控制器信息", {
       fileName,
       count: controllers.length,
-      types: controllers.map(c => ({ type: c.type, processId: c.processId }))
+      types: controllers.map((c) => ({ type: c.type, processId: c.processId })),
     });
   }
   return controllers;
@@ -280,7 +312,10 @@ export function extractControllerInfos(lines: LogLine[], fileName: string): Cont
  * associateControllersToTasks(tasks, controllers);
  * console.log(tasks[0].controllerInfo); // 关联的控制器信息
  */
-export function associateControllersToTasks(tasks: TaskInfo[], controllers: ControllerInfo[]): void {
+export function associateControllersToTasks(
+  tasks: TaskInfo[],
+  controllers: ControllerInfo[]
+): void {
   if (controllers.length === 0 || tasks.length === 0) {
     return;
   }
@@ -303,7 +338,7 @@ export function associateControllersToTasks(tasks: TaskInfo[], controllers: Cont
   logger.debug("控制器关联完成", {
     totalTasks: tasks.length,
     totalControllers: controllers.length,
-    matchedTasks: matchedCount
+    matchedTasks: matchedCount,
   });
 }
 
@@ -399,7 +434,10 @@ export function parseValue(value: string): unknown {
   // 浮点数
   if (/^-?\d+\.\d+$/.test(value)) return parseFloat(value);
   // 去除引号
-  if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+  if (
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  ) {
     return value.slice(1, -1);
   }
   return value;
@@ -521,7 +559,7 @@ export function buildIdentifierRanges(
       ranges.push({
         identifier: currentIdentifier,
         startIndex: currentStart,
-        endIndex: eventIndex - 1
+        endIndex: eventIndex - 1,
       });
       currentIdentifier = identifier;
       currentStart = eventIndex;
@@ -532,7 +570,7 @@ export function buildIdentifierRanges(
   ranges.push({
     identifier: currentIdentifier,
     startIndex: currentStart,
-    endIndex: totalEvents - 1
+    endIndex: totalEvents - 1,
   });
 
   return ranges;
@@ -645,7 +683,8 @@ export function parseMessageAndParams(message: string): {
  */
 export function parseLine(line: string, lineNum: number): LogLine | null {
   // 匹配方括号分隔的日志格式
-  const regex = /^\[([^\]]+)\]\[([^\]]+)\]\[([^\]]+)\]\[([^\]]+)\](?:\[([^\]]+)\])?(?:\[([^\]]+)\])?(?:\[([^\]]+)\])?\s*(.*)$/;
+  const regex =
+    /^\[([^\]]+)\]\[([^\]]+)\]\[([^\]]+)\]\[([^\]]+)\](?:\[([^\]]+)\])?(?:\[([^\]]+)\])?(?:\[([^\]]+)\])?\s*(.*)$/;
   const match = line.match(regex);
   if (!match) return null;
 
@@ -685,7 +724,7 @@ export function parseLine(line: string, lineNum: number): LogLine | null {
     params,
     status,
     duration,
-    _lineNumber: lineNum
+    _lineNumber: lineNum,
   };
 }
 
@@ -704,7 +743,10 @@ export function parseLine(line: string, lineNum: number): LogLine | null {
  * parseEventNotification(logLine, 'maa.log');
  * // 返回 EventNotification 对象
  */
-export function parseEventNotification(parsed: LogLine, fileName: string): EventNotification | null {
+export function parseEventNotification(
+  parsed: LogLine,
+  fileName: string
+): EventNotification | null {
   const { message, params } = parsed;
   if (!message.includes("!!!OnEventNotify!!!")) return null;
 
@@ -720,7 +762,7 @@ export function parseEventNotification(parsed: LogLine, fileName: string): Event
     _lineNumber: parsed._lineNumber,
     fileName,
     processId: parsed.processId,
-    threadId: parsed.threadId
+    threadId: parsed.threadId,
   };
 }
 
@@ -1010,7 +1052,7 @@ export function buildTasks(
           processId: stringPool.intern(processInfo.processId || ""),
           threadId: stringPool.intern(processInfo.threadId || ""),
           identifier,
-          _startEventIndex: i
+          _startEventIndex: i,
         };
         tasks.push(task);
         runningTaskMap.set(taskKey, task);
@@ -1024,13 +1066,14 @@ export function buildTasks(
       let matchedTask = runningTaskMap.get(taskKey) || null;
 
       if (!matchedTask) {
-        matchedTask = tasks.find(
-          t =>
-            t.task_id === taskId &&
-            t.processId === event.processId &&
-            !t.end_time &&
-            (!uuid || t.uuid === uuid)
-        ) || null;
+        matchedTask =
+          tasks.find(
+            (t) =>
+              t.task_id === taskId &&
+              t.processId === event.processId &&
+              !t.end_time &&
+              (!uuid || t.uuid === uuid)
+          ) || null;
       }
 
       if (matchedTask) {
@@ -1065,11 +1108,11 @@ export function buildTasks(
   // 去重：合并相同任务（相同 entry、start_time、uuid 但不同 processId/threadId 的任务）
   const deduplicatedTasks = deduplicateTasks(tasks);
 
-  const filteredTasks = deduplicatedTasks.filter(task => task.entry !== "MaaTaskerPostStop");
+  const filteredTasks = deduplicatedTasks.filter((task) => task.entry !== "MaaTaskerPostStop");
   logger.info("任务构建完成", {
     totalTasks: tasks.length,
     filteredTasks: filteredTasks.length,
-    entries: filteredTasks.map(t => t.entry)
+    entries: filteredTasks.map((t) => t.entry),
   });
   return filteredTasks;
 }
@@ -1105,7 +1148,7 @@ function deduplicateTasks(tasks: TaskInfo[]): TaskInfo[] {
 
     // 多个任务具有相同签名，合并它们
     // 优先保留有 controllerInfo 的任务
-    const mainTask = sameTasks.find(t => t.controllerInfo) || sameTasks[0];
+    const mainTask = sameTasks.find((t) => t.controllerInfo) || sameTasks[0];
 
     // 合并节点（按 node_id 去重）
     const nodesMap = new Map<number, NodeInfo>();
@@ -1149,7 +1192,7 @@ function updateNextListFromEvent(
   context.currentNextList = list.map((item: Record<string, unknown>) => ({
     name: context.stringPool.intern((item.name as string) || ""),
     anchor: (item.anchor as boolean) || false,
-    jump_back: (item.jump_back as boolean) || false
+    jump_back: (item.jump_back as boolean) || false,
   }));
 }
 
@@ -1174,7 +1217,7 @@ function updateNestedRecognitionNode(
     timestamp: context.stringPool.intern(timestamp),
     status: message === "Node.RecognitionNode.Succeeded" ? "success" : "failed",
     reco_details: recoDetails,
-    nested_nodes: nestedRecognitions.length > 0 ? nestedRecognitions : undefined
+    nested_nodes: nestedRecognitions.length > 0 ? nestedRecognitions : undefined,
   });
   context.recognitionsByTaskId.delete(eventTaskId);
 }
@@ -1200,7 +1243,7 @@ function updateNestedActionNode(
     timestamp: context.stringPool.intern(timestamp),
     status: message === "Node.ActionNode.Succeeded" ? "success" : "failed",
     action_details: actionDetails,
-    nested_actions: nestedActions.length > 0 ? nestedActions : undefined
+    nested_actions: nestedActions.length > 0 ? nestedActions : undefined,
   });
   context.actionsByTaskId.delete(eventTaskId);
 }
@@ -1222,7 +1265,7 @@ function updateRecognitionAttempts(
       timestamp: context.stringPool.intern(timestamp),
       status: message === "Node.Recognition.Succeeded" ? "success" : "failed",
       reco_details: recoDetails,
-      nested_nodes: context.nestedNodes.length > 0 ? context.nestedNodes.slice() : undefined
+      nested_nodes: context.nestedNodes.length > 0 ? context.nestedNodes.slice() : undefined,
     });
     context.nestedNodes.length = 0;
     return;
@@ -1235,7 +1278,7 @@ function updateRecognitionAttempts(
     name: context.stringPool.intern(recoName),
     timestamp: context.stringPool.intern(timestamp),
     status: message === "Node.Recognition.Succeeded" ? "success" : "failed",
-    reco_details: recoDetails
+    reco_details: recoDetails,
   };
   if (!context.recognitionsByTaskId.has(eventTaskId)) {
     context.recognitionsByTaskId.set(eventTaskId, []);
@@ -1259,7 +1302,7 @@ function updateActionAttempts(
     name: context.stringPool.intern(actionName),
     timestamp: context.stringPool.intern(timestamp),
     status: message === "Node.Action.Succeeded" ? "success" : "failed",
-    action_details: actionDetails
+    action_details: actionDetails,
   };
   if (!context.actionsByTaskId.has(eventTaskId)) {
     context.actionsByTaskId.set(eventTaskId, []);
@@ -1298,16 +1341,16 @@ function updatePipelineNodes(
     action_details: actionDetails,
     node_details: nodeDetails,
     focus: details.focus,
-    next_list: context.currentNextList.map(item => ({
+    next_list: context.currentNextList.map((item) => ({
       name: context.stringPool.intern(item.name),
       anchor: item.anchor,
-      jump_back: item.jump_back
+      jump_back: item.jump_back,
     })),
     recognition_attempts: context.recognitionAttempts.slice(),
     nested_action_nodes:
       context.nestedActionNodes.length > 0 ? context.nestedActionNodes.slice() : undefined,
     nested_recognition_in_action:
-      context.nestedNodes.length > 0 ? context.nestedNodes.slice() : undefined
+      context.nestedNodes.length > 0 ? context.nestedNodes.slice() : undefined,
   });
   context.nodeIdSet.add(nodeId);
   context.currentNextList = [];
@@ -1337,7 +1380,7 @@ function buildTaskNodes(
   const endIndex = task._endEventIndex ?? events.length - 1;
   const taskEvents = events
     .slice(startIndex, endIndex + 1)
-    .filter(event => event.processId === task.processId);
+    .filter((event) => event.processId === task.processId);
 
   const recognitionAttempts: RecognitionAttempt[] = [];
   const nestedNodes: RecognitionAttempt[] = [];
@@ -1355,7 +1398,7 @@ function buildTaskNodes(
     nestedActionNodes,
     currentNextList: [],
     recognitionsByTaskId,
-    actionsByTaskId
+    actionsByTaskId,
   };
 
   for (const event of taskEvents) {
@@ -1388,9 +1431,7 @@ function buildTaskNodes(
  * const stats = computeNodeStatistics(tasks);
  * console.log(stats[0].avgDuration); // 平均耗时（毫秒）
  */
-export function computeNodeStatistics(
-  tasks: TaskInfo[]
-): {
+export function computeNodeStatistics(tasks: TaskInfo[]): {
   name: string;
   count: number;
   totalDuration: number;
@@ -1450,7 +1491,7 @@ export function computeNodeStatistics(
           minDuration: duration,
           maxDuration: duration,
           successCount: 0,
-          failCount: 0
+          failCount: 0,
         });
       }
 
@@ -1493,7 +1534,7 @@ export function computeNodeStatistics(
       maxDuration: stats.maxDuration,
       successCount: stats.successCount,
       failCount: stats.failCount,
-      successRate
+      successRate,
     });
   }
 
@@ -1527,5 +1568,8 @@ export const debugInfoPattern = /\[P[xX]\d+\]|\[T[xX]\d+\]|\[L\d+\]|\[[^\]]+\.(c
  */
 export function normalizeSearchLine(line: string, hideDebugInfo: boolean): string {
   if (!hideDebugInfo) return line;
-  return line.replace(debugInfoPattern, "").replace(/\s{2,}/g, " ").trim();
+  return line
+    .replace(debugInfoPattern, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
 }

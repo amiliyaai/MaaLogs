@@ -81,13 +81,27 @@ function parseJsonLine(line: string, lineNumber: number, fileName: string): AuxL
       entry: json.entry,
       caller: json.caller,
       fileName,
-      lineNumber
+      lineNumber,
     };
 
     // 提取其他字段作为 details
     const details: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(json)) {
-      if (!["time", "timestamp", "level", "lvl", "msg", "message", "m", "identifier", "task_id", "entry", "caller"].includes(key)) {
+      if (
+        ![
+          "time",
+          "timestamp",
+          "level",
+          "lvl",
+          "msg",
+          "message",
+          "m",
+          "identifier",
+          "task_id",
+          "entry",
+          "caller",
+        ].includes(key)
+      ) {
         details[key] = value;
       }
     }
@@ -121,7 +135,8 @@ function parseTextLine(line: string, lineNumber: number, fileName: string): AuxL
   // - 2024/01/15 10:30:45.123
   // - 2024-01-15T10:30:45.123Z
   // - [2024-01-15 10:30:45.123]
-  const timestampRegex = /^(?:\[)?(\d{4}[-/]\d{2}[-/]\d{2}[T\s]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z)?)(?:\])?\s*/;
+  const timestampRegex =
+    /^(?:\[)?(\d{4}[-/]\d{2}[-/]\d{2}[T\s]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z)?)(?:\])?\s*/;
   const match = line.match(timestampRegex);
 
   if (!match) return null;
@@ -155,7 +170,7 @@ function parseTextLine(line: string, lineNumber: number, fileName: string): AuxL
     identifier,
     task_id,
     fileName,
-    lineNumber
+    lineNumber,
   };
 }
 
@@ -189,7 +204,7 @@ function parseLine(line: string, lineNumber: number, fileName: string): AuxLogEn
     level: "INFO",
     message: line.trim(),
     fileName,
-    lineNumber
+    lineNumber,
   };
 }
 
@@ -267,7 +282,7 @@ export const maaEndParser: LogParser = {
     }
 
     return entries;
-  }
+  },
 };
 
 /**
@@ -310,7 +325,7 @@ export const maaEndAuxParser: AuxLogParser = {
     }
 
     return { entries };
-  }
+  },
 };
 
 /**

@@ -1,7 +1,13 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { NModal, NForm, NFormItem, NSelect, NInput, NButton } from "naive-ui";
-import { PROVIDER_INFO, PROVIDER_MODELS, type AIConfig, type AIProvider, DEFAULT_AI_CONFIG } from "../utils/aiAnalyzer";
+import {
+  PROVIDER_INFO,
+  PROVIDER_MODELS,
+  type AIConfig,
+  type AIProvider,
+  DEFAULT_AI_CONFIG,
+} from "../utils/aiAnalyzer";
 
 const props = defineProps<{
   show: boolean;
@@ -22,7 +28,7 @@ const providerOptions = computed(() =>
 
 const modelOptions = computed(() => {
   const models = PROVIDER_MODELS[currentConfig.value.provider as AIProvider] || [];
-  return models.map(m => ({ label: m, value: m }));
+  return models.map((m) => ({ label: m, value: m }));
 });
 
 const isCustomProvider = computed(() => currentConfig.value.provider === "custom");
@@ -40,9 +46,9 @@ function handleSave() {
 
 function updateConfig<K extends keyof AIConfig>(key: K, value: AIConfig[K]) {
   if (!props.config) return;
-  
+
   const newConfig = { ...props.config, [key]: value };
-  
+
   if (key === "provider") {
     const models = PROVIDER_MODELS[value as AIProvider];
     if (value === "custom") {
@@ -51,16 +57,16 @@ function updateConfig<K extends keyof AIConfig>(key: K, value: AIConfig[K]) {
       newConfig.model = models[0];
     }
   }
-  
+
   emit("update:config", newConfig as AIConfig);
 }
 
 function updateApiKey(value: string) {
   if (!props.config) return;
-  
-  const newConfig = { 
-    ...props.config, 
-    apiKeys: { ...props.config.apiKeys, [props.config.provider]: value } 
+
+  const newConfig = {
+    ...props.config,
+    apiKeys: { ...props.config.apiKeys, [props.config.provider]: value },
   };
   emit("update:config", newConfig as AIConfig);
 }
@@ -71,7 +77,7 @@ function updateApiKey(value: string) {
     :show="show"
     preset="card"
     title="AI 分析设置"
-    style="width: 500px;"
+    style="width: 500px"
     @update:show="emit('update:show', $event)"
   >
     <div style="color: #666; margin-bottom: 16px;">目前ai分析仅供参考，推荐使用免费模型，如智谱 AI：glm-4.7-flash！！！</div>
@@ -114,16 +120,8 @@ function updateApiKey(value: string) {
       </n-form-item>
     </n-form>
     <template #footer>
-      <n-button @click="handleClose">
-        取消
-      </n-button>
-      <n-button
-        type="primary"
-        :disabled="!config"
-        @click="handleSave"
-      >
-        保存
-      </n-button>
+      <n-button @click="handleClose"> 取消 </n-button>
+      <n-button type="primary" :disabled="!config" @click="handleSave"> 保存 </n-button>
     </template>
   </n-modal>
 </template>

@@ -46,34 +46,37 @@ const getEdgeColor = (isJumpBack: boolean, isRunning: boolean) => {
   return "#91d5ff";
 };
 
-const statusStyles: Record<string, { bg: string; border: string; icon: string; label: string; shadow: string }> = {
-  success: { 
-    bg: "linear-gradient(135deg, #52c41a 0%, #73d13d 100%)", 
-    border: "#52c41a", 
+const statusStyles: Record<
+  string,
+  { bg: string; border: string; icon: string; label: string; shadow: string }
+> = {
+  success: {
+    bg: "linear-gradient(135deg, #52c41a 0%, #73d13d 100%)",
+    border: "#52c41a",
     icon: "✓",
     label: "成功",
-    shadow: "0 4px 12px rgba(82, 196, 26, 0.3)"
+    shadow: "0 4px 12px rgba(82, 196, 26, 0.3)",
   },
-  failed: { 
-    bg: "linear-gradient(135deg, #f5222d 0%, #ff7875 100%)", 
-    border: "#f5222d", 
+  failed: {
+    bg: "linear-gradient(135deg, #f5222d 0%, #ff7875 100%)",
+    border: "#f5222d",
     icon: "✗",
     label: "失败",
-    shadow: "0 4px 12px rgba(245, 34, 45, 0.3)"
+    shadow: "0 4px 12px rgba(245, 34, 45, 0.3)",
   },
-  running: { 
-    bg: "linear-gradient(135deg, #1890ff 0%, #40a9ff 100%)", 
-    border: "#1890ff", 
+  running: {
+    bg: "linear-gradient(135deg, #1890ff 0%, #40a9ff 100%)",
+    border: "#1890ff",
     icon: "⟳",
     label: "运行中",
-    shadow: "0 4px 12px rgba(24, 144, 255, 0.3)"
+    shadow: "0 4px 12px rgba(24, 144, 255, 0.3)",
   },
-  waiting: { 
-    bg: "linear-gradient(135deg, #8c8c8c 0%, #bfbfbf 100%)", 
-    border: "#8c8c8c", 
+  waiting: {
+    bg: "linear-gradient(135deg, #8c8c8c 0%, #bfbfbf 100%)",
+    border: "#8c8c8c",
     icon: "○",
     label: "等待",
-    shadow: "0 4px 12px rgba(140, 140, 140, 0.3)"
+    shadow: "0 4px 12px rgba(140, 140, 140, 0.3)",
   },
 };
 
@@ -82,7 +85,7 @@ const getLayoutedElements = async () => {
     return { nodes: [], edges: [] };
   }
 
-  const uniqueNodeMap = new Map<string, { node: typeof props.nodes[0]; index: number }>();
+  const uniqueNodeMap = new Map<string, { node: (typeof props.nodes)[0]; index: number }>();
   props.nodes.forEach((node, index) => {
     const nodeName = node.name || `Node ${node.node_id}`;
     if (!uniqueNodeMap.has(nodeName)) {
@@ -94,7 +97,7 @@ const getLayoutedElements = async () => {
     const nodeStatus = getNodeStatus(node.status);
     const style = statusStyles[nodeStatus] || statusStyles.waiting;
     const orderNum = index + 1;
-    
+
     return {
       id: nodeName,
       type: "custom",
@@ -117,7 +120,9 @@ const getLayoutedElements = async () => {
   });
 
   const edges: any[] = [];
-  const nameToNodeMap = new Map(Array.from(uniqueNodeMap.entries()).map(([name, { index }]) => [name, { id: name, index }]));
+  const nameToNodeMap = new Map(
+    Array.from(uniqueNodeMap.entries()).map(([name, { index }]) => [name, { id: name, index }])
+  );
 
   props.nodes.forEach((node, nodeIdx) => {
     const nodeStatus = getNodeStatus(node.status);
@@ -193,7 +198,9 @@ const getLayoutedElements = async () => {
     console.error("ELK layout error:", e);
   }
 
-  const validNodes = nodesWithEdges.filter((n) => n.position && Number.isFinite(n.position.x) && Number.isFinite(n.position.y));
+  const validNodes = nodesWithEdges.filter(
+    (n) => n.position && Number.isFinite(n.position.x) && Number.isFinite(n.position.y)
+  );
   const validEdges = edges.filter((e) => e.source && e.target);
 
   return { nodes: validNodes, edges: validEdges };
@@ -204,19 +211,29 @@ const CustomNode = defineComponent({
   setup(props) {
     return () => {
       const { data, selected } = props;
-      return h("div", { 
-        class: ["flow-node", selected && "is-selected", data.isSuccess && "is-success", data.isFailed && "is-failed", data.isRunning && "is-running"],
-        style: { background: data.bg, boxShadow: data.shadow }
-      }, [
-        h("div", { class: "node-order" }, data.orderNum),
-        h("div", { class: "node-content" }, [
-          h("div", { class: "node-icon" }, data.icon),
-          h("div", { class: "node-info" }, [
-            h("div", { class: "node-name" }, data.nodeName),
-            h("div", { class: "node-status" }, data.status),
+      return h(
+        "div",
+        {
+          class: [
+            "flow-node",
+            selected && "is-selected",
+            data.isSuccess && "is-success",
+            data.isFailed && "is-failed",
+            data.isRunning && "is-running",
+          ],
+          style: { background: data.bg, boxShadow: data.shadow },
+        },
+        [
+          h("div", { class: "node-order" }, data.orderNum),
+          h("div", { class: "node-content" }, [
+            h("div", { class: "node-icon" }, data.icon),
+            h("div", { class: "node-info" }, [
+              h("div", { class: "node-name" }, data.nodeName),
+              h("div", { class: "node-status" }, data.status),
+            ]),
           ]),
-        ]),
-      ]);
+        ]
+      );
     };
   },
 });
@@ -310,8 +327,12 @@ watch(
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 :deep(.node-order) {

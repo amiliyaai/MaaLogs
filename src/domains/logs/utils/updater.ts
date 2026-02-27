@@ -8,7 +8,7 @@ const { message: $message, dialog: $dialog } = createDiscreteApi(["message", "di
 export async function checkForUpdate(showNoUpdate = false): Promise<boolean> {
   try {
     const update = await check();
-    
+
     if (!update) {
       if (showNoUpdate) {
         $message.success("当前已是最新版本");
@@ -17,15 +17,15 @@ export async function checkForUpdate(showNoUpdate = false): Promise<boolean> {
     }
 
     const currentVersion = await getVersion();
-    
+
     $dialog.info({
       title: "发现新版本",
       content: `当前版本：v${currentVersion}\n最新版本：v${update.version}\n\n是否立即更新？`,
       positiveText: "立即更新",
       negativeText: "稍后提醒",
-      onPositiveClick: () => downloadAndInstall(update)
+      onPositiveClick: () => downloadAndInstall(update),
     });
-    
+
     return true;
   } catch (error) {
     console.error("检查更新失败:", error);
@@ -36,13 +36,13 @@ export async function checkForUpdate(showNoUpdate = false): Promise<boolean> {
 
 async function downloadAndInstall(update: Awaited<ReturnType<typeof check>>): Promise<void> {
   if (!update) return;
-  
+
   const loadingMsg = $message.loading("正在下载更新...", { duration: 0 });
-  
+
   try {
     let downloaded = 0;
     let contentLength = 0;
-    
+
     await update.downloadAndInstall((event) => {
       switch (event.event) {
         case "Started":
@@ -60,7 +60,7 @@ async function downloadAndInstall(update: Awaited<ReturnType<typeof check>>): Pr
           break;
       }
     });
-    
+
     loadingMsg.destroy();
     $message.success("更新完成，正在重启...");
     await relaunch();

@@ -44,11 +44,7 @@ export async function encrypt(data: string, password: string): Promise<string> {
 
   const key = await deriveKey(password, salt);
 
-  const encrypted = await crypto.subtle.encrypt(
-    { name: ALGORITHM, iv },
-    key,
-    dataBytes
-  );
+  const encrypted = await crypto.subtle.encrypt({ name: ALGORITHM, iv }, key, dataBytes);
 
   const combined = new Uint8Array(salt.length + iv.length + encrypted.byteLength);
   combined.set(salt, 0);
@@ -67,11 +63,7 @@ export async function decrypt(encryptedData: string, password: string): Promise<
 
     const key = await deriveKey(password, salt);
 
-    const decrypted = await crypto.subtle.decrypt(
-      { name: ALGORITHM, iv },
-      key,
-      data
-    );
+    const decrypted = await crypto.subtle.decrypt({ name: ALGORITHM, iv }, key, data);
 
     return new TextDecoder().decode(decrypted);
   } catch (e: any) {
@@ -91,7 +83,7 @@ export async function getStore() {
 
 async function getOrCreateKey(): Promise<string> {
   const s = await getStore();
-  let key = await s.get(STORAGE_KEY) as string | undefined;
+  let key = (await s.get(STORAGE_KEY)) as string | undefined;
   if (!key) {
     const array = new Uint8Array(32);
     crypto.getRandomValues(array);

@@ -69,7 +69,18 @@
  * - Naive UI 组件：按钮、卡片、折叠面板、代码显示、选择器、标签、复选框
  * - vue-virtual-scroller：虚拟滚动组件，用于优化大列表性能
  */
-import { NButton, NCard, NCheckbox, NCollapse, NCollapseItem, NCode, NModal, NSelect, NTag, NSpin } from "naive-ui";
+import {
+  NButton,
+  NCard,
+  NCheckbox,
+  NCollapse,
+  NCollapseItem,
+  NCode,
+  NModal,
+  NSelect,
+  NTag,
+  NSpin,
+} from "naive-ui";
 import { DynamicScroller, DynamicScrollerItem } from "vue-virtual-scroller";
 import { ref, watch, onMounted } from "vue";
 import { useStorage } from "../composables";
@@ -122,12 +133,12 @@ async function handleSaveAIConfig(config: AIConfig) {
  */
 async function handleAIAnalyze() {
   if (!props.selectedTask) return;
-  
+
   if (!skipAIConfirm.value) {
     showAIConfirm.value = true;
     return;
   }
-  
+
   doAIAnalyze();
 }
 
@@ -295,7 +306,7 @@ const emit = defineEmits<{
  */
 const handleTaskSelect = (payload: { taskKey: string; nodeId: number | null }) => {
   if (payload.nodeId === null) {
-    const task = props.filteredTasks.find(t => t.key === payload.taskKey);
+    const task = props.filteredTasks.find((t) => t.key === payload.taskKey);
     if (task && task.nodes && task.nodes.length > 0) {
       payload.nodeId = task.nodes[0].node_id;
     }
@@ -481,8 +492,12 @@ const handleNodeSelect = (nodeId: number) => {
                   </div>
                   <!-- 节点徽章 -->
                   <div class="node-badges">
-                    <n-tag type="warning" size="small">进行识别：{{ item.recognition_attempts?.length || 0 }}</n-tag>
-                    <n-tag type="info" size="small">Next列表：{{ item.next_list?.length || 0 }}</n-tag>
+                    <n-tag type="warning" size="small"
+                      >进行识别：{{ item.recognition_attempts?.length || 0 }}</n-tag
+                    >
+                    <n-tag type="info" size="small"
+                      >Next列表：{{ item.next_list?.length || 0 }}</n-tag
+                    >
                   </div>
                 </div>
               </DynamicScrollerItem>
@@ -581,7 +596,9 @@ const handleNodeSelect = (nodeId: number) => {
                 <div class="detail-section-cell">
                   <div class="detail-section-label">识别次数</div>
                   <div class="detail-section-value">
-                    <n-tag type="warning" size="small">{{ selectedNode.recognition_attempts.length }}</n-tag>
+                    <n-tag type="warning" size="small">{{
+                      selectedNode.recognition_attempts.length
+                    }}</n-tag>
                   </div>
                 </div>
                 <div class="detail-section-cell">
@@ -774,7 +791,9 @@ const handleNodeSelect = (nodeId: number) => {
                       <!-- 嵌套节点 -->
                       <div v-if="(attempt.nested_nodes || []).length > 0" class="nested-attempts">
                         <div class="nested-title">
-                          <n-tag type="info" size="small">嵌套识别 ({{ attempt.nested_nodes?.length }})</n-tag>
+                          <n-tag type="info" size="small"
+                            >嵌套识别 ({{ attempt.nested_nodes?.length }})</n-tag
+                          >
                         </div>
                         <n-collapse>
                           <n-collapse-item
@@ -936,7 +955,12 @@ const handleNodeSelect = (nodeId: number) => {
       </div>
     </div>
     <!-- AI 设置 Modal -->
-    <AISettingsModal v-model:show="showAISettings" :config="aiConfig" @update:config="aiConfig = $event" @save="handleSaveAIConfig" />
+    <AISettingsModal
+      v-model:show="showAISettings"
+      :config="aiConfig"
+      @update:config="aiConfig = $event"
+      @save="handleSaveAIConfig"
+    />
     <!-- AI 分析确认弹窗 -->
     <n-modal
       v-model:show="showAIConfirm"
@@ -945,11 +969,13 @@ const handleNodeSelect = (nodeId: number) => {
       positive-text="确认"
       negative-text="取消"
       @positive-click="doAIAnalyze"
-      @update:show="(val: boolean) => { if (!val) showAIConfirm = val }"
+      @update:show="
+        (val: boolean) => {
+          if (!val) showAIConfirm = val;
+        }
+      "
     >
-      <n-checkbox v-model:checked="skipAIConfirm">
-        不再提醒
-      </n-checkbox>
+      <n-checkbox v-model:checked="skipAIConfirm"> 不再提醒 </n-checkbox>
     </n-modal>
     <!-- 节点流程图大面板 -->
     <n-modal
@@ -957,17 +983,20 @@ const handleNodeSelect = (nodeId: number) => {
       preset="card"
       title="节点流程图"
       :closable="true"
-      style="width: 90vw; max-width: 1200px; height: 80vh;"
+      style="width: 90vw; max-width: 1200px; height: 80vh"
     >
-      <div style="height: 100%;">
+      <div style="height: 100%">
         <NodeFlowChart
           v-if="selectedTaskNodes.length > 0"
           :nodes="selectedTaskNodes"
           :selected-node-id="selectedNodeId"
-          style="height: calc(100% - 20px);"
+          style="height: calc(100% - 20px)"
           @select-node="handleNodeSelect"
         />
-        <div v-else style="display: flex; align-items: center; justify-content: center; height: 100%;">
+        <div
+          v-else
+          style="display: flex; align-items: center; justify-content: center; height: 100%"
+        >
           暂无节点数据
         </div>
       </div>

@@ -137,7 +137,7 @@ const emitParse = () => emit("parse");
             multiple
             accept=".log,.json,.zip"
             @change="emit('file-change', $event)"
-          >
+          />
         </label>
         <!-- 解析按钮 -->
         <NButton
@@ -157,34 +157,31 @@ const emitParse = () => emit("parse");
       </div>
     </div>
     <!-- 状态信息卡片 -->
-    <NCard
-      class="hero-card"
-      size="small"
-    >
+    <NCard class="hero-card" size="small">
       <template #header>
         <span>当前选择：</span>
         <span class="card-stat-divider">|</span>
-        <span>文件数量 <strong>{{ selectedFiles.length }}</strong></span>
+        <span
+          >文件数量 <strong>{{ selectedFiles.length }}</strong></span
+        >
         <span class="card-stat-divider">|</span>
-        <span>总大小 <strong>{{ formatSize(totalSize) }}</strong></span>
+        <span
+          >总大小 <strong>{{ formatSize(totalSize) }}</strong></span
+        >
       </template>
       <!-- 解析器选择 -->
       <div class="parser-select">
         <span class="parser-label">Custom日志解析器：</span>
         <NSelect
           :value="selectedParserId"
-          :options="parserOptions.map(p => ({ label: p.name, value: p.id }))"
+          :options="parserOptions.map((p) => ({ label: p.name, value: p.id }))"
           size="small"
           style="width: 160px"
           @update:value="emit('update:selectedParserId', $event)"
         />
       </div>
       <!-- 解析进度条 -->
-      <NProgress
-        v-if="parseState === 'parsing'"
-        :percentage="parseProgress"
-        processing
-      />
+      <NProgress v-if="parseState === 'parsing'" :percentage="parseProgress" processing />
       <!-- 状态消息 -->
       <div class="card-hint">
         {{ statusMessage }}

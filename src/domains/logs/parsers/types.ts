@@ -132,7 +132,7 @@ export enum ParserPriority {
   /** 中优先级：特定格式解析器 */
   MEDIUM = 50,
   /** 高优先级：精确匹配解析器 */
-  HIGH = 100
+  HIGH = 100,
 }
 
 /**

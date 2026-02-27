@@ -22,7 +22,7 @@ import type {
   PipelineCustomActionInfo,
   SelectedFile,
   EventNotification,
-  ControllerInfo
+  ControllerInfo,
 } from "../types/logTypes";
 import { parserRegistry, correlateAuxLogs } from "../parsers";
 import type { AuxLogParserInfo } from "../parsers";
@@ -34,7 +34,7 @@ import {
   buildIdentifierRanges,
   buildTasks,
   parseControllerInfo,
-  associateControllersToTasks
+  associateControllersToTasks,
 } from "../utils/parse";
 import { parsePipelineFile, isGoServiceLog, extractDateFromTimestamp } from "../utils/file";
 import { createLogger, setLoggerContext } from "../utils/logger";
@@ -181,11 +181,8 @@ export function useLogParser(config: LogParserConfig = {}): LogParserResult {
    * 从所有任务中提取唯一的进程 ID，生成下拉选项。
    */
   const processOptions = computed(() => {
-    const ids = Array.from(new Set(tasks.value.map(task => task.processId).filter(Boolean)));
-    return [
-      { label: "全部进程", value: "all" },
-      ...ids.map(id => ({ label: id, value: id }))
-    ];
+    const ids = Array.from(new Set(tasks.value.map((task) => task.processId).filter(Boolean)));
+    return [{ label: "全部进程", value: "all" }, ...ids.map((id) => ({ label: id, value: id }))];
   });
 
   /**
@@ -194,11 +191,8 @@ export function useLogParser(config: LogParserConfig = {}): LogParserResult {
    * 从所有任务中提取唯一的线程 ID，生成下拉选项。
    */
   const threadOptions = computed(() => {
-    const ids = Array.from(new Set(tasks.value.map(task => task.threadId).filter(Boolean)));
-    return [
-      { label: "全部线程", value: "all" },
-      ...ids.map(id => ({ label: id, value: id }))
-    ];
+    const ids = Array.from(new Set(tasks.value.map((task) => task.threadId).filter(Boolean)));
+    return [{ label: "全部线程", value: "all" }, ...ids.map((id) => ({ label: id, value: id }))];
   });
 
   /**
@@ -207,7 +201,7 @@ export function useLogParser(config: LogParserConfig = {}): LogParserResult {
    * 根据选择的进程和线程 ID 过滤任务。
    */
   const filteredTasks = computed(() => {
-    return tasks.value.filter(task => {
+    return tasks.value.filter((task) => {
       const matchesProcess =
         selectedProcessId.value === "all" || task.processId === selectedProcessId.value;
       const matchesThread =
@@ -252,7 +246,7 @@ export function useLogParser(config: LogParserConfig = {}): LogParserResult {
   async function handleParse(): Promise<void> {
     // 设置日志上下文
     setLoggerContext({
-      threadId: selectedThreadId.value === "all" ? "ui" : selectedThreadId.value
+      threadId: selectedThreadId.value === "all" ? "ui" : selectedThreadId.value,
     });
 
     parseState.value = "parsing";
@@ -314,7 +308,7 @@ export function useLogParser(config: LogParserConfig = {}): LogParserResult {
           const percentage = totalLines > 0 ? Math.round((processed / totalLines) * 100) : 0;
           parseProgress.value = percentage;
           statusMessage.value = `解析中… ${percentage}%`;
-          await new Promise(resolve => setTimeout(resolve, 0));
+          await new Promise((resolve) => setTimeout(resolve, 0));
           continue;
         }
 
@@ -389,7 +383,7 @@ export function useLogParser(config: LogParserConfig = {}): LogParserResult {
           const percentage = totalLines > 0 ? Math.round((processed / totalLines) * 100) : 0;
           parseProgress.value = percentage;
           statusMessage.value = `解析中… ${percentage}%`;
-          await new Promise(resolve => setTimeout(resolve, 0));
+          await new Promise((resolve) => setTimeout(resolve, 0));
         }
       }
 
@@ -398,7 +392,7 @@ export function useLogParser(config: LogParserConfig = {}): LogParserResult {
       const identifierRanges = buildIdentifierRanges(eventIdentifierMap, events.length);
       logger.debug("identifier 范围", {
         count: identifierRanges.length,
-        samples: identifierRanges.slice(0, 5)
+        samples: identifierRanges.slice(0, 5),
       });
 
       // 构建任务列表
@@ -413,9 +407,9 @@ export function useLogParser(config: LogParserConfig = {}): LogParserResult {
       auxLogs.value = correlateAuxLogs(auxEntries, tasks.value, pipelineKeywords);
       logger.info("Custom日志关联完成", {
         total: auxLogs.value.length,
-        matched: auxLogs.value.filter(item => item.correlation?.status === "matched").length,
-        unmatched: auxLogs.value.filter(item => item.correlation?.status === "unmatched").length,
-        failed: auxLogs.value.filter(item => item.correlation?.status === "failed").length
+        matched: auxLogs.value.filter((item) => item.correlation?.status === "matched").length,
+        unmatched: auxLogs.value.filter((item) => item.correlation?.status === "unmatched").length,
+        failed: auxLogs.value.filter((item) => item.correlation?.status === "failed").length,
       });
 
       pipelineCustomActions.value = pipelineActions;
@@ -423,9 +417,13 @@ export function useLogParser(config: LogParserConfig = {}): LogParserResult {
 
       // 生成状态消息
       const taskMessage =
-        tasks.value.length > 0 ? `解析完成，共 ${tasks.value.length} 个任务` : "解析完成，未识别到任务";
+        tasks.value.length > 0
+          ? `解析完成，共 ${tasks.value.length} 个任务`
+          : "解析完成，未识别到任务";
       statusMessage.value =
-        auxLogs.value.length > 0 ? `${taskMessage}，Custom日志 ${auxLogs.value.length} 条` : taskMessage;
+        auxLogs.value.length > 0
+          ? `${taskMessage}，Custom日志 ${auxLogs.value.length} 条`
+          : taskMessage;
     } catch (error) {
       parseState.value = "ready";
       statusMessage.value = "解析失败，请检查日志内容";
@@ -450,7 +448,7 @@ export function useLogParser(config: LogParserConfig = {}): LogParserResult {
     threadOptions,
     filteredTasks,
     handleParse,
-    resetParseState
+    resetParseState,
   };
 }
 

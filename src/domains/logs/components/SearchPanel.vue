@@ -85,7 +85,11 @@ defineProps<{
   searchHistory: string[];
   hasRawLines: boolean;
   searchItemHeight: number;
-  splitMatch: (line: string, start: number, end: number) => { before: string; match: string; after: string };
+  splitMatch: (
+    line: string,
+    start: number,
+    end: number
+  ) => { before: string; match: string; after: string };
 }>();
 
 /**
@@ -126,14 +130,9 @@ const searchMaxOptions = [
   - 搜索结果列表（虚拟滚动）
 -->
 <template>
-  <n-card
-    class="panel"
-    size="small"
-  >
+  <n-card class="panel" size="small">
     <!-- 标题 -->
-    <template #header>
-      文本搜索
-    </template>
+    <template #header> 文本搜索 </template>
     <!-- 搜索控制区域 -->
     <div class="search-controls">
       <!-- 搜索输入框 -->
@@ -152,17 +151,11 @@ const searchMaxOptions = [
         区分大小写
       </n-checkbox>
       <!-- 正则表达式选项 -->
-      <n-checkbox
-        :checked="searchUseRegex"
-        @update:checked="emit('update:searchUseRegex', $event)"
-      >
+      <n-checkbox :checked="searchUseRegex" @update:checked="emit('update:searchUseRegex', $event)">
         正则表达式
       </n-checkbox>
       <!-- 隐藏调试信息选项 -->
-      <n-checkbox
-        :checked="hideDebugInfo"
-        @update:checked="emit('update:hideDebugInfo', $event)"
-      >
+      <n-checkbox :checked="hideDebugInfo" @update:checked="emit('update:hideDebugInfo', $event)">
         格式化调试信息
       </n-checkbox>
       <!-- 最大结果数选择 -->
@@ -183,10 +176,7 @@ const searchMaxOptions = [
       </n-button>
     </div>
     <!-- 搜索历史 -->
-    <div
-      v-if="searchHistory.length > 0"
-      class="search-history"
-    >
+    <div v-if="searchHistory.length > 0" class="search-history">
       <span class="history-label">历史：</span>
       <n-button
         v-for="item in searchHistory"
@@ -199,27 +189,16 @@ const searchMaxOptions = [
       >
         {{ item }}
       </n-button>
-      <n-button
-        size="tiny"
-        quaternary
-        @click="emit('clear-history')"
-      >
-        清空
-      </n-button>
+      <n-button size="tiny" quaternary @click="emit('clear-history')"> 清空 </n-button>
     </div>
     <!-- 搜索状态消息 -->
     <div class="search-message">
-      {{ searchMessage || '输入关键字后点击搜索' }}
+      {{ searchMessage || "输入关键字后点击搜索" }}
     </div>
     <!-- 搜索结果容器 -->
     <div class="search-results-container">
       <!-- 空状态：无搜索结果 -->
-      <div
-        v-if="searchResults.length === 0"
-        class="empty"
-      >
-        暂无搜索结果
-      </div>
+      <div v-if="searchResults.length === 0" class="empty">暂无搜索结果</div>
       <!-- 搜索结果列表（虚拟滚动） -->
       <DynamicScroller
         v-else
@@ -237,13 +216,13 @@ const searchMaxOptions = [
             <!-- 搜索结果行 -->
             <div class="search-row">
               <!-- 文件名和行号 -->
-              <div class="search-meta">
-                {{ item.fileName }} · L{{ item.lineNumber }}
-              </div>
+              <div class="search-meta">{{ item.fileName }} · L{{ item.lineNumber }}</div>
               <!-- 匹配行内容（高亮显示匹配部分） -->
               <div class="search-line">
                 <span>{{ splitMatch(item.line, item.matchStart, item.matchEnd).before }}</span>
-                <span class="search-hit">{{ splitMatch(item.line, item.matchStart, item.matchEnd).match }}</span>
+                <span class="search-hit">{{
+                  splitMatch(item.line, item.matchStart, item.matchEnd).match
+                }}</span>
                 <span>{{ splitMatch(item.line, item.matchStart, item.matchEnd).after }}</span>
               </div>
             </div>
