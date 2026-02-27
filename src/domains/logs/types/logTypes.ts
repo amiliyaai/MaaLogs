@@ -128,7 +128,7 @@ export type EventNotification = {
  * 这些日志可以与主任务进行关联，提供更详细的执行上下文。
  *
  * @property {string} key - 日志唯一标识符（格式：文件名-行号）
- * @property {string} source - 日志来源标识（如 "go-service", "loguru"）
+ * @property {string} source - 日志来源标识（如 "go-service", "m9a"）
  * @property {string} timestamp - 日志时间戳
  * @property {number} [timestampMs] - 毫秒级时间戳（用于时间窗口匹配）
  * @property {string} level - 日志级别（DEBUG, INFO, WARN, ERROR 等）

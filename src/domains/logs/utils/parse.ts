@@ -734,6 +734,10 @@ export function parseLine(line: string, lineNum: number): LogLine | null {
  * OnEventNotify 是 Maa 框架发出的事件通知，包含任务生命周期和节点执行信息。
  * 这些事件是构建任务列表的核心数据源。
  *
+ * 支持两种格式：
+ * 1. 原始格式：包含 !!!OnEventNotify!!! 的日志行
+ * 2. M9A 格式：functionName 为 MaaNS::MessageNotifier::notify 且包含 msg 参数
+ *
  * @param {LogLine} parsed - 已解析的日志行
  * @param {string} fileName - 文件名
  * @returns {EventNotification | null} 事件对象或 null（非事件日志）
@@ -747,23 +751,48 @@ export function parseEventNotification(
   parsed: LogLine,
   fileName: string
 ): EventNotification | null {
-  const { message, params } = parsed;
-  if (!message.includes("!!!OnEventNotify!!!")) return null;
+  const { message, params, functionName } = parsed;
 
-  const msg = params["msg"];
-  const details = params["details"];
-  if (!msg) return null;
+  // 格式1：原始格式，包含 !!!OnEventNotify!!!
+  if (message.includes("!!!OnEventNotify!!!")) {
+    const msg = params["msg"];
+    const details = params["details"];
+    if (!msg) return null;
 
-  return {
-    timestamp: parsed.timestamp,
-    level: parsed.level,
-    message: msg,
-    details: details || {},
-    _lineNumber: parsed._lineNumber,
-    fileName,
-    processId: parsed.processId,
-    threadId: parsed.threadId,
-  };
+    return {
+      timestamp: parsed.timestamp,
+      level: parsed.level,
+      message: msg,
+      details: details || {},
+      _lineNumber: parsed._lineNumber,
+      fileName,
+      processId: parsed.processId,
+      threadId: parsed.threadId,
+    };
+  }
+
+  // 格式2：M9A 格式，functionName 为 MaaNS::MessageNotifier::notify
+  if (functionName === "MaaNS::MessageNotifier::notify") {
+    const msg = params["msg"];
+    const details = params["details"];
+    if (!msg) return null;
+
+    // 只处理任务相关的事件
+    if (typeof msg === "string" && msg.startsWith("Tasker.")) {
+      return {
+        timestamp: parsed.timestamp,
+        level: parsed.level,
+        message: msg,
+        details: details || {},
+        _lineNumber: parsed._lineNumber,
+        fileName,
+        processId: parsed.processId,
+        threadId: parsed.threadId,
+      };
+    }
+  }
+
+  return null;
 }
 
 /**

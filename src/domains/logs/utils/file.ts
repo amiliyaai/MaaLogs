@@ -17,6 +17,26 @@ import type { SelectedFile, PipelineCustomActionInfo } from "../types/logTypes";
 import { parsePipelineCustomActions } from "./parse";
 
 /**
+ * 支持的日志文件名正则表达式
+ *
+ * 匹配格式：
+ * - maa.log: MaaEnd 项目主日志
+ * - go-service.log: MaaEnd 项目辅助日志
+ * - YYYY-MM-DD.log: M9A 项目日期格式日志（如 2025-11-16.log）
+ */
+const LOG_FILE_PATTERN = /^(?:maa|go-service|\d{4}-\d{2}-\d{2})\.log$/i;
+
+/**
+ * 判断文件名是否为支持的日志文件
+ *
+ * @param {string} name - 文件名（不含路径）
+ * @returns {boolean} 是否为支持的日志文件
+ */
+function isSupportedLogFile(name: string): boolean {
+  return LOG_FILE_PATTERN.test(name);
+}
+
+/**
  * 推断文件类型，优先使用浏览器提供的 MIME 类型
  *
  * 当浏览器无法提供 MIME 类型时，根据文件扩展名进行推断。
@@ -142,13 +162,12 @@ export async function expandSelectedFiles(fileList: File[]): Promise<File[]> {
 
   /**
    * 判断 ZIP 条目是否为需要提取的日志文件
-   * 只提取 maa.log 和 go-service.log，避免处理其他文件
+   * 支持: maa.log, go-service.log, YYYY-MM-DD.log 格式
    * @param {string} name - ZIP 条目名称
    * @returns {boolean} 是否需要提取
    */
   const allowZipEntry = (name: string): boolean => {
-    const lower = name.toLowerCase();
-    return lower === "maa.log" || lower === "go-service.log";
+    return isSupportedLogFile(name);
   };
 
   const outFiles: File[] = [];
@@ -223,12 +242,12 @@ export async function applySelectedPaths(paths: string[]): Promise<{
 
   /**
    * 判断文件夹中的文件是否为需要提取的日志文件
+   * 支持: maa.log, go-service.log, YYYY-MM-DD.log 格式
    * @param {string} name - 文件名
    * @returns {boolean} 是否需要提取
    */
   const allowDirectoryFile = (name: string): boolean => {
-    const lower = name.toLowerCase();
-    return lower === "maa.log" || lower === "go-service.log";
+    return isSupportedLogFile(name);
   };
 
   const decoder = new TextDecoder("utf-8");

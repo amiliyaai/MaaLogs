@@ -24,8 +24,8 @@ import type {
   EventNotification,
   ControllerInfo,
 } from "../types/logTypes";
-import { parserRegistry, correlateAuxLogs } from "../parsers";
-import type { AuxLogParserInfo } from "../parsers";
+import { projectParserRegistry, correlateAuxLogs } from "../parsers";
+import type { AuxLogParserInfo } from "../parsers/types";
 import {
   StringPool,
   parseLine,
@@ -39,10 +39,31 @@ import {
 import { parsePipelineFile, isGoServiceLog, extractDateFromTimestamp } from "../utils/file";
 import { createLogger, setLoggerContext } from "../utils/logger";
 
-/**
- * 应用日志记录器
- */
 const logger = createLogger("LogParser");
+
+function mergeMultilineLogs(lines: string[]): string[] {
+  const merged: string[] = [];
+  let currentLine = "";
+
+  for (const line of lines) {
+    if (line.startsWith("[")) {
+      if (currentLine) {
+        merged.push(currentLine);
+      }
+      currentLine = line;
+    } else if (currentLine) {
+      currentLine += line;
+    } else {
+      merged.push(line);
+    }
+  }
+
+  if (currentLine) {
+    merged.push(currentLine);
+  }
+
+  return merged;
+}
 
 /**
  * 解析状态类型
@@ -163,9 +184,9 @@ export function useLogParser(config: LogParserConfig = {}): LogParserResult {
   /** Pipeline Custom Action 映射 */
   const pipelineCustomActions = ref<Record<string, PipelineCustomActionInfo[]>>({});
   /** 当前选择的解析器 ID */
-  const selectedParserId = ref<string>("MaaEndParser");
+  const selectedParserId = ref<string>("maaend");
   /** 可用的解析器列表 */
-  const parserOptions = ref<AuxLogParserInfo[]>(parserRegistry.getInfoList());
+  const parserOptions = ref<AuxLogParserInfo[]>(projectParserRegistry.getInfoList());
   /** 当前选择的进程 ID */
   const selectedProcessId = ref("all");
   /** 当前选择的线程 ID */
@@ -270,7 +291,8 @@ export function useLogParser(config: LogParserConfig = {}): LogParserResult {
       // 读取所有文件内容
       for (const file of selectedFiles.value) {
         const text = await file.file.text();
-        const lines = text.split(/\r?\n/);
+        const rawLines = text.split(/\r?\n/);
+        const lines = mergeMultilineLogs(rawLines);
         fileLines.push({ file, lines });
         totalLines += lines.length;
       }
@@ -315,6 +337,12 @@ export function useLogParser(config: LogParserConfig = {}): LogParserResult {
         // 判断是否需要解析辅助日志
         const shouldParseAuxLogs = isGoServiceLog(file.name);
 
+        // 使用用户选择的项目解析器
+        const projectParser = projectParserRegistry.get(selectedParserId.value);
+        if (!projectParser) {
+          logger.warn("未找到选择的解析器", { parserId: selectedParserId.value });
+        }
+
         // 分块处理日志文件
         for (let startIdx = 0; startIdx < lines.length; startIdx += chunkSize) {
           const endIdx = Math.min(startIdx + chunkSize, lines.length);
@@ -338,18 +366,16 @@ export function useLogParser(config: LogParserConfig = {}): LogParserResult {
               }
             }
 
-            // 处理事件通知
-            if (rawLine.includes("!!!OnEventNotify!!!")) {
-              const event = parseEventNotification(parsed, file.name);
-              if (event) {
-                events.push(event);
-                const identifier = extractIdentifierFromLine(rawLine);
-                if (identifier) {
-                  lastIdentifierForEvent = identifier;
-                }
-                if (lastIdentifierForEvent) {
-                  eventIdentifierMap.set(events.length - 1, lastIdentifierForEvent);
-                }
+            // 处理事件通知（支持原始格式和 M9A 格式）
+            const event = parseEventNotification(parsed, file.name);
+            if (event) {
+              events.push(event);
+              const identifier = extractIdentifierFromLine(rawLine);
+              if (identifier) {
+                lastIdentifierForEvent = identifier;
+              }
+              if (lastIdentifierForEvent) {
+                eventIdentifierMap.set(events.length - 1, lastIdentifierForEvent);
               }
             } else {
               // 提取 identifier
@@ -366,15 +392,12 @@ export function useLogParser(config: LogParserConfig = {}): LogParserResult {
           }
 
           // 解析辅助日志
-          if (shouldParseAuxLogs) {
+          if (shouldParseAuxLogs && projectParser) {
             const chunkLines = lines.slice(startIdx, endIdx);
-            const parser = parserRegistry.get(selectedParserId.value);
-            if (parser) {
-              const parseResult = parser.parse(chunkLines, { baseDate, fileName: file.name });
-              for (const auxLog of parseResult.entries) {
-                auxLog.lineNumber = startIdx + auxLog.lineNumber;
-                auxEntries.push(auxLog);
-              }
+            const parseResult = projectParser.parseAuxLog(chunkLines, { baseDate, fileName: file.name });
+            for (const auxLog of parseResult.entries) {
+              auxLog.lineNumber = startIdx + auxLog.lineNumber;
+              auxEntries.push(auxLog);
             }
           }
 
