@@ -132,6 +132,7 @@ async function handleAIAnalyze() {
 }
 
 async function doAIAnalyze() {
+  showAIConfirm.value = false;
   if (!props.selectedTask) return;
   if (!aiConfig.value) return;
 
@@ -678,7 +679,7 @@ const handleNodeSelect = (nodeId: number) => {
               <div class="detail-section-header">
                 <div class="detail-section-title">动作详情</div>
               </div>
-              <div class="empty">Action 详情</div>
+              <div class="empty">无动作详情</div>
             </div>
             <!-- 详细信息折叠面板 -->
             <n-collapse :default-expanded-names="[]">
