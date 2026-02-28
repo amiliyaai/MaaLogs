@@ -13,7 +13,7 @@
  * @license MIT
  */
 
-import type { EventNotification, ControllerInfo, AuxLogEntry } from "../../types/logTypes";
+import type { EventNotification, ControllerInfo, AuxLogEntry, RecognitionDetail, ActionDetail } from "../../types/logTypes";
 import type { ProjectParser, MainLogParseResult } from "../project-types";
 import type { AuxLogParserConfig, AuxLogParseResult, AuxLogParserInfo } from "../types";
 import {
@@ -21,6 +21,7 @@ import {
   extractIdentifier,
   extractDate,
   createEventNotification,
+  parseControllerInfo,
 } from "../shared";
 
 /**
@@ -79,18 +80,367 @@ function parseM9aEventNotification(
 
   if (functionName === "MaaNS::MessageNotifier::notify") {
     const msg = params["msg"];
-    const details = params["details"];
-    if (!msg) return null;
+    const details = params["details"] as Record<string, unknown> | undefined;
 
-    if (typeof msg === "string" && msg.startsWith("Tasker.")) {
-      return createEventNotification(
-        parsed,
-        fileName,
-        lineNumber,
-        msg,
-        (details as Record<string, unknown>) || {}
-      );
+    if (!msg || typeof msg !== "string") return null;
+
+    if (msg.startsWith("Tasker.")) {
+      const entry = details?.entry as string | undefined;
+      if (entry && !entry.startsWith("MaaNS::")) {
+        return createEventNotification(
+          parsed,
+          fileName,
+          lineNumber,
+          msg,
+          details || {}
+        );
+      }
     }
+  }
+
+  return null;
+}
+
+/**
+ * 解析 box 字符串格式 "[W x H from (X, Y)]"
+ */
+function parseBoxString(boxStr: unknown): [number, number, number, number] | null {
+  if (typeof boxStr !== "string") return null;
+
+  const match = boxStr.match(/\[(\d+)\s*x\s*(\d+)\s*from\s*\((\d+),\s*(\d+)\)\]/);
+  if (!match) return null;
+
+  const [, w, h, x, y] = match;
+  return [parseInt(x), parseInt(y), parseInt(w), parseInt(h)];
+}
+
+/**
+ * 解析 JSON 格式的 box 数组 [x, y, w, h]
+ */
+function parseBoxArray(box: unknown): [number, number, number, number] | null {
+  if (!Array.isArray(box) || box.length !== 4) return null;
+  const [x, y, w, h] = box;
+  if (typeof x !== "number" || typeof y !== "number" || typeof w !== "number" || typeof h !== "number") return null;
+  return [x, y, w, h];
+}
+
+/**
+ * 识别结果缓存
+ * 用于存储 OCRer::analyze 和 TemplateMatcher::analyze 的结果，供 node hit 使用
+ */
+interface RecognitionCache {
+  name: string;
+  reco_id: number;
+  algorithm: string;
+  box: [number, number, number, number] | null;
+  detail: unknown;
+  timestamp: string;
+}
+
+/**
+ * 动作执行上下文
+ * 用于跟踪当前正在执行的动作及其详情
+ */
+interface ActionContext {
+  nodeName: string;
+  startTime: string;
+  startLineNumber: number;
+  actions: ActionDetail[];
+}
+
+/**
+ * 解析 OCRer::analyze 行
+ *
+ * M9A 日志格式：
+ * [MaaNS::VisionNS::OCRer::analyze] Alarm_End [uid_=300000001] [all_results_=[...]] [best_result_={...}] [cost=403ms] ...
+ */
+function parseOCRerAnalyze(
+  parsed: ReturnType<typeof parseBracketLine>
+): RecognitionCache | null {
+  if (!parsed) return null;
+
+  const { functionName, params, message, timestamp } = parsed;
+
+  if (!functionName?.includes("OCRer::analyze")) return null;
+
+  const name = message.trim().split(/\s+/)[0];
+  if (!name) return null;
+
+  const uid = params["uid_"];
+  if (typeof uid !== "number") return null;
+
+  const bestResult = params["best_result_"] as Record<string, unknown> | undefined;
+  let box: [number, number, number, number] | null = null;
+  let detail: unknown = null;
+
+  if (bestResult) {
+    box = parseBoxArray(bestResult.box);
+    detail = bestResult;
+  }
+
+  return {
+    name,
+    reco_id: uid,
+    algorithm: "OCR",
+    box,
+    detail,
+    timestamp,
+  };
+}
+
+/**
+ * 解析 TemplateMatcher::analyze 行
+ *
+ * M9A 日志格式：
+ * [MaaNS::VisionNS::TemplateMatcher::analyze] Alarm_Complete [uid_=300000188] [best_result_={...}] ...
+ */
+function parseTemplateMatcherAnalyze(
+  parsed: ReturnType<typeof parseBracketLine>
+): RecognitionCache | null {
+  if (!parsed) return null;
+
+  const { functionName, params, message, timestamp } = parsed;
+
+  if (!functionName?.includes("TemplateMatcher::analyze")) return null;
+
+  const name = message.trim().split(/\s+/)[0];
+  if (!name) return null;
+
+  const uid = params["uid_"];
+  if (typeof uid !== "number") return null;
+
+  const bestResult = params["best_result_"] as Record<string, unknown> | undefined;
+  let box: [number, number, number, number] | null = null;
+  let detail: unknown = null;
+
+  if (bestResult) {
+    box = parseBoxArray(bestResult.box);
+    detail = bestResult;
+  }
+
+  return {
+    name,
+    reco_id: uid,
+    algorithm: "TemplateMatch",
+    box,
+    detail,
+    timestamp,
+  };
+}
+
+/**
+ * 从 node hit 行提取节点信息并转换为虚拟事件
+ *
+ * M9A 日志格式：
+ * node hit [result.name=TheAlarm] [result.box=[0 x 0 from (0, 0)]]
+ */
+function parseNodeHitLine(
+  parsed: ReturnType<typeof parseBracketLine>,
+  fileName: string,
+  lineNumber: number,
+  currentTaskId: number,
+  recoCache: Map<string, RecognitionCache>,
+  nodeIdCounter: number
+): { event: EventNotification; nodeIdCounter: number } | null {
+  if (!parsed) return null;
+
+  const { message, params } = parsed;
+
+  if (message !== "node hit") return null;
+
+  const nodeName = params["result.name"];
+  if (typeof nodeName !== "string") return null;
+
+  const boxStr = params["result.box"];
+  const box = parseBoxString(boxStr);
+
+  const newCounter = nodeIdCounter + 1;
+
+  const cachedReco = recoCache.get(nodeName);
+
+  const recoDetails: RecognitionDetail = {
+    name: nodeName,
+    box: cachedReco?.box || box,
+    algorithm: cachedReco?.algorithm || "Unknown",
+    detail: cachedReco?.detail || null,
+    reco_id: cachedReco?.reco_id || newCounter,
+  };
+
+  const details: Record<string, unknown> = {
+    name: nodeName,
+    node_id: newCounter,
+    task_id: currentTaskId,
+    reco_details: recoDetails,
+  };
+
+  return {
+    event: createEventNotification(parsed, fileName, lineNumber, "Node.PipelineNode.Succeeded", details),
+    nodeIdCounter: newCounter,
+  };
+}
+
+/**
+ * 解析 Actuator::run 行，检测动作开始/结束
+ *
+ * M9A 日志格式：
+ * [MaaNS::TaskNS::Actuator::run] [pipeline_data.name=TheAlarm] | enter
+ * [MaaNS::TaskNS::Actuator::run] | leave, 701ms
+ */
+function parseActuatorRun(
+  parsed: ReturnType<typeof parseBracketLine>
+): { nodeName: string | null; isEnter: boolean } | null {
+  if (!parsed) return null;
+
+  const { functionName, params, status } = parsed;
+
+  if (!functionName?.includes("Actuator::run")) return null;
+
+  const nodeName = params["pipeline_data.name"];
+  if (typeof nodeName !== "string" && status !== "leave") return null;
+
+  return {
+    nodeName: typeof nodeName === "string" ? nodeName : null,
+    isEnter: status === "enter",
+  };
+}
+
+/**
+ * 解析 MtouchHelper::click 行
+ *
+ * M9A 日志格式：
+ * [MaaNS::CtrlUnitNs::MtouchHelper::click] [x=1799] [y=842] [touch_x=238] [touch_y=1799]
+ */
+function parseMtouchHelperClick(
+  parsed: ReturnType<typeof parseBracketLine>,
+  actionId: number
+): ActionDetail | null {
+  if (!parsed) return null;
+
+  const { functionName, params, status } = parsed;
+
+  if (!functionName?.includes("MtouchHelper::click")) return null;
+  if (status === "leave") return null;
+
+  const x = params["x"];
+  const y = params["y"];
+
+  const boxX = typeof x === "number" ? x : parseInt(String(x)) || 0;
+  const boxY = typeof y === "number" ? y : parseInt(String(y)) || 0;
+
+  return {
+    action_id: actionId,
+    action: "Click",
+    box: [boxX, boxY, 0, 0],
+    detail: {
+      touch_x: params["touch_x"],
+      touch_y: params["touch_y"],
+    },
+    name: "Click",
+    success: true,
+  };
+}
+
+/**
+ * 解析 MtouchHelper::swipe 行
+ */
+function parseMtouchHelperSwipe(
+  parsed: ReturnType<typeof parseBracketLine>,
+  actionId: number
+): ActionDetail | null {
+  if (!parsed) return null;
+
+  const { functionName, params, status } = parsed;
+
+  if (!functionName?.includes("MtouchHelper::swipe")) return null;
+  if (status === "leave") return null;
+
+  return {
+    action_id: actionId,
+    action: "Swipe",
+    box: [0, 0, 0, 0],
+    detail: {
+      x: params["x"],
+      y: params["y"],
+      touch_x: params["touch_x"],
+      touch_y: params["touch_y"],
+    },
+    name: "Swipe",
+    success: true,
+  };
+}
+
+/**
+ * 解析 Actuator::sleep 行
+ *
+ * M9A 日志格式：
+ * [MaaNS::TaskNS::Actuator::sleep] 200ms | enter
+ */
+function parseActuatorSleep(
+  parsed: ReturnType<typeof parseBracketLine>,
+  actionId: number
+): ActionDetail | null {
+  if (!parsed) return null;
+
+  const { functionName, message, status } = parsed;
+
+  if (!functionName?.includes("Actuator::sleep")) return null;
+  if (status === "leave") return null;
+
+  const match = message.match(/(\d+)ms/);
+  const duration = match ? parseInt(match[1]) : 0;
+
+  return {
+    action_id: actionId,
+    action: "Sleep",
+    box: [0, 0, 0, 0],
+    detail: {
+      duration,
+    },
+    name: "Sleep",
+    success: true,
+  };
+}
+
+/**
+ * 解析自定义动作执行
+ *
+ * M9A 日志格式：
+ * [MaaNS::TaskNS::CustomAction::run]
+ * [context.task_id()=100000002] [node_name=SummonlngSuccess]
+ * [param.name=SummonlngSwipe] [param.custom_param=null]
+ * [reco_id=300000046] [rect=[119 x 89 from (283, 300)]]
+ */
+function parseCustomActionRun(
+  parsed: ReturnType<typeof parseBracketLine>,
+  fileName: string,
+  lineNumber: number,
+  actionId: number
+): { event: EventNotification; actionId: number } | null {
+  if (!parsed) return null;
+
+  const { functionName, params, status } = parsed;
+
+  if (!functionName?.includes("CustomAction::run")) return null;
+
+  const nodeName = params["node_name"];
+  const actionName = params["param.name"];
+  const customParam = params["param.custom_param"];
+  const rectStr = params["rect"];
+
+  if (status === "enter") {
+    const rect = parseBoxString(rectStr);
+
+    const details: Record<string, unknown> = {
+      name: nodeName,
+      action_name: actionName,
+      custom_param: customParam === "null" ? null : customParam,
+      rect: rect,
+    };
+
+    return {
+      event: createEventNotification(parsed, fileName, lineNumber, "CustomAction.Starting", details),
+      actionId: actionId + 1,
+    };
   }
 
   return null;
@@ -105,11 +455,19 @@ export const m9aProjectParser: ProjectParser = {
   description: "M9A 项目日志解析器",
 
   parseMainLog(lines: string[], config): MainLogParseResult {
+    let nodeIdCounter = 0;
+    let actionIdCounter = 0;
+
     const events: EventNotification[] = [];
     const controllers: ControllerInfo[] = [];
     const identifierMap = new Map<number, string>();
     let baseDate: string | null = null;
     let lastIdentifier: string | null = null;
+
+    const taskIdByThread = new Map<string, number>();
+    const recoCache = new Map<string, RecognitionCache>();
+    const actionContexts = new Map<string, ActionContext>();
+    const nodeEventIndexByName = new Map<string, number>();
 
     for (let i = 0; i < lines.length; i++) {
       const rawLine = lines[i].trim();
@@ -125,6 +483,12 @@ export const m9aProjectParser: ProjectParser = {
       const event = parseM9aEventNotification(parsed, config.fileName, i + 1);
       if (event) {
         events.push(event);
+
+        const taskId = event.details?.task_id;
+        if (typeof taskId === "number") {
+          taskIdByThread.set(parsed.threadId, taskId);
+        }
+
         const identifier = extractIdentifier(rawLine);
         if (identifier) {
           lastIdentifier = identifier;
@@ -132,11 +496,104 @@ export const m9aProjectParser: ProjectParser = {
         if (lastIdentifier) {
           identifierMap.set(events.length - 1, lastIdentifier);
         }
-      } else {
-        const identifier = extractIdentifier(rawLine);
-        if (identifier) {
-          lastIdentifier = identifier;
+        continue;
+      }
+
+      const ocrReco = parseOCRerAnalyze(parsed);
+      if (ocrReco) {
+        recoCache.set(ocrReco.name, ocrReco);
+        continue;
+      }
+
+      const templateReco = parseTemplateMatcherAnalyze(parsed);
+      if (templateReco) {
+        recoCache.set(templateReco.name, templateReco);
+        continue;
+      }
+
+      const currentTaskId = taskIdByThread.get(parsed.threadId) || 0;
+
+      const nodeHitResult = parseNodeHitLine(parsed, config.fileName, i + 1, currentTaskId, recoCache, nodeIdCounter);
+      if (nodeHitResult) {
+        nodeIdCounter = nodeHitResult.nodeIdCounter;
+        events.push(nodeHitResult.event);
+        const nodeName = nodeHitResult.event.details?.name as string;
+        if (nodeName) {
+          nodeEventIndexByName.set(nodeName, events.length - 1);
         }
+        continue;
+      }
+
+      const actuatorRun = parseActuatorRun(parsed);
+      if (actuatorRun) {
+        const { nodeName, isEnter } = actuatorRun;
+        const processId = parsed.processId;
+
+        if (isEnter && nodeName) {
+          actionContexts.set(processId, {
+            nodeName,
+            startTime: parsed.timestamp,
+            startLineNumber: i + 1,
+            actions: [],
+          });
+        } else if (!isEnter) {
+          const ctx = actionContexts.get(processId);
+          if (ctx && ctx.actions.length > 0) {
+            const eventIndex = nodeEventIndexByName.get(ctx.nodeName);
+            if (eventIndex !== undefined && events[eventIndex]) {
+              const nodeEvent = events[eventIndex];
+              if (nodeEvent.details) {
+                const realActions = ctx.actions.filter((a) => a.action !== "Sleep");
+                if (realActions.length > 0) {
+                  nodeEvent.details.action_details = realActions[0];
+                }
+              }
+            }
+          }
+          actionContexts.delete(processId);
+        }
+        continue;
+      }
+
+      const ctx = actionContexts.get(parsed.processId);
+      if (ctx) {
+        const clickAction = parseMtouchHelperClick(parsed, actionIdCounter + 1);
+        if (clickAction) {
+          actionIdCounter++;
+          ctx.actions.push(clickAction);
+          continue;
+        }
+
+        const swipeAction = parseMtouchHelperSwipe(parsed, actionIdCounter + 1);
+        if (swipeAction) {
+          actionIdCounter++;
+          ctx.actions.push(swipeAction);
+          continue;
+        }
+
+        const sleepAction = parseActuatorSleep(parsed, actionIdCounter + 1);
+        if (sleepAction) {
+          actionIdCounter++;
+          ctx.actions.push(sleepAction);
+          continue;
+        }
+      }
+
+      const customActionResult = parseCustomActionRun(parsed, config.fileName, i + 1, actionIdCounter);
+      if (customActionResult) {
+        actionIdCounter = customActionResult.actionId;
+        events.push(customActionResult.event);
+        continue;
+      }
+
+      const identifier = extractIdentifier(rawLine);
+      if (identifier) {
+        lastIdentifier = identifier;
+      }
+
+      const controller = parseControllerInfo(parsed, config.fileName, i + 1);
+      if (controller) {
+        controllers.push(controller);
       }
     }
 

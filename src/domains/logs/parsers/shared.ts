@@ -9,7 +9,57 @@
  * @license MIT
  */
 
-import type { EventNotification } from "../types/logTypes";
+import type { EventNotification, ControllerInfo, AdbScreencapMethod, AdbInputMethod, Win32ScreencapMethod, Win32InputMethod } from "../types/logTypes";
+
+/**
+ * ADB 截图方式 Bitmask 映射
+ */
+const ADB_SCREENCAP_METHOD_MAP: Record<number, AdbScreencapMethod> = {
+  1: "EncodeToFileAndPull",
+  2: "Encode",
+  4: "RawWithGzip",
+  8: "RawByNetcat",
+  16: "MinicapDirect",
+  32: "MinicapStream",
+  64: "EmulatorExtras",
+};
+
+/**
+ * ADB 输入方式 Bitmask 映射
+ */
+const ADB_INPUT_METHOD_MAP: Record<number, AdbInputMethod> = {
+  1: "AdbShell",
+  2: "MinitouchAndAdbKey",
+  4: "Maatouch",
+  8: "EmulatorExtras",
+};
+
+/**
+ * Win32 截图方式映射
+ */
+const WIN32_SCREENCAP_METHOD_MAP: Record<number, Win32ScreencapMethod> = {
+  1: "GDI",
+  2: "FramePool",
+  4: "DXGI_DesktopDup",
+  8: "DXGI_DesktopDup_Window",
+  16: "PrintWindow",
+  32: "ScreenDC",
+};
+
+/**
+ * Win32 输入方式映射
+ */
+const WIN32_INPUT_METHOD_MAP: Record<number, Win32InputMethod> = {
+  1: "Seize",
+  2: "SendMessage",
+  4: "PostMessage",
+  8: "LegacyEvent",
+  16: "PostThreadMessage",
+  32: "SendMessageWithCursorPos",
+  64: "PostMessageWithCursorPos",
+  128: "SendMessageWithWindowPos",
+  256: "PostMessageWithWindowPos",
+};
 
 /**
  * 方括号日志行解析结果
@@ -19,9 +69,13 @@ export interface BracketLineResult {
   level: string;
   processId: string;
   threadId: string;
+  sourceFile?: string;
+  lineNumber?: string;
   functionName: string;
   message: string;
   params: Record<string, unknown>;
+  status?: "enter" | "leave";
+  duration?: number;
 }
 
 /**
@@ -30,94 +84,288 @@ export interface BracketLineResult {
 export interface MessageParseResult {
   message: string;
   params: Record<string, unknown>;
+  status?: "enter" | "leave";
+  duration?: number;
+}
+
+/**
+ * 解析值类型
+ */
+export function parseValue(value: string): unknown {
+  if (value.startsWith("{") || value.startsWith("[")) {
+    try {
+      return JSON.parse(value);
+    } catch {
+      try {
+        const normalized = value
+          .replace(/\r?\n/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+        return JSON.parse(normalized);
+      } catch {
+        return value;
+      }
+    }
+  }
+  if (value === "true") return true;
+  if (value === "false") return false;
+  if (/^\d+$/.test(value) && value.length > 15) {
+    return BigInt(value);
+  }
+  if (/^-?\d+$/.test(value)) return parseInt(value);
+  if (/^-?\d+\.\d+$/.test(value)) return parseFloat(value);
+  if (
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  ) {
+    return value.slice(1, -1);
+  }
+  return value;
+}
+
+/**
+ * 解析 ADB 截图方式 bitmask
+ */
+export function parseAdbScreencapMethods(bitmask: number): AdbScreencapMethod[] {
+  const methods: AdbScreencapMethod[] = [];
+  for (const [bit, name] of Object.entries(ADB_SCREENCAP_METHOD_MAP)) {
+    if ((bitmask & parseInt(bit)) !== 0) {
+      methods.push(name);
+    }
+  }
+  return methods.length > 0 ? methods : ["Unknown"];
+}
+
+/**
+ * 解析 ADB 输入方式 bitmask
+ */
+export function parseAdbInputMethods(bitmask: number | bigint): AdbInputMethod[] {
+  const methods: AdbInputMethod[] = [];
+  const bigBitmask = typeof bitmask === "bigint" ? bitmask : BigInt(bitmask);
+  for (const [bit, name] of Object.entries(ADB_INPUT_METHOD_MAP)) {
+    if ((bigBitmask & BigInt(bit)) !== 0n) {
+      methods.push(name);
+    }
+  }
+  return methods.length > 0 ? methods : ["Unknown"];
+}
+
+/**
+ * 解析 Win32 截图方式值
+ */
+export function parseWin32ScreencapMethod(value: number): Win32ScreencapMethod {
+  return WIN32_SCREENCAP_METHOD_MAP[value] || "Unknown";
+}
+
+/**
+ * 解析 Win32 输入方式值
+ */
+export function parseWin32InputMethod(value: number): Win32InputMethod {
+  return WIN32_INPUT_METHOD_MAP[value] || "Unknown";
 }
 
 /**
  * 解析方括号格式的日志行
- *
- * 支持格式：
- * [timestamp][level][pid][tid][function][optional1][optional2] message
- *
- * @param {string} line - 日志行
- * @returns {BracketLineResult | null} 解析结果或 null
  */
 export function parseBracketLine(line: string): BracketLineResult | null {
   const regex =
-    /^\[([^\]]+)\]\[([^\]]+)\]\[([^\]]+)\]\[([^\]]+)\](?:\[([^\]]+)\])?(?:\[([^\]]+)\])?(?:\[([^\]]+)\])?\s*(.*)$/;
+    /^\[([^\]]+)\]\[([^\]]+)\]\[([^\]]+)\]\[([^\]]+)\](?:\[([^\]]+)\])?(?:\[([^\]]+)\])?(?:\[([^\]]+)\])?\s*([\s\S]*)$/;
   const match = line.match(regex);
   if (!match) return null;
 
   const [, timestamp, level, processId, threadId, opt1, opt2, opt3, rest] = match;
 
+  let sourceFile: string | undefined;
+  let lineNumber: string | undefined;
   let functionName = "";
-  let message = rest || "";
-  const params: Record<string, unknown> = {};
 
-  const functionCandidates = [opt1, opt2, opt3].filter(Boolean);
-  if (functionCandidates.length > 0) {
-    functionName = functionCandidates[0] || "";
+  if (opt3) {
+    sourceFile = opt1;
+    lineNumber = opt2;
+    functionName = opt3;
+  } else if (opt2) {
+    if (opt1 && (opt1.includes(".cpp") || opt1.includes(".hpp") || opt1.includes(".h"))) {
+      sourceFile = opt1;
+      lineNumber = opt2;
+    } else if (opt2.includes(".cpp") || opt2.includes(".hpp") || opt2.includes(".h")) {
+      sourceFile = opt2;
+      functionName = opt1 || "";
+    } else {
+      functionName = opt2;
+    }
+  } else if (opt1) {
+    if (opt1.includes(".cpp") || opt1.includes(".hpp") || opt1.includes(".h")) {
+      sourceFile = opt1;
+    } else {
+      functionName = opt1;
+    }
   }
 
-  const parsed = parseMessageAndParams(message);
-  message = parsed.message;
-  Object.assign(params, parsed.params);
+  const parsed = parseMessageAndParams(rest || "");
 
   return {
     timestamp: timestamp || "",
     level: level || "",
     processId: processId || "",
     threadId: threadId || "",
+    sourceFile,
+    lineNumber,
     functionName,
-    message,
-    params,
+    message: parsed.message,
+    params: parsed.params,
+    status: parsed.status,
+    duration: parsed.duration,
   };
 }
 
 /**
  * 解析消息和参数
- *
- * 从消息中提取 key=value 格式的参数。
- * 支持格式：
- * - key=value
- * - key="value with spaces"
- * - key={'json': 'object'}
- *
- * @param {string} message - 原始消息
- * @returns {MessageParseResult} 解析结果
  */
 export function parseMessageAndParams(message: string): MessageParseResult {
   const params: Record<string, unknown> = {};
-  let remaining = message;
+  let status: "enter" | "leave" | undefined;
+  let duration: number | undefined;
+  const extractedParams: string[] = [];
 
-  const keyValueRegex = /(\w+)\s*[=:]\s*(\{[^}]*\}|"[^"]*"|'[^']*'|\S+)/g;
-  let match;
-
-  while ((match = keyValueRegex.exec(message)) !== null) {
-    const [, key, value] = match;
-    let parsedValue: unknown = value;
-
-    if (value.startsWith("{") && value.endsWith("}")) {
-      try {
-        parsedValue = JSON.parse(value);
-      } catch {
-        parsedValue = value;
+  let i = 0;
+  while (i < message.length) {
+    if (message[i] === "[") {
+      let depth = 1;
+      let braceDepth = 0;
+      let j = i + 1;
+      while (j < message.length && (depth > 0 || braceDepth > 0)) {
+        if (message[j] === "{") {
+          braceDepth++;
+        } else if (message[j] === "}") {
+          braceDepth--;
+        } else if (message[j] === "[" && braceDepth === 0) {
+          depth++;
+        } else if (message[j] === "]" && braceDepth === 0) {
+          depth--;
+        }
+        j++;
       }
-    } else if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
-      parsedValue = value.slice(1, -1);
+      if (depth === 0) {
+        const param = message.substring(i + 1, j - 1);
+        extractedParams.push(param);
+        i = j;
+      } else {
+        i++;
+      }
+    } else {
+      i++;
     }
-
-    params[key] = parsedValue;
-    remaining = remaining.replace(match[0], "").trim();
   }
 
-  return { message: remaining, params };
+  for (const param of extractedParams) {
+    const kvMatch = param.match(/^([^=]+)=(.+)$/);
+    if (kvMatch) {
+      const [, key, value] = kvMatch;
+      params[key.trim()] = parseValue(value.trim());
+    } else {
+      params[param.trim()] = true;
+    }
+  }
+
+  let cleanMessage = message;
+  for (const param of extractedParams) {
+    cleanMessage = cleanMessage.replace(`[${param}]`, "");
+  }
+  cleanMessage = cleanMessage.trim();
+
+  const statusMatch = cleanMessage.match(/\|\s*(enter|leave)(?:,\s*(\d+)ms)?/);
+  if (statusMatch) {
+    status = statusMatch[1] as "enter" | "leave";
+    if (statusMatch[2]) {
+      duration = parseInt(statusMatch[2]);
+    }
+    cleanMessage = cleanMessage.replace(/\|\s*(enter|leave).*$/, "").trim();
+  }
+
+  return { message: cleanMessage, params, status, duration };
+}
+
+/**
+ * 从日志行解析控制器信息
+ */
+export function parseControllerInfo(
+  parsed: BracketLineResult,
+  fileName: string,
+  lineNumber: number
+): ControllerInfo | null {
+  const { functionName, params, timestamp, status, processId } = parsed;
+
+  if (functionName !== "MaaAdbControllerCreate" && functionName !== "MaaWin32ControllerCreate") {
+    return null;
+  }
+
+  if (status !== "enter") {
+    return null;
+  }
+
+  if (functionName === "MaaAdbControllerCreate") {
+    const adbPath = params["adb_path"] as string | undefined;
+    const address = params["address"] as string | undefined;
+    const screencapMethodsBitmask =
+      typeof params["screencap_methods"] === "number"
+        ? params["screencap_methods"]
+        : parseInt(String(params["screencap_methods"] || "0"));
+    const inputMethodsValue = params["input_methods"];
+    const inputMethodsBitmask =
+      typeof inputMethodsValue === "bigint"
+        ? inputMethodsValue
+        : typeof inputMethodsValue === "number"
+          ? BigInt(inputMethodsValue)
+          : 0n;
+    const config = params["config"] as Record<string, unknown> | undefined;
+    const agentPath = params["agent_path"] as string | undefined;
+
+    return {
+      type: "adb",
+      processId,
+      adbPath,
+      address,
+      screencapMethods: parseAdbScreencapMethods(screencapMethodsBitmask),
+      inputMethods: parseAdbInputMethods(inputMethodsBitmask),
+      config,
+      agentPath,
+      timestamp,
+      fileName,
+      lineNumber,
+    };
+  }
+
+  if (functionName === "MaaWin32ControllerCreate") {
+    const screencapMethodValue =
+      typeof params["screencap_method"] === "number"
+        ? params["screencap_method"]
+        : parseInt(String(params["screencap_method"] || "0"));
+    const mouseMethodValue =
+      typeof params["mouse_method"] === "number"
+        ? params["mouse_method"]
+        : parseInt(String(params["mouse_method"] || "0"));
+    const keyboardMethodValue =
+      typeof params["keyboard_method"] === "number"
+        ? params["keyboard_method"]
+        : parseInt(String(params["keyboard_method"] || "0"));
+
+    return {
+      type: "win32",
+      processId,
+      screencapMethod: parseWin32ScreencapMethod(screencapMethodValue),
+      mouseMethod: parseWin32InputMethod(mouseMethodValue),
+      keyboardMethod: parseWin32InputMethod(keyboardMethodValue),
+      timestamp,
+      fileName,
+      lineNumber,
+    };
+  }
+
+  return null;
 }
 
 /**
  * 从日志行中提取 identifier
- *
- * @param {string} line - 日志行
- * @returns {string | undefined} identifier 或 undefined
  */
 export function extractIdentifier(line: string): string | undefined {
   const match = line.match(/\[identifier[=_]([a-f0-9-]{36})\]/i);
@@ -126,9 +374,6 @@ export function extractIdentifier(line: string): string | undefined {
 
 /**
  * 从时间戳中提取日期
- *
- * @param {string} timestamp - 时间戳字符串
- * @returns {string | null} 日期字符串 (YYYY-MM-DD) 或 null
  */
 export function extractDate(timestamp: string): string | null {
   const match = timestamp.match(/(\d{4}-\d{2}-\d{2})/);
@@ -137,13 +382,6 @@ export function extractDate(timestamp: string): string | null {
 
 /**
  * 创建事件通知对象
- *
- * @param {BracketLineResult} parsed - 解析后的日志行
- * @param {string} fileName - 文件名
- * @param {number} lineNumber - 行号
- * @param {string} msg - 事件消息
- * @param {Record<string, unknown>} details - 事件详情
- * @returns {EventNotification} 事件通知对象
  */
 export function createEventNotification(
   parsed: BracketLineResult,

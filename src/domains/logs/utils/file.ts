@@ -498,6 +498,25 @@ export function isGoServiceLog(fileName: string): boolean {
 }
 
 /**
+ * 判断文件名是否为主日志文件（maa.log）
+ *
+ * 主日志文件包含事件通知和控制器信息，
+ * 辅助日志文件包含详细的执行日志。
+ *
+ * @param {string} fileName - 文件名
+ * @returns {boolean} 是否为主日志文件
+ *
+ * @example
+ * isMainLog('maa.log'); // true
+ * isMainLog('go-service.log'); // false
+ * isMainLog('2025-11-16.log'); // false
+ */
+export function isMainLog(fileName: string): boolean {
+  const lowerName = fileName.toLowerCase();
+  return lowerName === "maa.log" || lowerName.endsWith("/maa.log") || lowerName.endsWith("\\maa.log");
+}
+
+/**
  * 从时间戳中提取日期部分
  *
  * 支持多种时间戳格式，提取日期部分用于日志关联。

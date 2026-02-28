@@ -19,7 +19,6 @@ import type {
   TaskInfo,
   RawLine,
   AuxLogEntry,
-  PipelineCustomActionInfo,
   SelectedFile,
   EventNotification,
   ControllerInfo,
@@ -28,15 +27,11 @@ import { projectParserRegistry, correlateAuxLogs } from "../parsers";
 import type { AuxLogParserInfo } from "../parsers/types";
 import {
   StringPool,
-  parseLine,
-  parseEventNotification,
-  extractIdentifierFromLine,
   buildIdentifierRanges,
   buildTasks,
-  parseControllerInfo,
   associateControllersToTasks,
 } from "../utils/parse";
-import { parsePipelineFile, isGoServiceLog, extractDateFromTimestamp } from "../utils/file";
+import { isMainLog } from "../utils/file";
 import { createLogger, setLoggerContext } from "../utils/logger";
 
 const logger = createLogger("LogParser");
@@ -96,7 +91,6 @@ export interface LogParserConfig {
  * @property {Ref<TaskInfo[]>} tasks - 解析后的任务列表
  * @property {Ref<RawLine[]>} rawLines - 原始行数据
  * @property {Ref<AuxLogEntry[]>} auxLogs - 辅助日志条目
- * @property {Ref<Record<string, PipelineCustomActionInfo[]>>} pipelineCustomActions - Pipeline Custom Action 映射
  * @property {Ref<string>} selectedParserId - 当前选择的解析器 ID
  * @property {Ref<AuxLogParserInfo[]>} parserOptions - 可用的解析器列表
  * @property {Ref<string>} selectedProcessId - 当前选择的进程 ID
@@ -120,8 +114,6 @@ export interface LogParserResult {
   rawLines: Ref<RawLine[]>;
   /** 辅助日志条目 */
   auxLogs: Ref<AuxLogEntry[]>;
-  /** Pipeline Custom Action 映射 */
-  pipelineCustomActions: Ref<Record<string, PipelineCustomActionInfo[]>>;
   /** 当前选择的解析器 ID */
   selectedParserId: Ref<string>;
   /** 可用的解析器列表 */
@@ -162,8 +154,7 @@ export interface LogParserResult {
  * // 选择文件后调用解析
  * await handleParse();
  */
-export function useLogParser(config: LogParserConfig = {}): LogParserResult {
-  const { chunkSize = 1000 } = config;
+export function useLogParser(_config: LogParserConfig = {}): LogParserResult {
 
   // ============================================
   // 响应式状态
@@ -181,8 +172,6 @@ export function useLogParser(config: LogParserConfig = {}): LogParserResult {
   const rawLines = ref<RawLine[]>([]);
   /** 辅助日志条目 */
   const auxLogs = ref<AuxLogEntry[]>([]);
-  /** Pipeline Custom Action 映射 */
-  const pipelineCustomActions = ref<Record<string, PipelineCustomActionInfo[]>>({});
   /** 当前选择的解析器 ID */
   const selectedParserId = ref<string>("maaend");
   /** 可用的解析器列表 */
@@ -244,7 +233,6 @@ export function useLogParser(config: LogParserConfig = {}): LogParserResult {
     tasks.value = [];
     rawLines.value = [];
     auxLogs.value = [];
-    pipelineCustomActions.value = {};
     selectedProcessId.value = "all";
     selectedThreadId.value = "all";
     parseProgress.value = 0;
@@ -282,9 +270,6 @@ export function useLogParser(config: LogParserConfig = {}): LogParserResult {
       const auxEntries: AuxLogEntry[] = [];
       const controllerInfos: ControllerInfo[] = [];
       const eventIdentifierMap = new Map<number, string>();
-      let lastIdentifierForEvent: string | null = null;
-      const pipelineActions: Record<string, PipelineCustomActionInfo[]> = {};
-      const pipelineKeywords: Record<string, string[]> = {};
       let totalLines = 0;
       const fileLines: { file: SelectedFile; lines: string[] }[] = [];
 
@@ -303,111 +288,50 @@ export function useLogParser(config: LogParserConfig = {}): LogParserResult {
       // 处理每个文件
       for (const entry of fileLines) {
         const { file, lines } = entry;
-        const lowerName = file.name.toLowerCase();
-
-        // 处理 JSON 配置文件
-        if (lowerName.endsWith(".json") || lowerName.endsWith(".jsonc")) {
-          const content = lines.join("\n");
-          const parsed = parsePipelineFile(content, file.name);
-
-          // 合并 Custom Actions
-          for (const [key, value] of Object.entries(parsed.actions)) {
-            if (!pipelineActions[key]) {
-              pipelineActions[key] = [];
-            }
-            pipelineActions[key] = pipelineActions[key].concat(value);
-          }
-
-          // 合并关键词
-          for (const [key, value] of Object.entries(parsed.keywords)) {
-            if (!pipelineKeywords[key]) {
-              pipelineKeywords[key] = [];
-            }
-            pipelineKeywords[key] = pipelineKeywords[key].concat(value);
-          }
-
-          processed += lines.length;
-          const percentage = totalLines > 0 ? Math.round((processed / totalLines) * 100) : 0;
-          parseProgress.value = percentage;
-          statusMessage.value = `解析中… ${percentage}%`;
-          await new Promise((resolve) => setTimeout(resolve, 0));
-          continue;
-        }
-
-        // 判断是否需要解析辅助日志
-        const shouldParseAuxLogs = isGoServiceLog(file.name);
 
         // 使用用户选择的项目解析器
         const projectParser = projectParserRegistry.get(selectedParserId.value);
         if (!projectParser) {
           logger.warn("未找到选择的解析器", { parserId: selectedParserId.value });
+          continue;
         }
 
-        // 分块处理日志文件
-        for (let startIdx = 0; startIdx < lines.length; startIdx += chunkSize) {
-          const endIdx = Math.min(startIdx + chunkSize, lines.length);
-
-          for (let i = startIdx; i < endIdx; i++) {
-            const originalLine = lines[i];
-            const lineNumber = i + 1;
-            allLines.push({ fileName: file.name, lineNumber, line: originalLine });
-
-            const rawLine = originalLine.trim();
-            if (!rawLine) continue;
-
-            const parsed = parseLine(rawLine, lineNumber);
-            if (!parsed) continue;
-
-            // 提取基准日期
-            if (baseDate === null && parsed.timestamp) {
-              baseDate = extractDateFromTimestamp(parsed.timestamp);
-              if (baseDate) {
-                logger.debug("从 maa.log 提取基准日期", { baseDate, from: parsed.timestamp });
-              }
-            }
-
-            // 处理事件通知（支持原始格式和 M9A 格式）
-            const event = parseEventNotification(parsed, file.name);
-            if (event) {
-              events.push(event);
-              const identifier = extractIdentifierFromLine(rawLine);
-              if (identifier) {
-                lastIdentifierForEvent = identifier;
-              }
-              if (lastIdentifierForEvent) {
-                eventIdentifierMap.set(events.length - 1, lastIdentifierForEvent);
-              }
-            } else {
-              // 提取 identifier
-              const identifier = extractIdentifierFromLine(rawLine);
-              if (identifier) {
-                lastIdentifierForEvent = identifier;
-              }
-              // 提取控制器信息
-              const controllerInfo = parseControllerInfo(parsed, file.name);
-              if (controllerInfo) {
-                controllerInfos.push(controllerInfo);
-              }
-            }
-          }
-
-          // 解析辅助日志
-          if (shouldParseAuxLogs && projectParser) {
-            const chunkLines = lines.slice(startIdx, endIdx);
-            const parseResult = projectParser.parseAuxLog(chunkLines, { baseDate, fileName: file.name });
-            for (const auxLog of parseResult.entries) {
-              auxLog.lineNumber = startIdx + auxLog.lineNumber;
-              auxEntries.push(auxLog);
-            }
-          }
-
-          // 更新进度
-          processed += endIdx - startIdx;
-          const percentage = totalLines > 0 ? Math.round((processed / totalLines) * 100) : 0;
-          parseProgress.value = percentage;
-          statusMessage.value = `解析中… ${percentage}%`;
-          await new Promise((resolve) => setTimeout(resolve, 0));
+        // 记录原始行
+        for (let i = 0; i < lines.length; i++) {
+          allLines.push({ fileName: file.name, lineNumber: i + 1, line: lines[i] });
         }
+
+        // 判断文件类型并使用对应解析方法
+        if (isMainLog(file.name)) {
+          // 主日志文件：使用 parseMainLog
+          const result = projectParser.parseMainLog(lines, { fileName: file.name });
+
+          // 合并结果
+          events.push(...result.events);
+          controllerInfos.push(...result.controllers);
+
+          // 合并 identifier 映射
+          for (const [idx, identifier] of result.identifierMap) {
+            eventIdentifierMap.set(events.length - result.events.length + idx, identifier);
+          }
+
+          // 提取基准日期
+          if (baseDate === null && result.baseDate) {
+            baseDate = result.baseDate;
+            logger.debug("从 maa.log 提取基准日期", { baseDate });
+          }
+        } else {
+          // 辅助日志文件：使用 parseAuxLog
+          const result = projectParser.parseAuxLog(lines, { baseDate, fileName: file.name });
+          auxEntries.push(...result.entries);
+        }
+
+        // 更新进度
+        processed += lines.length;
+        const percentage = totalLines > 0 ? Math.round((processed / totalLines) * 100) : 0;
+        parseProgress.value = percentage;
+        statusMessage.value = `解析中… ${percentage}%`;
+        await new Promise((resolve) => setTimeout(resolve, 0));
       }
 
       // 构建最终结果
@@ -427,7 +351,7 @@ export function useLogParser(config: LogParserConfig = {}): LogParserResult {
       associateControllersToTasks(tasks.value, controllerInfos);
 
       // 关联辅助日志
-      auxLogs.value = correlateAuxLogs(auxEntries, tasks.value, pipelineKeywords);
+      auxLogs.value = correlateAuxLogs(auxEntries, tasks.value);
       logger.info("Custom日志关联完成", {
         total: auxLogs.value.length,
         matched: auxLogs.value.filter((item) => item.correlation?.status === "matched").length,
@@ -435,7 +359,6 @@ export function useLogParser(config: LogParserConfig = {}): LogParserResult {
         failed: auxLogs.value.filter((item) => item.correlation?.status === "failed").length,
       });
 
-      pipelineCustomActions.value = pipelineActions;
       parseState.value = "done";
 
       // 生成状态消息
@@ -462,7 +385,6 @@ export function useLogParser(config: LogParserConfig = {}): LogParserResult {
     tasks,
     rawLines,
     auxLogs,
-    pipelineCustomActions,
     selectedParserId,
     parserOptions,
     selectedProcessId,

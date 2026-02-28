@@ -172,8 +172,9 @@ export function formatNextName(item: NextListItem): string {
  * formatBox([100, 200, 50, 80]); // '[100, 200, 50, 80]'
  * formatBox(null); // '-'
  */
-export function formatBox(box: [number, number, number, number] | null | undefined): string {
+export function formatBox(box: [number, number, number, number] | string | null | undefined): string {
   if (!box) return "-";
+  if (typeof box === "string") return box;
   return `[${box.join(", ")}]`;
 }
 
@@ -274,32 +275,6 @@ export function summarizeRecognition(node: NodeInfo): string {
   if (attempts.length === 0) return "无";
   const successCount = attempts.filter((item) => item.status === "success").length;
   return `${attempts.length} 次（成功 ${successCount} / 失败 ${attempts.length - successCount}）`;
-}
-
-/**
- * 生成嵌套动作摘要
- *
- * 统计节点的嵌套动作节点数量和成功率，
- * 用于折叠面板的标题显示。
- *
- * @param {NodeInfo} node - 节点信息
- * @returns {string} 摘要字符串（格式：X 个（成功 Y / 失败 Z））
- *
- * @example
- * summarizeNestedActions({
- *   nested_action_nodes: [
- *     { status: 'success' },
- *     { status: 'success' }
- *   ],
- *   ...
- * });
- * // 返回 '2 个（成功 2 / 失败 0）'
- */
-export function summarizeNestedActions(node: NodeInfo): string {
-  const items = node.nested_action_nodes || [];
-  if (items.length === 0) return "无";
-  const successCount = items.filter((item) => item.status === "success").length;
-  return `${items.length} 个（成功 ${successCount} / 失败 ${items.length - successCount}）`;
 }
 
 /**

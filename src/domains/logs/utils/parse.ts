@@ -30,6 +30,7 @@ import type {
   RecognitionDetail,
 } from "../types/logTypes";
 import { createLogger } from "./logger";
+import { parseMessageAndParams } from "../parsers/shared";
 
 const logger = createLogger("Parse");
 
@@ -395,55 +396,6 @@ export class StringPool {
 }
 
 /**
- * 将字符串解析为更合理的类型
- *
- * 尝试将字符串值转换为更具体的类型：
- * - JSON 对象/数组 -> 解析后的对象
- * - "true"/"false" -> 布尔值
- * - 整数字符串 -> 数字
- * - 浮点数字符串 -> 数字
- * - 引号包裹的字符串 -> 去除引号
- *
- * @param {string} value - 原始文本
- * @returns {unknown} 解析后的值
- *
- * @example
- * parseValue('{"key": "value"}'); // { key: 'value' }
- * parseValue('true'); // true
- * parseValue('123'); // 123
- * parseValue('"hello"'); // 'hello'
- */
-export function parseValue(value: string): unknown {
-  // 尝试解析 JSON
-  if (value.startsWith("{") || value.startsWith("[")) {
-    try {
-      return JSON.parse(value);
-    } catch {
-      return value;
-    }
-  }
-  // 布尔值
-  if (value === "true") return true;
-  if (value === "false") return false;
-  // 大整数（超过 JavaScript 安全整数范围）
-  if (/^\d+$/.test(value) && value.length > 15) {
-    return BigInt(value);
-  }
-  // 整数
-  if (/^-?\d+$/.test(value)) return parseInt(value);
-  // 浮点数
-  if (/^-?\d+\.\d+$/.test(value)) return parseFloat(value);
-  // 去除引号
-  if (
-    (value.startsWith('"') && value.endsWith('"')) ||
-    (value.startsWith("'") && value.endsWith("'"))
-  ) {
-    return value.slice(1, -1);
-  }
-  return value;
-}
-
-/**
  * 规范化数字 ID
  *
  * 将各种形式的 ID 值转换为数字类型。
@@ -574,97 +526,6 @@ export function buildIdentifierRanges(
   });
 
   return ranges;
-}
-
-/**
- * 解析日志行中的消息、参数、状态与耗时
- *
- * Maa 日志消息中包含方括号包裹的键值对参数，以及可选的状态标记。
- * 此函数提取这些信息并返回结构化数据。
- *
- * 支持的格式：
- * - [key=value] 键值对
- * - [flag] 布尔标记
- * - | enter 或 | leave,XXXms 状态和耗时
- *
- * @param {string} message - 日志消息文本
- * @returns {{message: string, params: Record<string, unknown>, status?: 'enter' | 'leave', duration?: number}} 解析结果
- *
- * @example
- * parseMessageAndParams('Task started [task_id=1] | enter,100ms');
- * // 返回 { message: 'Task started', params: { task_id: 1 }, status: 'enter', duration: 100 }
- */
-export function parseMessageAndParams(message: string): {
-  message: string;
-  params: Record<string, unknown>;
-  status?: "enter" | "leave";
-  duration?: number;
-} {
-  const params: Record<string, unknown> = {};
-  let status: "enter" | "leave" | undefined;
-  let duration: number | undefined;
-  const extractedParams: string[] = [];
-
-  // 提取方括号中的参数（支持嵌套）
-  let i = 0;
-  while (i < message.length) {
-    if (message[i] === "[") {
-      let depth = 1;
-      let braceDepth = 0;
-      let j = i + 1;
-      while (j < message.length && (depth > 0 || braceDepth > 0)) {
-        if (message[j] === "{") {
-          braceDepth++;
-        } else if (message[j] === "}") {
-          braceDepth--;
-        } else if (message[j] === "[" && braceDepth === 0) {
-          depth++;
-        } else if (message[j] === "]" && braceDepth === 0) {
-          depth--;
-        }
-        j++;
-      }
-      if (depth === 0) {
-        const param = message.substring(i + 1, j - 1);
-        extractedParams.push(param);
-        i = j;
-      } else {
-        i++;
-      }
-    } else {
-      i++;
-    }
-  }
-
-  // 解析键值对参数
-  for (const param of extractedParams) {
-    const kvMatch = param.match(/^([^=]+)=(.+)$/);
-    if (kvMatch) {
-      const [, key, value] = kvMatch;
-      params[key.trim()] = parseValue(value.trim());
-    } else {
-      params[param.trim()] = true;
-    }
-  }
-
-  // 清理消息中的参数标记
-  let cleanMessage = message;
-  for (const param of extractedParams) {
-    cleanMessage = cleanMessage.replace(`[${param}]`, "");
-  }
-  cleanMessage = cleanMessage.trim();
-
-  // 提取状态和耗时
-  const statusMatch = cleanMessage.match(/\|\s*(enter|leave)(?:,\s*(\d+)ms)?/);
-  if (statusMatch) {
-    status = statusMatch[1] as "enter" | "leave";
-    if (statusMatch[2]) {
-      duration = parseInt(statusMatch[2]);
-    }
-    cleanMessage = cleanMessage.replace(/\|\s*(enter|leave).*$/, "").trim();
-  }
-
-  return { message: cleanMessage, params, status, duration };
 }
 
 /**
@@ -1203,7 +1064,6 @@ type TaskNodeBuildContext = {
   nodeIdSet: Set<number>;
   recognitionAttempts: RecognitionAttempt[];
   nestedNodes: RecognitionAttempt[];
-  nestedActionNodes: ActionAttempt[];
   currentNextList: NextListItem[];
   recognitionsByTaskId: Map<number, RecognitionAttempt[]>;
   actionsByTaskId: Map<number, ActionAttempt[]>;
@@ -1249,32 +1109,6 @@ function updateNestedRecognitionNode(
     nested_nodes: nestedRecognitions.length > 0 ? nestedRecognitions : undefined,
   });
   context.recognitionsByTaskId.delete(eventTaskId);
-}
-
-function updateNestedActionNode(
-  context: TaskNodeBuildContext,
-  message: string,
-  details: Record<string, unknown>,
-  eventTaskId: number | undefined,
-  timestamp: string
-) {
-  if (message !== "Node.ActionNode.Succeeded" && message !== "Node.ActionNode.Failed") {
-    return;
-  }
-  if (eventTaskId === undefined || eventTaskId === context.task.task_id) return;
-  const nestedActions = context.actionsByTaskId.get(eventTaskId) || [];
-  const actionDetails = details.action_details as ActionDetail | undefined;
-  const actionId = coerceId(actionDetails?.action_id ?? details.node_id ?? details.nodeId);
-  const actionName = coerceString(details.name);
-  context.nestedActionNodes.push({
-    action_id: actionId,
-    name: context.stringPool.intern(actionName),
-    timestamp: context.stringPool.intern(timestamp),
-    status: message === "Node.ActionNode.Succeeded" ? "success" : "failed",
-    action_details: actionDetails,
-    nested_actions: nestedActions.length > 0 ? nestedActions : undefined,
-  });
-  context.actionsByTaskId.delete(eventTaskId);
 }
 
 function updateRecognitionAttempts(
@@ -1352,7 +1186,6 @@ function updatePipelineNodes(
   if (typeof nodeId !== "number" || context.nodeIdSet.has(nodeId)) {
     context.currentNextList = [];
     context.recognitionAttempts.length = 0;
-    context.nestedActionNodes.length = 0;
     context.nestedNodes.length = 0;
     return;
   }
@@ -1376,15 +1209,12 @@ function updatePipelineNodes(
       jump_back: item.jump_back,
     })),
     recognition_attempts: context.recognitionAttempts.slice(),
-    nested_action_nodes:
-      context.nestedActionNodes.length > 0 ? context.nestedActionNodes.slice() : undefined,
     nested_recognition_in_action:
       context.nestedNodes.length > 0 ? context.nestedNodes.slice() : undefined,
   });
   context.nodeIdSet.add(nodeId);
   context.currentNextList = [];
   context.recognitionAttempts.length = 0;
-  context.nestedActionNodes.length = 0;
   context.nestedNodes.length = 0;
 }
 
@@ -1413,7 +1243,6 @@ function buildTaskNodes(
 
   const recognitionAttempts: RecognitionAttempt[] = [];
   const nestedNodes: RecognitionAttempt[] = [];
-  const nestedActionNodes: ActionAttempt[] = [];
   const recognitionsByTaskId = new Map<number, RecognitionAttempt[]>();
   const actionsByTaskId = new Map<number, ActionAttempt[]>();
 
@@ -1424,7 +1253,6 @@ function buildTaskNodes(
     nodeIdSet,
     recognitionAttempts,
     nestedNodes,
-    nestedActionNodes,
     currentNextList: [],
     recognitionsByTaskId,
     actionsByTaskId,
@@ -1435,7 +1263,6 @@ function buildTaskNodes(
     const eventTaskId = normalizeId(details?.task_id ?? details?.taskId);
     updateNextListFromEvent(context, message, details, eventTaskId);
     updateNestedRecognitionNode(context, message, details, eventTaskId, event.timestamp);
-    updateNestedActionNode(context, message, details, eventTaskId, event.timestamp);
     updateRecognitionAttempts(context, message, details, eventTaskId, event.timestamp);
     updateActionAttempts(context, message, details, eventTaskId, event.timestamp);
     updatePipelineNodes(context, message, details, eventTaskId, event.timestamp);

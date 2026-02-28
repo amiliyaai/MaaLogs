@@ -21,6 +21,7 @@ import {
   extractIdentifier,
   extractDate,
   createEventNotification,
+  parseControllerInfo,
 } from "../shared";
 
 /**
@@ -229,6 +230,10 @@ export const maaEndProjectParser: ProjectParser = {
         const identifier = extractIdentifier(rawLine);
         if (identifier) {
           lastIdentifier = identifier;
+        }
+        const controller = parseControllerInfo(parsed, config.fileName, i + 1);
+        if (controller) {
+          controllers.push(controller);
         }
       }
     }

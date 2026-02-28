@@ -81,7 +81,6 @@ import {
   normalizeAuxLevel,
   summarizeBase,
   summarizeRecognition,
-  summarizeNestedActions,
   summarizeNextList,
   summarizeNodeDetail,
   summarizeFocus,
@@ -185,7 +184,6 @@ const {
   tasks,
   rawLines,
   auxLogs,
-  pipelineCustomActions,
   selectedParserId,
   parserOptions,
   selectedProcessId,
@@ -280,13 +278,11 @@ const selectedTaskNodes = computed(() => selectedTask.value?.nodes || []);
  */
 const selectedNodeCustomActions = computed(() => {
   if (!selectedNode.value) return [];
-  const name = selectedNode.value.name || selectedNode.value.node_details?.name;
-  const items = (name && pipelineCustomActions.value[name]) || [];
   const fromLog = extractCustomActionFromActionDetails(selectedNode.value.action_details);
-  if (fromLog && !items.some((item) => item.name === fromLog)) {
-    return [...items, { name: fromLog, fileName: "日志" }];
+  if (fromLog) {
+    return [{ name: fromLog, fileName: "日志" }];
   }
-  return items;
+  return [];
 });
 
 /**
@@ -685,7 +681,6 @@ onBeforeUnmount(() => {
               :format-box="formatBox"
               :summarize-base="summarizeBase"
               :summarize-recognition="summarizeRecognition"
-              :summarize-nested-actions="summarizeNestedActions"
               :summarize-next-list="summarizeNextList"
               :summarize-node-detail="summarizeNodeDetail"
               :summarize-focus="summarizeFocus"

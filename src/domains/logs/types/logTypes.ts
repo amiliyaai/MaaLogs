@@ -286,7 +286,6 @@ export type ActionAttempt = {
  * @property {any} [focus] - Focus 数据（用于调试）
  * @property {NextListItem[]} next_list - 后续节点列表
  * @property {RecognitionAttempt[]} recognition_attempts - 识别尝试历史
- * @property {ActionAttempt[]} [nested_action_nodes] - 嵌套动作节点
  * @property {RecognitionAttempt[]} [nested_recognition_in_action] - 动作中的嵌套识别
  * @property {Object} [node_details] - 节点配置详情
  */
@@ -301,7 +300,6 @@ export type NodeInfo = {
   focus?: any;
   next_list: NextListItem[];
   recognition_attempts: RecognitionAttempt[];
-  nested_action_nodes?: ActionAttempt[];
   nested_recognition_in_action?: RecognitionAttempt[];
   node_details?: {
     action_id: number;

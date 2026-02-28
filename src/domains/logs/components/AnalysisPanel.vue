@@ -205,7 +205,6 @@ async function doAIAnalyze() {
  * @property {Function} formatBox - 识别框格式化函数
  * @property {Function} summarizeBase - 基础信息摘要函数
  * @property {Function} summarizeRecognition - 识别尝试摘要函数
- * @property {Function} summarizeNestedActions - 嵌套动作摘要函数
  * @property {Function} summarizeNextList - Next 列表摘要函数
  * @property {Function} summarizeNodeDetail - 节点配置摘要函数
  * @property {Function} summarizeFocus - Focus 信息摘要函数
@@ -241,7 +240,6 @@ const props = withDefaults(
     formatBox: (value: [number, number, number, number] | null | undefined) => string;
     summarizeBase: (node: NodeInfo) => string;
     summarizeRecognition: (node: NodeInfo) => string;
-    summarizeNestedActions: (node: NodeInfo) => string;
     summarizeNextList: (node: NodeInfo) => string;
     summarizeNodeDetail: (node: NodeInfo) => string;
     summarizeFocus: (node: NodeInfo) => string;
@@ -837,41 +835,6 @@ const handleNodeSelect = (nodeId: number) => {
                       </div>
                     </n-collapse-item>
                   </n-collapse>
-                </div>
-              </n-collapse-item>
-              <!-- 嵌套动作节点 -->
-              <n-collapse-item name="action-nested">
-                <template #header>
-                  <div class="collapse-header">
-                    <span>嵌套动作节点</span>
-                    <span class="collapse-summary">{{ summarizeNestedActions(selectedNode) }}</span>
-                  </div>
-                </template>
-                <div v-if="(selectedNode.nested_action_nodes || []).length === 0" class="empty">
-                  无嵌套动作节点
-                </div>
-                <div v-else class="detail-list">
-                  <div
-                    v-for="(actionNode, actionIndex) in selectedNode.nested_action_nodes"
-                    :key="`${selectedNode.node_id}-action-${actionIndex}`"
-                    class="detail-item"
-                  >
-                    <div class="detail-item-title">
-                      {{ actionNode.name || "Action" }} · {{ actionNode.timestamp }}
-                    </div>
-                    <div v-if="actionNode.action_details" class="detail-actions">
-                      <n-button size="tiny" @click="copyJson(actionNode.action_details)">
-                        复制
-                      </n-button>
-                    </div>
-                    <n-code
-                      v-if="actionNode.action_details"
-                      :code="JSON.stringify(actionNode.action_details, null, 2)"
-                      language="json"
-                      word-wrap
-                      class="detail-code"
-                    />
-                  </div>
                 </div>
               </n-collapse-item>
               <!-- Next List -->
