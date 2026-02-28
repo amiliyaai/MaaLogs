@@ -80,7 +80,9 @@ function updateApiKey(value: string) {
     style="width: 500px"
     @update:show="emit('update:show', $event)"
   >
-    <div style="color: #666; margin-bottom: 16px;">目前ai分析仅供参考，推荐使用免费模型，如智谱 AI：glm-4.7-flash！！！</div>
+    <div style="color: #666; margin-bottom: 16px">
+      目前ai分析仅供参考，推荐使用免费模型，如智谱 AI：glm-4.7-flash！！！
+    </div>
     <n-form v-if="config">
       <n-form-item label="服务商">
         <n-select
