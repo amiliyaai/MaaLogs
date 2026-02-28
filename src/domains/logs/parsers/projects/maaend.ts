@@ -13,13 +13,19 @@
  * @license MIT
  */
 
-import type { EventNotification, ControllerInfo, AuxLogEntry } from "../../types/logTypes";
-import type { ProjectParser, MainLogParseResult } from "../project-types";
-import type { AuxLogParserConfig, AuxLogParseResult, AuxLogParserInfo } from "../types";
+import type {
+  EventNotification,
+  ControllerInfo,
+  AuxLogEntry,
+  ProjectParser,
+  MainLogParseResult,
+  AuxLogParserConfig,
+  AuxLogParseResult,
+  AuxLogParserInfo,
+} from "../../types/parserTypes";
 import {
   parseBracketLine,
   extractIdentifier,
-  extractDate,
   createEventNotification,
   parseControllerInfo,
 } from "../shared";
@@ -202,7 +208,6 @@ export const maaEndProjectParser: ProjectParser = {
     const events: EventNotification[] = [];
     const controllers: ControllerInfo[] = [];
     const identifierMap = new Map<number, string>();
-    let baseDate: string | null = null;
     let lastIdentifier: string | null = null;
 
     for (let i = 0; i < lines.length; i++) {
@@ -211,10 +216,6 @@ export const maaEndProjectParser: ProjectParser = {
 
       const parsed = parseBracketLine(rawLine);
       if (!parsed) continue;
-
-      if (baseDate === null && parsed.timestamp) {
-        baseDate = extractDate(parsed.timestamp);
-      }
 
       const event = parseMaaEndEventNotification(parsed, config.fileName, i + 1);
       if (event) {
@@ -238,7 +239,7 @@ export const maaEndProjectParser: ProjectParser = {
       }
     }
 
-    return { events, controllers, baseDate, identifierMap };
+    return { events, controllers, identifierMap };
   },
 
   parseAuxLog(lines: string[], config: AuxLogParserConfig): AuxLogParseResult {

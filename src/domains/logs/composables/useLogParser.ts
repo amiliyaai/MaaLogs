@@ -23,8 +23,8 @@ import type {
   EventNotification,
   ControllerInfo,
 } from "../types/logTypes";
+import type { AuxLogParserInfo } from "../types/parserTypes";
 import { projectParserRegistry, correlateAuxLogs } from "../parsers";
-import type { AuxLogParserInfo } from "../parsers/types";
 import {
   StringPool,
   buildIdentifierRanges,
@@ -72,12 +72,10 @@ function mergeMultilineLogs(lines: string[]): string[] {
 export type ParseState = "idle" | "ready" | "parsing" | "done";
 
 /**
- * 日志解析器配置
- *
- * @property {number} [chunkSize] - 分块解析的块大小（行数）
+ * 日志解析器配置（保留用于未来扩展）
  */
 export interface LogParserConfig {
-  /** 分块解析的块大小，默认 1000 行 */
+  /** 分块解析的块大小（未实现） */
   chunkSize?: number;
 }
 
@@ -284,7 +282,6 @@ export function useLogParser(_config: LogParserConfig = {}): LogParserResult {
       }
 
       let processed = 0;
-      let baseDate: string | null = null;
 
       // 处理每个文件
       for (const entry of fileLines) {
@@ -315,15 +312,9 @@ export function useLogParser(_config: LogParserConfig = {}): LogParserResult {
           for (const [idx, identifier] of result.identifierMap) {
             eventIdentifierMap.set(events.length - result.events.length + idx, identifier);
           }
-
-          // 提取基准日期
-          if (baseDate === null && result.baseDate) {
-            baseDate = result.baseDate;
-            logger.debug("从 maa.log 提取基准日期", { baseDate });
-          }
         } else {
           // 辅助日志文件：使用 parseAuxLog
-          const result = projectParser.parseAuxLog(lines, { baseDate, fileName: file.name });
+          const result = projectParser.parseAuxLog(lines, { fileName: file.name });
           auxEntries.push(...result.entries);
         }
 

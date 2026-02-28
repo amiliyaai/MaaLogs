@@ -46,7 +46,7 @@
  */
 import { NButton, NCard, NProgress, NSelect } from "naive-ui";
 import type { SelectedFile } from "../types/logTypes";
-import type { AuxLogParserInfo } from "../parsers";
+import type { AuxLogParserInfo } from "../types/parserTypes";
 
 /**
  * 解析状态类型定义

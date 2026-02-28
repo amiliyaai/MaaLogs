@@ -55,8 +55,8 @@ fix: 修复模型切换不生效问题
 
 示例：
 
-- `feat(ai): 添加 DeepSeek 模型支持`
-- `fix(parsing): 修复日志解析错误`
+- `feat: 添加 DeepSeek 模型支持`
+- `fix: 修复日志解析错误`
 
 ### PR 描述模板
 

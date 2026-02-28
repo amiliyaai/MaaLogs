@@ -12,8 +12,7 @@
  * @license MIT
  */
 
-import type { ProjectParser, ProjectParserRegistration } from "./project-types";
-import type { AuxLogParserInfo } from "./types";
+import type { ProjectParser, ProjectParserRegistration, AuxLogParserInfo } from "../types/parserTypes";
 
 /**
  * 项目解析器注册表类

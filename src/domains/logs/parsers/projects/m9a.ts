@@ -13,13 +13,21 @@
  * @license MIT
  */
 
-import type { EventNotification, ControllerInfo, AuxLogEntry, RecognitionDetail, ActionDetail } from "../../types/logTypes";
-import type { ProjectParser, MainLogParseResult } from "../project-types";
-import type { AuxLogParserConfig, AuxLogParseResult, AuxLogParserInfo } from "../types";
+import type {
+  EventNotification,
+  ControllerInfo,
+  AuxLogEntry,
+  RecognitionDetail,
+  ActionDetail,
+  ProjectParser,
+  MainLogParseResult,
+  AuxLogParserConfig,
+  AuxLogParseResult,
+  AuxLogParserInfo,
+} from "../../types/parserTypes";
 import {
   parseBracketLine,
   extractIdentifier,
-  extractDate,
   createEventNotification,
   parseControllerInfo,
 } from "../shared";
@@ -461,7 +469,6 @@ export const m9aProjectParser: ProjectParser = {
     const events: EventNotification[] = [];
     const controllers: ControllerInfo[] = [];
     const identifierMap = new Map<number, string>();
-    let baseDate: string | null = null;
     let lastIdentifier: string | null = null;
 
     const taskIdByThread = new Map<string, number>();
@@ -475,10 +482,6 @@ export const m9aProjectParser: ProjectParser = {
 
       const parsed = parseBracketLine(rawLine);
       if (!parsed) continue;
-
-      if (baseDate === null && parsed.timestamp) {
-        baseDate = extractDate(parsed.timestamp);
-      }
 
       const event = parseM9aEventNotification(parsed, config.fileName, i + 1);
       if (event) {
@@ -597,7 +600,7 @@ export const m9aProjectParser: ProjectParser = {
       }
     }
 
-    return { events, controllers, baseDate, identifierMap };
+    return { events, controllers, identifierMap };
   },
 
   parseAuxLog(lines: string[], config: AuxLogParserConfig): AuxLogParseResult {

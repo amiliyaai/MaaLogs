@@ -373,14 +373,6 @@ export function extractIdentifier(line: string): string | undefined {
 }
 
 /**
- * 从时间戳中提取日期
- */
-export function extractDate(timestamp: string): string | null {
-  const match = timestamp.match(/(\d{4}-\d{2}-\d{2})/);
-  return match ? match[1] : null;
-}
-
-/**
  * 创建事件通知对象
  */
 export function createEventNotification(
