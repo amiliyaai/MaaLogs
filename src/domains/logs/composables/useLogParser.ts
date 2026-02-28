@@ -33,6 +33,7 @@ import {
 } from "../utils/parse";
 import { isMainLog } from "../utils/file";
 import { createLogger, setLoggerContext } from "../utils/logger";
+import { useStorage } from "./useStore";
 
 const logger = createLogger("LogParser");
 
@@ -172,8 +173,8 @@ export function useLogParser(_config: LogParserConfig = {}): LogParserResult {
   const rawLines = ref<RawLine[]>([]);
   /** 辅助日志条目 */
   const auxLogs = ref<AuxLogEntry[]>([]);
-  /** 当前选择的解析器 ID */
-  const selectedParserId = ref<string>("maaend");
+  /** 当前选择的解析器 ID（持久化） */
+  const selectedParserId = useStorage<string>("selectedParserId", "maaend");
   /** 可用的解析器列表 */
   const parserOptions = ref<AuxLogParserInfo[]>(projectParserRegistry.getInfoList());
   /** 当前选择的进程 ID */
