@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.9.4",
   "type": "module",
+  "overrides": {
+    "minimatch": "^10.2.3"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
