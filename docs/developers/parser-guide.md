@@ -23,13 +23,13 @@ src/parsers/
 
 ```typescript
 interface ProjectParser {
-  readonly id: string;           // 唯一标识符
-  readonly name: string;         // 显示名称
-  readonly description: string;  // 描述
+  readonly id: string; // 唯一标识符
+  readonly name: string; // 显示名称
+  readonly description: string; // 描述
 
-  parseMainLog(lines, config): MainLogParseResult;  // 解析主日志
-  parseAuxLog(lines, config): AuxLogParseResult;    // 解析辅助日志
-  getAuxLogParserInfo(): AuxLogParserInfo;          // 获取解析器信息
+  parseMainLog(lines, config): MainLogParseResult; // 解析主日志
+  parseAuxLog(lines, config): AuxLogParseResult; // 解析辅助日志
+  getAuxLogParserInfo(): AuxLogParserInfo; // 获取解析器信息
 }
 ```
 
@@ -80,14 +80,14 @@ else {
 
 ```typescript
 interface EventNotification {
-  timestamp: string;           // 时间戳
-  level: string;               // 日志级别
-  processId: string;           // 进程 ID
-  threadId: string;            // 线程 ID
-  message: string;             // 事件消息（如 "Tasker.Started"）
-  details: Record<string, unknown>;  // 事件详情
-  fileName: string;            // 来源文件
-  _lineNumber: number;         // 行号
+  timestamp: string; // 时间戳
+  level: string; // 日志级别
+  processId: string; // 进程 ID
+  threadId: string; // 线程 ID
+  message: string; // 事件消息（如 "Tasker.Started"）
+  details: Record<string, unknown>; // 事件详情
+  fileName: string; // 来源文件
+  _lineNumber: number; // 行号
 }
 ```
 
@@ -97,16 +97,16 @@ interface EventNotification {
 
 ```typescript
 interface TaskInfo {
-  task_id: number;             // 任务 ID
-  key: string;                 // 唯一键
-  entry: string;               // 入口任务名
-  status: string;              // 状态
-  start_time: string;          // 开始时间
-  end_time?: string;           // 结束时间
-  nodes: NodeInfo[];           // 节点列表
-  identifier?: string;         // 唯一标识符
-  processId: string;           // 进程 ID
-  threadId: string;            // 线程 ID
+  task_id: number; // 任务 ID
+  key: string; // 唯一键
+  entry: string; // 入口任务名
+  status: string; // 状态
+  start_time: string; // 开始时间
+  end_time?: string; // 结束时间
+  nodes: NodeInfo[]; // 节点列表
+  identifier?: string; // 唯一标识符
+  processId: string; // 进程 ID
+  threadId: string; // 线程 ID
 }
 ```
 
@@ -116,15 +116,15 @@ interface TaskInfo {
 
 ```typescript
 interface NodeInfo {
-  node_id: number;             // 节点 ID
-  name: string;                // 节点名称
-  timestamp: string;           // 时间戳
+  node_id: number; // 节点 ID
+  name: string; // 节点名称
+  timestamp: string; // 时间戳
   status: "success" | "failed"; // 状态
-  task_id: number;             // 所属任务 ID
-  reco_details?: RecognitionDetail;  // 识别详情
-  action_details?: ActionDetail;     // 动作详情
-  next_list: NextListItem[];   // 下一步列表
-  recognition_attempts: RecognitionAttempt[];  // 识别尝试
+  task_id: number; // 所属任务 ID
+  reco_details?: RecognitionDetail; // 识别详情
+  action_details?: ActionDetail; // 动作详情
+  next_list: NextListItem[]; // 下一步列表
+  recognition_attempts: RecognitionAttempt[]; // 识别尝试
 }
 ```
 
@@ -134,17 +134,17 @@ interface NodeInfo {
 
 ```typescript
 interface AuxLogEntry {
-  key: string;                 // 唯一键
-  source: string;              // 来源
-  timestamp: string;           // 时间戳
-  timestampMs?: number;        // 毫秒时间戳
-  level: string;               // 日志级别
-  message: string;             // 消息内容
-  identifier?: string;         // 唯一标识符
-  task_id?: number;            // 关联的任务 ID
-  correlation?: CorrelationResult;  // 关联结果
-  fileName: string;            // 来源文件
-  lineNumber: number;          // 行号
+  key: string; // 唯一键
+  source: string; // 来源
+  timestamp: string; // 时间戳
+  timestampMs?: number; // 毫秒时间戳
+  level: string; // 日志级别
+  message: string; // 消息内容
+  identifier?: string; // 唯一标识符
+  task_id?: number; // 关联的任务 ID
+  correlation?: CorrelationResult; // 关联结果
+  fileName: string; // 来源文件
+  lineNumber: number; // 行号
 }
 ```
 
@@ -251,7 +251,9 @@ projectParserRegistry.register(myProjectParser, 50);
 解析方括号格式的日志行：
 
 ```typescript
-const result = parseBracketLine("[2024-01-01 12:00:00.000][INFO][Px123][Tx456][functionName] message [key=value]");
+const result = parseBracketLine(
+  "[2024-01-01 12:00:00.000][INFO][Px123][Tx456][functionName] message [key=value]"
+);
 // result.timestamp = "2024-01-01 12:00:00.000"
 // result.level = "INFO"
 // result.processId = "Px123"
@@ -286,9 +288,11 @@ const controller = parseControllerInfo(parsed, "maa.log", 100);
 `correlateAuxLogs()` 使用以下策略关联辅助日志与任务：
 
 1. **identifier 匹配**（最精确，score: 1.0）
+
    - 日志条目中的 identifier 与任务的 identifier 完全匹配
 
 2. **task_id 匹配**（score: 0.9）
+
    - 日志条目中的 task_id 与任务的 task_id 匹配
 
 3. **时间窗口匹配**（score: 0.5-1.0）

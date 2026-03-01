@@ -93,7 +93,11 @@ function collectRawLines(allLines: RawLine[], fileName: string, lines: string[])
 
 function mergeMainLogResult(
   collections: ParseCollections,
-  result: { events: EventNotification[]; controllers: ControllerInfo[]; identifierMap: Map<number, string> }
+  result: {
+    events: EventNotification[];
+    controllers: ControllerInfo[];
+    identifierMap: Map<number, string>;
+  }
 ): void {
   const startIndex = collections.events.length;
   collections.events.push(...result.events);
@@ -112,8 +116,8 @@ function parseMainLogFile(
   if (!projectParser) return "unknown";
   const result = projectParser.parseMainLog(lines, { fileName });
   mergeMainLogResult(collections, result);
-  return result.detectedProject && result.detectedProject !== "unknown" 
-    ? result.detectedProject 
+  return result.detectedProject && result.detectedProject !== "unknown"
+    ? result.detectedProject
     : "unknown";
 }
 

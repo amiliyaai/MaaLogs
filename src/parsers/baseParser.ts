@@ -421,10 +421,7 @@ function updateIdentifier(context: MainLogParseContext, rawLine: string): void {
  * @param fileName - 文件名
  * @returns 解析上下文，包含事件、控制器信息和检测到的项目类型
  */
-export function parseMainLogBase(
-  lines: string[],
-  fileName: string
-): MainLogParseContext {
+export function parseMainLogBase(lines: string[], fileName: string): MainLogParseContext {
   const context = createMainLogContext();
 
   for (let i = 0; i < lines.length; i++) {

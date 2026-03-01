@@ -175,7 +175,9 @@ export function formatNextName(item: NextListItem): string {
  * formatBox([100, 200, 50, 80]); // '[100, 200, 50, 80]'
  * formatBox(null); // '-'
  */
-export function formatBox(box: [number, number, number, number] | string | null | undefined): string {
+export function formatBox(
+  box: [number, number, number, number] | string | null | undefined
+): string {
   if (!box) return "-";
   if (typeof box === "string") return box;
   return `[${box.join(", ")}]`;

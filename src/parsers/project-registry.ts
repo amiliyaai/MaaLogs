@@ -12,7 +12,11 @@
  * @license MIT
  */
 
-import type { ProjectParser, ProjectParserRegistration, AuxLogParserInfo } from "../types/parserTypes";
+import type {
+  ProjectParser,
+  ProjectParserRegistration,
+  AuxLogParserInfo,
+} from "../types/parserTypes";
 
 /**
  * 项目解析器注册表类
@@ -137,9 +141,7 @@ class ProjectParserRegistry {
    * @returns {AuxLogParserInfo[]} 解析器信息列表
    */
   public getInfoList(): AuxLogParserInfo[] {
-    return this.parsers
-      .filter((r) => r.enabled)
-      .map((r) => r.parser.getAuxLogParserInfo());
+    return this.parsers.filter((r) => r.enabled).map((r) => r.parser.getAuxLogParserInfo());
   }
 
   /**

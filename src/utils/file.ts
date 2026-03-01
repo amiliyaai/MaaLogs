@@ -521,7 +521,9 @@ export function isGoServiceLog(fileName: string): boolean {
  */
 export function isMainLog(fileName: string): boolean {
   const lowerName = fileName.toLowerCase();
-  return lowerName === "maa.log" || lowerName.endsWith("/maa.log") || lowerName.endsWith("\\maa.log");
+  return (
+    lowerName === "maa.log" || lowerName.endsWith("/maa.log") || lowerName.endsWith("\\maa.log")
+  );
 }
 
 /**

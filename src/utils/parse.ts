@@ -202,7 +202,10 @@ function parseBigIntParam(params: Record<string, JsonValue>, key: string): bigin
   return Number.isFinite(parsed) ? BigInt(parsed) : 0n;
 }
 
-function parseLineTokens(line: string, maxTokens: number): { tokens: string[]; rest: string } | null {
+function parseLineTokens(
+  line: string,
+  maxTokens: number
+): { tokens: string[]; rest: string } | null {
   const tokens: string[] = [];
   let index = 0;
   while (index < line.length && line[index] === "[" && tokens.length < maxTokens) {
@@ -911,7 +914,11 @@ export function buildTasks(
     if (taskId && runningTaskMap.has(taskKey)) {
       const prevTask = runningTaskMap.get(taskKey);
       if (prevTask && !prevTask.end_time) {
-        finalizeRunningTask(prevTask, event.timestamp, Math.max(index - 1, prevTask._startEventIndex ?? index - 1));
+        finalizeRunningTask(
+          prevTask,
+          event.timestamp,
+          Math.max(index - 1, prevTask._startEventIndex ?? index - 1)
+        );
       }
       runningTaskMap.delete(taskKey);
     }
@@ -1274,19 +1281,24 @@ function updatePipelineNodes(
   const nodeDetails = details.node_details as NodeInfo["node_details"] | undefined;
 
   const nextListFromDetails = details.next_list as NextListItem[] | undefined;
-  const nextList = nextListFromDetails && nextListFromDetails.length > 0
-    ? nextListFromDetails
-    : context.currentNextList;
+  const nextList =
+    nextListFromDetails && nextListFromDetails.length > 0
+      ? nextListFromDetails
+      : context.currentNextList;
 
-  const recognitionAttemptsFromDetails = details.recognition_attempts as RecognitionAttempt[] | undefined;
-  const recognitionAttempts = recognitionAttemptsFromDetails && recognitionAttemptsFromDetails.length > 0
-    ? recognitionAttemptsFromDetails
-    : context.recognitionAttempts;
+  const recognitionAttemptsFromDetails = details.recognition_attempts as
+    | RecognitionAttempt[]
+    | undefined;
+  const recognitionAttempts =
+    recognitionAttemptsFromDetails && recognitionAttemptsFromDetails.length > 0
+      ? recognitionAttemptsFromDetails
+      : context.recognitionAttempts;
 
   const actionId = normalizeId(actionDetails?.action_id ?? details.action_id);
-  const nestedActionNodes = actionId !== undefined 
-    ? context.actionNodesByTaskId.get(actionId) || []
-    : context.nestedActionNodes.slice();
+  const nestedActionNodes =
+    actionId !== undefined
+      ? context.actionNodesByTaskId.get(actionId) || []
+      : context.nestedActionNodes.slice();
 
   context.nodes.push({
     node_id: nodeId,
@@ -1445,7 +1457,11 @@ function getOrCreateStats(
   return statsMap.get(name)!;
 }
 
-function updateStatsBucket(stats: NodeStatsBucket, duration: number, status: NodeInfo["status"]): void {
+function updateStatsBucket(
+  stats: NodeStatsBucket,
+  duration: number,
+  status: NodeInfo["status"]
+): void {
   stats.count += 1;
   stats.totalDuration += duration;
   if (duration < stats.minDuration) stats.minDuration = duration;
@@ -1530,8 +1546,7 @@ export function computeNodeStatistics(tasks: TaskInfo[]): {
  * - [L123] - 行号标识
  * - [xxx.cpp] / [xxx.h] - 源文件名
  */
-export const debugInfoPattern =
-  /\[(?:px|tx|l)\d+\]|\[[^\]\r\n]{1,80}\.(?:c|cpp|h|hpp)\]/gi;
+export const debugInfoPattern = /\[(?:px|tx|l)\d+\]|\[[^\]\r\n]{1,80}\.(?:c|cpp|h|hpp)\]/gi;
 
 /**
  * 根据调试隐藏开关规范化搜索文本

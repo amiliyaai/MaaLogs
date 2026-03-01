@@ -4,9 +4,7 @@ import {
   parseAdbScreencapMethods,
   parseAdbInputMethods,
 } from "../../parsers/shared";
-import {
-  M9A_LOG_SAMPLES,
-} from "../fixtures/m9a-samples";
+import { M9A_LOG_SAMPLES } from "../fixtures/m9a-samples";
 
 describe("parseBracketLine", () => {
   it("should parse node hit log line", () => {
