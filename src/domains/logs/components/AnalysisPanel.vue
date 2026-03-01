@@ -234,7 +234,7 @@ const props = withDefaults(
     formatTaskStatus: (status: TaskInfo["status"]) => string;
     formatTaskTimeParts: (value: string) => { date: string; time?: string };
     formatDuration: (value: number) => string;
-    formatResultStatus: (value: NodeInfo["status"]) => string;
+    formatResultStatus: (value: "success" | "failed" | "disabled") => string;
     formatCount: (count: number) => string;
     formatNextName: (value: NextListItem) => string;
     formatBox: (value: [number, number, number, number] | null | undefined) => string;
@@ -745,7 +745,7 @@ const handleNodeSelect = (nodeId: number) => {
                     >
                       <template #header-extra>
                         <n-tag
-                          :type="attempt.status === 'success' ? 'success' : 'error'"
+                          :type="attempt.status === 'success' ? 'success' : attempt.status === 'disabled' ? 'warning' : 'error'"
                           size="tiny"
                         >
                           {{ formatResultStatus(attempt.status) }}
@@ -802,7 +802,7 @@ const handleNodeSelect = (nodeId: number) => {
                           >
                             <template #header-extra>
                               <n-tag
-                                :type="nested.status === 'success' ? 'success' : 'error'"
+                                :type="nested.status === 'success' ? 'success' : nested.status === 'disabled' ? 'warning' : 'error'"
                                 size="tiny"
                               >
                                 {{ formatResultStatus(nested.status) }}

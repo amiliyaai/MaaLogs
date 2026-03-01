@@ -1193,6 +1193,17 @@ function updatePipelineNodes(
   const recoDetails = details.reco_details as RecognitionDetail | undefined;
   const actionDetails = details.action_details as ActionDetail | undefined;
   const nodeDetails = details.node_details as NodeInfo["node_details"] | undefined;
+
+  const nextListFromDetails = details.next_list as NextListItem[] | undefined;
+  const nextList = nextListFromDetails && nextListFromDetails.length > 0
+    ? nextListFromDetails
+    : context.currentNextList;
+
+  const recognitionAttemptsFromDetails = details.recognition_attempts as RecognitionAttempt[] | undefined;
+  const recognitionAttempts = recognitionAttemptsFromDetails && recognitionAttemptsFromDetails.length > 0
+    ? recognitionAttemptsFromDetails
+    : context.recognitionAttempts;
+
   context.nodes.push({
     node_id: nodeId,
     name: context.stringPool.intern(nodeName),
@@ -1203,12 +1214,19 @@ function updatePipelineNodes(
     action_details: actionDetails,
     node_details: nodeDetails,
     focus: details.focus,
-    next_list: context.currentNextList.map((item) => ({
+    next_list: nextList.map((item) => ({
       name: context.stringPool.intern(item.name),
       anchor: item.anchor,
       jump_back: item.jump_back,
     })),
-    recognition_attempts: context.recognitionAttempts.slice(),
+    recognition_attempts: recognitionAttempts.map((attempt) => ({
+      reco_id: attempt.reco_id,
+      name: context.stringPool.intern(attempt.name),
+      timestamp: context.stringPool.intern(attempt.timestamp),
+      status: attempt.status,
+      reco_details: attempt.reco_details,
+      nested_nodes: attempt.nested_nodes,
+    })),
     nested_recognition_in_action:
       context.nestedNodes.length > 0 ? context.nestedNodes.slice() : undefined,
   });

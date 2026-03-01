@@ -235,7 +235,7 @@ export type NextListItem = {
  * @property {number} reco_id - 识别操作唯一标识符
  * @property {string} name - 识别目标名称
  * @property {string} timestamp - 识别发生时间戳
- * @property {'success' | 'failed'} status - 识别结果状态
+ * @property {'success' | 'failed' | 'disabled'} status - 识别结果状态
  * @property {RecognitionDetail} [reco_details] - 识别详细信息
  * @property {RecognitionAttempt[]} [nested_nodes] - 嵌套的子识别节点
  */
@@ -243,7 +243,7 @@ export type RecognitionAttempt = {
   reco_id: number;
   name: string;
   timestamp: string;
-  status: "success" | "failed";
+  status: "success" | "failed" | "disabled";
   reco_details?: RecognitionDetail;
   nested_nodes?: RecognitionAttempt[];
 };

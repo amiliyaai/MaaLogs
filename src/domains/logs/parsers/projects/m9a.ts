@@ -19,6 +19,8 @@ import type {
   AuxLogEntry,
   RecognitionDetail,
   ActionDetail,
+  NextListItem,
+  RecognitionAttempt,
   ProjectParser,
   MainLogParseResult,
   AuxLogParserConfig,
@@ -157,6 +159,15 @@ interface ActionContext {
 }
 
 /**
+ * 嵌套识别上下文
+ * 用于跟踪 CustomRecognition 内部的嵌套识别调用
+ */
+interface NestedRecognitionContext {
+  parentRecoName: string;
+  entryNode: string;
+}
+
+/**
  * 解析 OCRer::analyze 行
  *
  * M9A 日志格式：
@@ -177,12 +188,13 @@ function parseOCRerAnalyze(
   const uid = params["uid_"];
   if (typeof uid !== "number") return null;
 
-  const bestResult = params["best_result_"] as Record<string, unknown> | undefined;
+  const bestResult = params["best_result_"];
   let box: [number, number, number, number] | null = null;
   let detail: unknown = null;
 
-  if (bestResult) {
-    box = parseBoxArray(bestResult.box);
+  if (bestResult && typeof bestResult === "object" && bestResult !== null && !Array.isArray(bestResult)) {
+    const resultObj = bestResult as Record<string, unknown>;
+    box = parseBoxArray(resultObj.box);
     detail = bestResult;
   }
 
@@ -217,12 +229,13 @@ function parseTemplateMatcherAnalyze(
   const uid = params["uid_"];
   if (typeof uid !== "number") return null;
 
-  const bestResult = params["best_result_"] as Record<string, unknown> | undefined;
+  const bestResult = params["best_result_"];
   let box: [number, number, number, number] | null = null;
   let detail: unknown = null;
 
-  if (bestResult) {
-    box = parseBoxArray(bestResult.box);
+  if (bestResult && typeof bestResult === "object" && bestResult !== null && !Array.isArray(bestResult)) {
+    const resultObj = bestResult as Record<string, unknown>;
+    box = parseBoxArray(resultObj.box);
     detail = bestResult;
   }
 
@@ -233,6 +246,97 @@ function parseTemplateMatcherAnalyze(
     box,
     detail,
     timestamp,
+  };
+}
+
+/**
+ * 解析 CustomRecognition::analyze 行
+ *
+ * M9A 日志格式：
+ * [MaaNS::TaskNS::CustomRecognition::analyze] [name_=Alarm_FindStage] [uid_=300000008] [best_result_={...}] ...
+ */
+function parseCustomRecognitionAnalyze(
+  parsed: ReturnType<typeof parseBracketLine>
+): RecognitionCache | null {
+  if (!parsed) return null;
+
+  const { functionName, params, timestamp } = parsed;
+
+  if (!functionName?.includes("CustomRecognition::analyze")) return null;
+
+  const name = params["name_"];
+  if (typeof name !== "string") return null;
+
+  const uid = params["uid_"];
+  if (typeof uid !== "number") return null;
+
+  const bestResult = params["best_result_"];
+  let box: [number, number, number, number] | null = null;
+  let detail: unknown = null;
+
+  if (bestResult && typeof bestResult === "object" && bestResult !== null && !Array.isArray(bestResult)) {
+    const resultObj = bestResult as Record<string, unknown>;
+    box = parseBoxArray(resultObj.box);
+    detail = bestResult;
+  }
+
+  return {
+    name,
+    reco_id: uid,
+    algorithm: "Custom",
+    box,
+    detail,
+    timestamp,
+  };
+}
+
+/**
+ * 从 OCRer/TemplateMatcher/CustomRecognition analyze 行提取识别尝试
+ *
+ * M9A 日志格式：
+ * [TemplateMatcher::analyze] Alarm_Complete [uid_=300000003] [best_result_=nullopt] ...
+ * [OCRer::analyze] Alarm_StageFlag [uid_=300000004] [best_result_={...}] ...
+ * [CustomRecognition::analyze] [name_=Alarm_FindStage] [uid_=300000008] [best_result_={...}] ...
+ */
+function parseRecognitionAttempt(
+  parsed: ReturnType<typeof parseBracketLine>,
+  recoCache: Map<string, RecognitionCache>
+): RecognitionAttempt | null {
+  if (!parsed) return null;
+
+  const { functionName, message, params, timestamp } = parsed;
+
+  const isOCR = functionName?.includes("OCRer::analyze");
+  const isTemplate = functionName?.includes("TemplateMatcher::analyze");
+  const isCustom = functionName?.includes("CustomRecognition::analyze");
+
+  if (!isOCR && !isTemplate && !isCustom) return null;
+
+  let name: string;
+  if (isCustom) {
+    name = params["name_"] as string;
+  } else {
+    name = message.trim().split(/\s+/)[0];
+  }
+  if (!name) return null;
+
+  const cachedReco = recoCache.get(name);
+  if (!cachedReco) return null;
+
+  const status = cachedReco.box ? "success" : "failed";
+
+  return {
+    reco_id: cachedReco.reco_id,
+    name,
+    timestamp,
+    status,
+    reco_details: {
+      name,
+      reco_id: cachedReco.reco_id,
+      algorithm: cachedReco.algorithm,
+      box: cachedReco.box,
+      detail: cachedReco.detail,
+    },
   };
 }
 
@@ -310,6 +414,94 @@ function parseActuatorRun(
     nodeName: typeof nodeName === "string" ? nodeName : null,
     isEnter: status === "enter",
   };
+}
+
+/**
+ * 解析 TaskBase::run_recognition 行，提取 cur_node 和 next_list
+ *
+ * M9A 日志格式：
+ * [TaskBase::run_recognition] [cur_node_=Alarm_Find0/3] [list=["Alarm_Select","Alarm_Complete","Alarm_StageFlag"]] | enter
+ * [TaskBase::run_recognition] | leave, 443ms
+ */
+function parseRunRecognition(
+  parsed: ReturnType<typeof parseBracketLine>
+): { curNode: string; nextList: NextListItem[]; isEnter: boolean } | null {
+  if (!parsed) return null;
+
+  const { functionName, params, status } = parsed;
+
+  if (!functionName?.includes("TaskBase::run_recognition")) return null;
+
+  if (status === "leave") {
+    return { curNode: "", nextList: [], isEnter: false };
+  }
+
+  const curNode = params["cur_node_"];
+  if (typeof curNode !== "string") return null;
+
+  const listParam = params["list"];
+  let nextList: NextListItem[] = [];
+
+  if (Array.isArray(listParam)) {
+    nextList = listParam.map((item) => {
+      if (typeof item === "string") {
+        return { name: item, anchor: false, jump_back: false };
+      }
+      if (typeof item === "object" && item !== null) {
+        const obj = item as Record<string, unknown>;
+        return {
+          name: String(obj.name || ""),
+          anchor: Boolean(obj.anchor),
+          jump_back: Boolean(obj.jump_back),
+        };
+      }
+      return { name: String(item), anchor: false, jump_back: false };
+    });
+  }
+
+  return { curNode, nextList, isEnter: true };
+}
+
+/**
+ * 解析 node disabled 行
+ *
+ * M9A 日志格式：
+ * [TaskBase.cpp][L101][MaaNS::TaskNS::TaskBase::run_recognition] node disabled Alarm_Select [pipeline_data.enable=false]
+ */
+function parseNodeDisabled(
+  parsed: ReturnType<typeof parseBracketLine>
+): { nodeName: string } | null {
+  if (!parsed) return null;
+
+  const { functionName, message } = parsed;
+
+  if (!functionName?.includes("TaskBase::run_recognition")) return null;
+
+  if (!message.includes("node disabled")) return null;
+
+  const match = message.match(/node disabled\s+(\S+)/);
+  if (!match) return null;
+
+  return { nodeName: match[1] };
+}
+
+function parseContextRunRecognition(
+  parsed: ReturnType<typeof parseBracketLine>
+): { entry: string; isEnter: boolean } | null {
+  if (!parsed) return null;
+
+  const { functionName, params, status } = parsed;
+
+  if (!functionName?.includes("MaaContextRunRecognition")) return null;
+
+  if (status === "leave") {
+    return { entry: "", isEnter: false };
+  }
+
+  const entry = params["entry"] as string;
+  if (!entry) return null;
+
+  return { entry, isEnter: true };
 }
 
 /**
@@ -475,6 +667,11 @@ export const m9aProjectParser: ProjectParser = {
     const recoCache = new Map<string, RecognitionCache>();
     const actionContexts = new Map<string, ActionContext>();
     const nodeEventIndexByName = new Map<string, number>();
+    let pendingRunRecognition: { curNode: string; nextList: NextListItem[] } | null = null;
+    const pendingRecognitionAttempts: RecognitionAttempt[] = [];
+    let nestedRecognitionContext: NestedRecognitionContext | null = null;
+    const nestedAttemptsByParent = new Map<string, RecognitionAttempt[]>();
+    let lastParentNodeName: string | null = null;
 
     for (let i = 0; i < lines.length; i++) {
       const rawLine = lines[i].trim();
@@ -505,12 +702,124 @@ export const m9aProjectParser: ProjectParser = {
       const ocrReco = parseOCRerAnalyze(parsed);
       if (ocrReco) {
         recoCache.set(ocrReco.name, ocrReco);
+        if (nestedRecognitionContext) {
+          // 嵌套识别的 OCRer，不添加到 pendingRecognitionAttempts
+        } else if (pendingRunRecognition) {
+          const attempt = parseRecognitionAttempt(parsed, recoCache);
+          if (attempt) {
+            pendingRecognitionAttempts.push(attempt);
+          }
+        }
         continue;
       }
 
       const templateReco = parseTemplateMatcherAnalyze(parsed);
       if (templateReco) {
         recoCache.set(templateReco.name, templateReco);
+        if (nestedRecognitionContext) {
+          // 嵌套识别的 TemplateMatcher，不添加到 pendingRecognitionAttempts
+        } else if (pendingRunRecognition) {
+          const attempt = parseRecognitionAttempt(parsed, recoCache);
+          if (attempt) {
+            pendingRecognitionAttempts.push(attempt);
+          }
+        }
+        continue;
+      }
+
+      const customReco = parseCustomRecognitionAnalyze(parsed);
+      if (customReco) {
+        recoCache.set(customReco.name, customReco);
+        if (pendingRunRecognition) {
+          const attempt = parseRecognitionAttempt(parsed, recoCache);
+          if (attempt) {
+            // 附加嵌套识别结果
+            const nestedAttempts = nestedAttemptsByParent.get(customReco.name);
+            if (nestedAttempts && nestedAttempts.length > 0) {
+              attempt.nested_nodes = nestedAttempts;
+              nestedAttemptsByParent.delete(customReco.name);
+            }
+            pendingRecognitionAttempts.push(attempt);
+          }
+        }
+        // CustomRecognition 返回结果，清除嵌套上下文
+        nestedRecognitionContext = null;
+        continue;
+      }
+
+      // 检测 CustomRecognition::analyze | enter（没有 best_result_ 的行）
+      if (parsed.functionName?.includes("CustomRecognition::analyze")) {
+        const name = parsed.params["name_"] as string;
+        if (name && !parsed.params["best_result_"]) {
+          // 进入 CustomRecognition，设置嵌套上下文
+          nestedRecognitionContext = {
+            parentRecoName: name,
+            entryNode: "",
+          };
+        }
+        continue;
+      }
+
+      const contextRunReco = parseContextRunRecognition(parsed);
+      if (contextRunReco) {
+        if (contextRunReco.isEnter) {
+          nestedRecognitionContext = {
+            parentRecoName: lastParentNodeName || "",
+            entryNode: contextRunReco.entry,
+          };
+        } else {
+          nestedRecognitionContext = null;
+        }
+        continue;
+      }
+
+      const runRecognition = parseRunRecognition(parsed);
+      if (runRecognition) {
+        if (runRecognition.isEnter) {
+          if (nestedRecognitionContext) {
+            // 嵌套识别的 run_recognition，跳过主流程处理
+            pendingRunRecognition = null;
+            pendingRecognitionAttempts.length = 0;
+          } else {
+            pendingRunRecognition = runRecognition;
+            pendingRecognitionAttempts.length = 0;
+          }
+        } else {
+          if (!nestedRecognitionContext) {
+            // run_recognition | leave，但没有 node hit
+            // 需要将 next_list 和 recognition_attempts 设置到父节点上
+            if (pendingRunRecognition && pendingRecognitionAttempts.length > 0) {
+              const { curNode, nextList } = pendingRunRecognition;
+              const parentEventIndex = nodeEventIndexByName.get(curNode);
+              if (parentEventIndex !== undefined && events[parentEventIndex]) {
+                const parentEvent = events[parentEventIndex];
+                if (parentEvent.details) {
+                  if (nextList.length > 0 && !parentEvent.details.next_list) {
+                    parentEvent.details.next_list = nextList;
+                  }
+                  if (!parentEvent.details.recognition_attempts) {
+                    parentEvent.details.recognition_attempts = pendingRecognitionAttempts.slice();
+                  }
+                }
+              }
+            }
+            pendingRunRecognition = null;
+            pendingRecognitionAttempts.length = 0;
+          }
+        }
+        continue;
+      }
+
+      // 处理 node disabled
+      const nodeDisabled = parseNodeDisabled(parsed);
+      if (nodeDisabled && pendingRunRecognition) {
+        // 添加一个 disabled 状态的识别尝试
+        pendingRecognitionAttempts.push({
+          reco_id: 0,
+          name: nodeDisabled.nodeName,
+          timestamp: parsed.timestamp,
+          status: "disabled",
+        });
         continue;
       }
 
@@ -519,11 +828,120 @@ export const m9aProjectParser: ProjectParser = {
       const nodeHitResult = parseNodeHitLine(parsed, config.fileName, i + 1, currentTaskId, recoCache, nodeIdCounter);
       if (nodeHitResult) {
         nodeIdCounter = nodeHitResult.nodeIdCounter;
+
+        if (nestedRecognitionContext) {
+          // 嵌套识别的 node hit，存储到父节点的 nested_nodes
+          const nodeName = nodeHitResult.event.details?.name as string;
+          const cachedReco = nodeName ? recoCache.get(nodeName) : null;
+          const nestedAttempt: RecognitionAttempt = {
+            reco_id: cachedReco?.reco_id || 0,
+            name: nodeName || "",
+            timestamp: nodeHitResult.event.timestamp,
+            status: cachedReco?.box ? "success" : "failed",
+            reco_details: cachedReco
+              ? {
+                  name: nodeName || "",
+                  reco_id: cachedReco.reco_id,
+                  algorithm: cachedReco.algorithm,
+                  box: cachedReco.box,
+                  detail: cachedReco.detail,
+                }
+              : undefined,
+          };
+
+          // 对于 MaaContextRunRecognition 调用，parentRecoName 为空，使用 lastParentNodeName
+          const parentName = nestedRecognitionContext.parentRecoName || lastParentNodeName || "";
+          if (parentName) {
+            // 直接附加到父节点事件的 recognition_attempts 中最后一个 attempt 的 nested_nodes
+            const parentEventIndex = nodeEventIndexByName.get(parentName);
+            if (parentEventIndex !== undefined && events[parentEventIndex]) {
+              const parentEvent = events[parentEventIndex];
+              if (parentEvent.details) {
+                // 确保 recognition_attempts 存在
+                if (!parentEvent.details.recognition_attempts) {
+                  // 创建一个基于父节点的 attempt
+                  const parentCachedReco = recoCache.get(parentName);
+                  parentEvent.details.recognition_attempts = [{
+                    reco_id: parentCachedReco?.reco_id || 0,
+                    name: parentName,
+                    timestamp: parentEvent.timestamp,
+                    status: parentCachedReco?.box ? "success" : "failed",
+                    reco_details: parentCachedReco
+                      ? {
+                          name: parentName,
+                          reco_id: parentCachedReco.reco_id,
+                          algorithm: parentCachedReco.algorithm,
+                          box: parentCachedReco.box,
+                          detail: parentCachedReco.detail,
+                        }
+                      : undefined,
+                  }];
+                }
+                const attempts = parentEvent.details.recognition_attempts as RecognitionAttempt[];
+                const lastAttempt = attempts[attempts.length - 1];
+                if (lastAttempt) {
+                  if (!lastAttempt.nested_nodes) {
+                    lastAttempt.nested_nodes = [];
+                  }
+                  lastAttempt.nested_nodes.push(nestedAttempt);
+                }
+              }
+            }
+          } else {
+            // 没有父节点名称，存储到 nestedAttemptsByParent
+            if (!nestedAttemptsByParent.has(parentName)) {
+              nestedAttemptsByParent.set(parentName, []);
+            }
+            nestedAttemptsByParent.get(parentName)!.push(nestedAttempt);
+          }
+          continue;
+        }
+
         events.push(nodeHitResult.event);
         const nodeName = nodeHitResult.event.details?.name as string;
         if (nodeName) {
           nodeEventIndexByName.set(nodeName, events.length - 1);
+          lastParentNodeName = nodeName;
         }
+
+        if (pendingRunRecognition && nodeHitResult.event.details) {
+          const { curNode, nextList } = pendingRunRecognition;
+          const eventDetails = nodeHitResult.event.details;
+
+          // 如果 nodeName === curNode 且 nextList 只包含自己，这是 direct_hit，跳过设置
+          const isDirectHit = nodeName === curNode && nextList.length === 1 && nextList[0].name === curNode;
+
+          if (!isDirectHit) {
+            // 设置当前节点的 next_list
+            if (nextList.length > 0) {
+              eventDetails.next_list = nextList;
+            }
+
+            // 设置当前节点的 recognition_attempts
+            if (pendingRecognitionAttempts.length > 0) {
+              eventDetails.recognition_attempts = pendingRecognitionAttempts.slice();
+            }
+          }
+
+          // 如果 nodeName !== curNode，也需要更新父节点的信息
+          if (nodeName !== curNode) {
+            const parentEventIndex = nodeEventIndexByName.get(curNode);
+            if (parentEventIndex !== undefined && events[parentEventIndex]) {
+              const parentEvent = events[parentEventIndex];
+              if (parentEvent.details) {
+                if (nextList.length > 0 && !parentEvent.details.next_list) {
+                  parentEvent.details.next_list = nextList;
+                }
+                if (pendingRecognitionAttempts.length > 0 && !parentEvent.details.recognition_attempts) {
+                  parentEvent.details.recognition_attempts = pendingRecognitionAttempts.slice();
+                }
+              }
+            }
+          }
+          pendingRunRecognition = null;
+          pendingRecognitionAttempts.length = 0;
+        }
+
         continue;
       }
 

@@ -111,15 +111,18 @@ export function formatTaskTimeParts(value: string): { date: string; time: string
  *
  * 将节点执行状态转换为中文显示文本。
  *
- * @param {"success" | "failed"} status - 状态值
+ * @param {"success" | "failed" | "disabled"} status - 状态值
  * @returns {string} 中文状态文本
  *
  * @example
  * formatResultStatus('success'); // '成功'
  * formatResultStatus('failed'); // '失败'
+ * formatResultStatus('disabled'); // '已禁用'
  */
-export function formatResultStatus(status: "success" | "failed"): string {
-  return status === "success" ? "成功" : "失败";
+export function formatResultStatus(status: "success" | "failed" | "disabled"): string {
+  if (status === "success") return "成功";
+  if (status === "failed") return "失败";
+  return "已禁用";
 }
 
 /**

@@ -9,9 +9,9 @@
  * @license MIT
  */
 
-import type { AuxLogEntry, EventNotification, ControllerInfo, RecognitionDetail, ActionDetail } from "./logTypes";
+import type { AuxLogEntry, EventNotification, ControllerInfo, RecognitionDetail, ActionDetail, NextListItem, RecognitionAttempt } from "./logTypes";
 
-export type { AuxLogEntry, EventNotification, ControllerInfo, RecognitionDetail, ActionDetail };
+export type { AuxLogEntry, EventNotification, ControllerInfo, RecognitionDetail, ActionDetail, NextListItem, RecognitionAttempt };
 
 /**
  * 辅助日志解析器信息
