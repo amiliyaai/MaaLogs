@@ -4,12 +4,51 @@
 
 ## 项目概览
 
-**MaaLogs** 是一个 MaaFramework 日志分析工具。
+**MaaLogs** 是一个 MaaFramework 日志分析工具，基于 Tauri + Vue 3 + TypeScript 构建。
 
 - **主体流程**：用户选择日志文件，解析器提取任务和节点信息，以可视化方式展示任务执行流程。
 - **解析器架构**：采用可扩展的解析器架构，每个项目解析器封装该项目的日志解析逻辑，位于 `src/parsers/projects`。
 - **复杂逻辑**：对于嵌套识别、多线程日志交错等复杂场景，需在解析器中特殊处理。
 - **配置入口**：解析器通过 `project-registry.ts` 注册，用户选择的解析器 ID 通过 `useStorage` 持久化。
+
+## 目录结构
+
+```
+src/
+├── parsers/              # 解析器模块
+│   ├── index.ts          # 模块入口
+│   ├── baseParser.ts     # 基础解析器（共享 maa.log 解析逻辑）
+│   ├── project-registry.ts # 项目解析器注册表
+│   ├── shared.ts         # 共享解析工具函数
+│   ├── correlate.ts      # 日志关联模块
+│   └── projects/         # 项目解析器实现
+│       ├── m9a.ts        # M9A 项目解析器
+│       └── maaend.ts     # MaaEnd 项目解析器
+├── types/                # TypeScript 类型定义
+│   ├── logTypes.ts       # 日志相关类型
+│   └── parserTypes.ts    # 解析器相关类型
+├── utils/                # 工具函数
+│   ├── parse.ts          # 日志解析核心功能
+│   ├── format.ts         # 数据格式化
+│   ├── file.ts           # 文件处理
+│   ├── logger.ts         # 日志系统
+│   ├── crypto.ts         # 加密工具
+│   ├── aiAnalyzer.ts     # AI 分析
+│   └── updater.ts        # 应用更新
+├── composables/          # Vue Composables
+│   ├── useLogParser.ts   # 日志解析
+│   ├── useSearch.ts      # 文本搜索
+│   ├── useStatistics.ts  # 统计分析
+│   ├── useFileSelection.ts # 文件选择
+│   └── useStore.ts       # 持久化存储
+├── components/           # Vue 组件
+│   ├── AnalysisPanel.vue # 分析面板
+│   ├── NodeFlowChart.vue # 节点流程图
+│   ├── StatisticsPanel.vue # 统计面板
+│   └── ...
+└── config/               # 应用配置
+    └── index.ts          # 环境配置
+```
 
 ## 关键文件
 
@@ -45,6 +84,13 @@
 - **ESLint 约束**：所有代码必须通过 `npm run lint` 检查。
 - **Prettier 约束**：代码格式遵循 `.prettierrc.json` 配置。
 - **提交前检查**：运行 `npm run typecheck` 确保类型正确。
+
+### 5. 注释规范
+
+- **文件头注释**：每个文件应包含 `@fileoverview` 注释，说明文件用途和主要功能。
+- **函数注释**：公共函数应包含 JSDoc 注释，说明参数、返回值和使用示例。
+- **类型注释**：复杂类型应包含属性说明和使用示例。
+- **避免冗余**：简单、自解释的代码无需注释。
 
 ## 审查重点
 
@@ -106,9 +152,9 @@ M9A 使用 `MaaContextRunRecognition` API 进行嵌套识别，日志会交错�
 
 ### 当前开发重点
 
-- M9A 解析器完善
-- 嵌套识别处理
-- Disabled 节点支持
+- 解析器稳定性优化
+- AI 分析功能完善
+- 用户体验改进
 
 ### 已知问题
 
@@ -120,4 +166,4 @@ M9A 使用 `MaaContextRunRecognition` API 进行嵌套识别，日志会交错�
 
 ---
 
-最后更新: 2026-03-01
+最后更新: 2026-03-02

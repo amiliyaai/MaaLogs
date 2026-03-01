@@ -1,3 +1,18 @@
+/**
+ * @fileoverview 应用更新模块
+ *
+ * 本文件实现了应用程序的自动更新功能，使用 Tauri 的更新插件。
+ * 支持：
+ * - 检查更新
+ * - 下载更新包
+ * - 显示下载进度
+ * - 自动安装并重启
+ *
+ * @module utils/updater
+ * @author MaaLogs Team
+ * @license MIT
+ */
+
 import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { getVersion } from "@tauri-apps/api/app";
@@ -5,6 +20,22 @@ import { createDiscreteApi } from "naive-ui";
 
 const { message: $message, dialog: $dialog } = createDiscreteApi(["message", "dialog"]);
 
+/**
+ * 检查应用更新
+ *
+ * 从配置的更新服务器检查是否有新版本可用。
+ * 如果发现新版本，弹出对话框询问用户是否立即更新。
+ *
+ * @param {boolean} [showNoUpdate=false] - 当没有更新时是否显示提示
+ * @returns {Promise<boolean>} 是否发现新版本
+ *
+ * @example
+ * // 静默检查更新
+ * const hasUpdate = await checkForUpdate();
+ *
+ * // 手动检查更新，显示"已是最新版本"提示
+ * await checkForUpdate(true);
+ */
 export async function checkForUpdate(showNoUpdate = false): Promise<boolean> {
   try {
     const update = await check();
@@ -34,6 +65,13 @@ export async function checkForUpdate(showNoUpdate = false): Promise<boolean> {
   }
 }
 
+/**
+ * 下载并安装更新
+ *
+ * 下载更新包并显示进度，下载完成后自动安装并重启应用。
+ *
+ * @param {Awaited<ReturnType<typeof check>>} update - 更新信息对象
+ */
 async function downloadAndInstall(update: Awaited<ReturnType<typeof check>>): Promise<void> {
   if (!update) return;
 
@@ -71,6 +109,15 @@ async function downloadAndInstall(update: Awaited<ReturnType<typeof check>>): Pr
   }
 }
 
+/**
+ * 获取当前应用版本号
+ *
+ * @returns {Promise<string>} 版本号字符串，获取失败时返回 "unknown"
+ *
+ * @example
+ * const version = await getCurrentVersion();
+ * console.log(`当前版本: v${version}`);
+ */
 export async function getCurrentVersion(): Promise<string> {
   try {
     return await getVersion();
