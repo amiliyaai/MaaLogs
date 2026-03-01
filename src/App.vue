@@ -35,7 +35,7 @@ import { appDataDir, appLogDir } from "@tauri-apps/api/path";
 /**
  * 更新检查
  */
-import { checkForUpdate } from "./domains/logs/utils/updater";
+import { checkForUpdate } from "./utils/updater";
 
 import { Store } from "@tauri-apps/plugin-store";
 
@@ -47,12 +47,12 @@ import "vue-virtual-scroller/dist/vue-virtual-scroller.css";
 /**
  * 子组件导入
  */
-import AppTopBar from "./domains/logs/components/AppTopBar.vue";
-import HeroPanel from "./domains/logs/components/HeroPanel.vue";
-import FileListPanel from "./domains/logs/components/FileListPanel.vue";
-import AnalysisPanel from "./domains/logs/components/AnalysisPanel.vue";
-import SearchPanel from "./domains/logs/components/SearchPanel.vue";
-import StatisticsPanel from "./domains/logs/components/StatisticsPanel.vue";
+import AppTopBar from "./components/AppTopBar.vue";
+import HeroPanel from "./components/HeroPanel.vue";
+import FileListPanel from "./components/FileListPanel.vue";
+import AnalysisPanel from "./components/AnalysisPanel.vue";
+import SearchPanel from "./components/SearchPanel.vue";
+import StatisticsPanel from "./components/StatisticsPanel.vue";
 
 /**
  * Composables 导入
@@ -63,7 +63,7 @@ import {
   useSearch,
   useStatistics,
   useFileSelection,
-} from "./domains/logs/composables";
+} from "./composables";
 
 /**
  * 工具函数导入
@@ -85,12 +85,12 @@ import {
   summarizeNodeDetail,
   summarizeFocus,
   splitMatch,
-} from "./domains/logs/utils/format";
-import { extractCustomActionFromActionDetails } from "./domains/logs/utils/parse";
-import { isTauriEnv } from "./domains/logs/utils/file";
-import { createLogger, init, flushLogs, setLoggerContext } from "./domains/logs/utils/logger";
+} from "./utils/format";
+import { extractCustomActionFromActionDetails } from "./utils/parse";
+import { isTauriEnv } from "./utils/file";
+import { createLogger, init, flushLogs, setLoggerContext } from "./utils/logger";
 import { appConfig } from "./config";
-import type { AuxLogEntry } from "./domains/logs/types/logTypes";
+import type { AuxLogEntry } from "./types/logTypes";
 
 // ============================================
 // 日志记录器

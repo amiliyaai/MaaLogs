@@ -13,7 +13,7 @@
  * @license MIT
  */
 
-import type { LogLevel } from "../domains/logs/utils/logger";
+import type { LogLevel } from "../utils/logger";
 
 /** 应用运行环境的类型定义 */
 export type AppEnvironment = "local" | "test" | "staging" | "production";

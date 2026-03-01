@@ -20,9 +20,9 @@ import "@vue-flow/controls/dist/style.css";
 import "@vue-flow/minimap/dist/style.css";
 
 // 导入项目解析器注册相关模块
-import { projectParserRegistry } from "./domains/logs/parsers/project-registry";
-import { m9aProjectParser } from "./domains/logs/parsers/projects/m9a";
-import { maaEndProjectParser } from "./domains/logs/parsers/projects/maaend";
+import { projectParserRegistry } from "./parsers/project-registry";
+import { m9aProjectParser } from "./parsers/projects/m9a";
+import { maaEndProjectParser } from "./parsers/projects/maaend";
 
 // 注册项目解析器
 // M9A 优先级更高，因为它的检测更精确

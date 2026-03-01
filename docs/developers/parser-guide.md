@@ -5,9 +5,8 @@
 ## 架构概览
 
 ```
-src/domains/logs/parsers/
+src/parsers/
 ├── index.ts              # 模块入口，导出所有公共 API
-├── types.ts              # 核心类型定义
 ├── project-registry.ts   # 项目解析器注册表（单例）
 ├── shared.ts             # 共享解析工具函数
 ├── correlate.ts          # 日志关联模块
