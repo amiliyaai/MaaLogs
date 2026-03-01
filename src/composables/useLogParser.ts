@@ -23,8 +23,8 @@ import type {
   EventNotification,
   ControllerInfo,
 } from "../types/logTypes";
-import type { AuxLogParserInfo } from "../types/parserTypes";
 import { projectParserRegistry, correlateAuxLogs } from "../parsers";
+import { type ProjectType } from "../parsers/baseParser";
 import {
   StringPool,
   buildIdentifierRanges,
@@ -33,7 +33,6 @@ import {
 } from "../utils/parse";
 import { isMainLog } from "../utils/file";
 import { createLogger, setLoggerContext } from "../utils/logger";
-import { useStorage } from "./useStore";
 
 const logger = createLogger("LogParser");
 
@@ -104,6 +103,33 @@ function mergeMainLogResult(
   }
 }
 
+function parseMainLogFile(
+  collections: ParseCollections,
+  lines: string[],
+  fileName: string
+): ProjectType {
+  const projectParser = projectParserRegistry.getDefault();
+  if (!projectParser) return "unknown";
+  const result = projectParser.parseMainLog(lines, { fileName });
+  mergeMainLogResult(collections, result);
+  return result.detectedProject && result.detectedProject !== "unknown" 
+    ? result.detectedProject 
+    : "unknown";
+}
+
+function parseAuxLogFile(
+  collections: ParseCollections,
+  lines: string[],
+  fileName: string,
+  detectedProjectType: ProjectType
+): void {
+  const parserId = detectedProjectType === "m9a" ? "m9a" : "maaend";
+  const projectParser = getProjectParser(parserId);
+  if (!projectParser) return;
+  const result = projectParser.parseAuxLog(lines, { fileName });
+  collections.auxEntries.push(...result.entries);
+}
+
 function getProjectParser(parserId: string) {
   const projectParser = projectParserRegistry.get(parserId);
   if (!projectParser) {
@@ -151,8 +177,7 @@ export interface LogParserConfig {
  * @property {Ref<TaskInfo[]>} tasks - 解析后的任务列表
  * @property {Ref<RawLine[]>} rawLines - 原始行数据
  * @property {Ref<AuxLogEntry[]>} auxLogs - 辅助日志条目
- * @property {Ref<string>} selectedParserId - 当前选择的解析器 ID
- * @property {Ref<AuxLogParserInfo[]>} parserOptions - 可用的解析器列表
+ * @property {Ref<ProjectType>} detectedProject - 检测到的项目类型
  * @property {Ref<string>} selectedProcessId - 当前选择的进程 ID
  * @property {Ref<string>} selectedThreadId - 当前选择的线程 ID
  * @property {ComputedRef<{label: string, value: string}[]>} processOptions - 进程选项列表
@@ -162,35 +187,19 @@ export interface LogParserConfig {
  * @property {function} resetParseState - 重置解析状态
  */
 export interface LogParserResult {
-  /** 解析状态 */
   parseState: Ref<ParseState>;
-  /** 解析进度（百分比） */
   parseProgress: Ref<number>;
-  /** 状态消息 */
   statusMessage: Ref<string>;
-  /** 解析后的任务列表 */
   tasks: Ref<TaskInfo[]>;
-  /** 原始行数据 */
   rawLines: Ref<RawLine[]>;
-  /** 辅助日志条目 */
   auxLogs: Ref<AuxLogEntry[]>;
-  /** 当前选择的解析器 ID */
-  selectedParserId: Ref<string>;
-  /** 可用的解析器列表 */
-  parserOptions: Ref<AuxLogParserInfo[]>;
-  /** 当前选择的进程 ID */
+  detectedProject: Ref<ProjectType>;
   selectedProcessId: Ref<string>;
-  /** 当前选择的线程 ID */
   selectedThreadId: Ref<string>;
-  /** 进程选项列表 */
   processOptions: ComputedRef<{ label: string; value: string }[]>;
-  /** 线程选项列表 */
   threadOptions: ComputedRef<{ label: string; value: string }[]>;
-  /** 过滤后的任务列表 */
   filteredTasks: ComputedRef<TaskInfo[]>;
-  /** 执行解析 */
   handleParse: () => Promise<void>;
-  /** 重置解析状态 */
   resetParseState: () => void;
 }
 
@@ -215,30 +224,14 @@ export interface LogParserResult {
  * await handleParse();
  */
 export function useLogParser(_config: LogParserConfig = {}): LogParserResult {
-
-  // ============================================
-  // 响应式状态
-  // ============================================
-
-  /** 解析状态 */
   const parseState = ref<ParseState>("idle");
-  /** 解析进度（百分比） */
   const parseProgress = ref(0);
-  /** 状态消息 */
   const statusMessage = ref("请先选择日志文件");
-  /** 解析后的任务列表 */
   const tasks = shallowRef<TaskInfo[]>([]);
-  /** 原始行数据 */
   const rawLines = ref<RawLine[]>([]);
-  /** 辅助日志条目 */
   const auxLogs = ref<AuxLogEntry[]>([]);
-  /** 当前选择的解析器 ID（持久化） */
-  const selectedParserId = useStorage<string>("selectedParserId", "maaend");
-  /** 可用的解析器列表 */
-  const parserOptions = ref<AuxLogParserInfo[]>(projectParserRegistry.getInfoList());
-  /** 当前选择的进程 ID */
+  const detectedProject = ref<ProjectType>("unknown");
   const selectedProcessId = ref("all");
-  /** 当前选择的线程 ID */
   const selectedThreadId = ref("all");
 
   // ============================================
@@ -316,20 +309,7 @@ export function useLogParser(_config: LogParserConfig = {}): LogParserResult {
     statusMessage.value = "请先选择日志文件";
   }
 
-  /**
-   * 执行日志解析主流程
-   *
-   * 这是解析的核心函数，处理流程：
-   * 1. 读取所有选中的文件
-   * 2. 解析 JSON 配置文件（Pipeline）
-   * 3. 解析 maa.log 主日志，提取事件和任务
-   * 4. 解析 go-service 辅助日志
-   * 5. 关联辅助日志与任务
-   *
-   * 使用分块处理避免阻塞主线程。
-   */
   async function handleParse(): Promise<void> {
-    // 设置日志上下文
     setLoggerContext({
       threadId: selectedThreadId.value === "all" ? "ui" : selectedThreadId.value,
     });
@@ -349,18 +329,18 @@ export function useLogParser(_config: LogParserConfig = {}): LogParserResult {
       };
       const { fileLines, totalLines } = await readSelectedFiles(selectedFiles.value);
       let processed = 0;
+      let detectedProjectType: ProjectType = "unknown";
 
       for (const entry of fileLines) {
         const { file, lines } = entry;
-        const projectParser = getProjectParser(selectedParserId.value);
-        if (!projectParser) continue;
         collectRawLines(collections.allLines, file.name, lines);
         if (isMainLog(file.name)) {
-          const result = projectParser.parseMainLog(lines, { fileName: file.name });
-          mergeMainLogResult(collections, result);
+          const detected = parseMainLogFile(collections, lines, file.name);
+          if (detected !== "unknown") {
+            detectedProjectType = detected;
+          }
         } else {
-          const result = projectParser.parseAuxLog(lines, { fileName: file.name });
-          collections.auxEntries.push(...result.entries);
+          parseAuxLogFile(collections, lines, file.name, detectedProjectType);
         }
 
         processed += lines.length;
@@ -370,6 +350,7 @@ export function useLogParser(_config: LogParserConfig = {}): LogParserResult {
         await new Promise((resolve) => setTimeout(resolve, 0));
       }
 
+      detectedProject.value = detectedProjectType;
       rawLines.value = collections.allLines;
       const identifierRanges = buildIdentifierRanges(
         collections.eventIdentifierMap,
@@ -412,8 +393,7 @@ export function useLogParser(_config: LogParserConfig = {}): LogParserResult {
     tasks,
     rawLines,
     auxLogs,
-    selectedParserId,
-    parserOptions,
+    detectedProject,
     selectedProcessId,
     selectedThreadId,
     processOptions,

@@ -29,6 +29,7 @@ import type {
   Win32InputMethod,
   RecognitionDetail,
   JsonValue,
+  NestedActionNode,
 } from "../types/logTypes";
 import { createLogger } from "./logger";
 import { parseMessageAndParams } from "../parsers/shared";
@@ -611,9 +612,8 @@ export function parseLine(line: string, lineNum: number): LogLine | null {
  * OnEventNotify 是 Maa 框架发出的事件通知，包含任务生命周期和节点执行信息。
  * 这些事件是构建任务列表的核心数据源。
  *
- * 支持两种格式：
- * 1. 原始格式：包含 !!!OnEventNotify!!! 的日志行
- * 2. M9A 格式：functionName 为 MaaNS::MessageNotifier::notify 且包含 msg 参数
+ * 日志格式：
+ * [时间戳][级别][进程ID][线程ID][EventDispatcher.hpp] !!!OnEventNotify!!! [handle=xxx] [msg=Node.PipelineNode.Succeeded] [details={...}]
  *
  * @param {LogLine} parsed - 已解析的日志行
  * @param {string} fileName - 文件名
@@ -628,48 +628,26 @@ export function parseEventNotification(
   parsed: LogLine,
   fileName: string
 ): EventNotification | null {
-  const { message, params, functionName } = parsed;
+  const { message, params } = parsed;
 
-  // 格式1：原始格式，包含 !!!OnEventNotify!!!
-  if (message.includes("!!!OnEventNotify!!!")) {
-    const msg = asString(params["msg"]);
-    const detailsValue = params["details"];
-    if (!msg) return null;
-
-    return {
-      timestamp: parsed.timestamp,
-      level: parsed.level,
-      message: msg,
-      details: isRecordJsonValue(detailsValue) ? detailsValue : {},
-      _lineNumber: parsed._lineNumber,
-      fileName,
-      processId: parsed.processId,
-      threadId: parsed.threadId,
-    };
+  if (!message.includes("!!!OnEventNotify!!!")) {
+    return null;
   }
 
-  // 格式2：M9A 格式，functionName 为 MaaNS::MessageNotifier::notify
-  if (functionName === "MaaNS::MessageNotifier::notify") {
-    const msg = asString(params["msg"]);
-    const detailsValue = params["details"];
-    if (!msg) return null;
+  const msg = asString(params["msg"]);
+  const detailsValue = params["details"];
+  if (!msg) return null;
 
-    // 只处理任务相关的事件
-    if (msg.startsWith("Tasker.")) {
-      return {
-        timestamp: parsed.timestamp,
-        level: parsed.level,
-        message: msg,
-        details: isRecordJsonValue(detailsValue) ? detailsValue : {},
-        _lineNumber: parsed._lineNumber,
-        fileName,
-        processId: parsed.processId,
-        threadId: parsed.threadId,
-      };
-    }
-  }
-
-  return null;
+  return {
+    timestamp: parsed.timestamp,
+    level: parsed.level,
+    message: msg,
+    details: isRecordJsonValue(detailsValue) ? detailsValue : {},
+    _lineNumber: parsed._lineNumber,
+    fileName,
+    processId: parsed.processId,
+    threadId: parsed.threadId,
+  };
 }
 
 /**
@@ -1108,9 +1086,12 @@ type TaskNodeBuildContext = {
   nodeIdSet: Set<number>;
   recognitionAttempts: RecognitionAttempt[];
   nestedNodes: RecognitionAttempt[];
+  nestedActionNodes: NestedActionNode[];
   currentNextList: NextListItem[];
+  currentActionId: number | undefined;
   recognitionsByTaskId: Map<number, RecognitionAttempt[]>;
   actionsByTaskId: Map<number, ActionAttempt[]>;
+  actionNodesByTaskId: Map<number, NestedActionNode[]>;
 };
 
 function updateNextListFromEvent(
@@ -1212,6 +1193,16 @@ function updateActionAttempts(
   eventTaskId: number | undefined,
   timestamp: string
 ) {
+  if (message === "Node.Action.Starting" && eventTaskId === context.task.task_id) {
+    context.currentActionId = normalizeId(details.action_id);
+    return;
+  }
+  if (message === "Node.Action.Succeeded" || message === "Node.Action.Failed") {
+    if (eventTaskId === context.task.task_id) {
+      context.currentActionId = undefined;
+      return;
+    }
+  }
   if (message !== "Node.Action.Succeeded" && message !== "Node.Action.Failed") return;
   if (eventTaskId === undefined || eventTaskId === context.task.task_id) return;
   const actionDetails = details.action_details as ActionDetail | undefined;
@@ -1227,6 +1218,38 @@ function updateActionAttempts(
     context.actionsByTaskId.set(eventTaskId, []);
   }
   context.actionsByTaskId.get(eventTaskId)!.push(actionAttempt);
+}
+
+function updateActionNodes(
+  context: TaskNodeBuildContext,
+  message: string,
+  details: Record<string, JsonValue>,
+  eventTaskId: number | undefined,
+  timestamp: string
+) {
+  if (message !== "Node.ActionNode.Succeeded" && message !== "Node.ActionNode.Failed") return;
+  if (eventTaskId === undefined || eventTaskId === context.task.task_id) return;
+  const nodeId = normalizeId(details.node_id ?? details.nodeId);
+  if (nodeId === undefined) return;
+  const nodeName = coerceString(details.name);
+  const actionDetails = details.action_details as ActionDetail | undefined;
+  const actions = context.actionsByTaskId.get(eventTaskId) || [];
+  const actionNode: NestedActionNode = {
+    node_id: nodeId,
+    name: context.stringPool.intern(nodeName),
+    timestamp: context.stringPool.intern(timestamp),
+    status: message === "Node.ActionNode.Succeeded" ? "success" : "failed",
+    action_details: actionDetails,
+    actions: actions.length > 0 ? actions : undefined,
+  };
+  context.nestedActionNodes.push(actionNode);
+  context.actionsByTaskId.delete(eventTaskId);
+  if (context.currentActionId !== undefined) {
+    if (!context.actionNodesByTaskId.has(context.currentActionId)) {
+      context.actionNodesByTaskId.set(context.currentActionId, []);
+    }
+    context.actionNodesByTaskId.get(context.currentActionId)!.push(actionNode);
+  }
 }
 
 function updatePipelineNodes(
@@ -1260,6 +1283,11 @@ function updatePipelineNodes(
     ? recognitionAttemptsFromDetails
     : context.recognitionAttempts;
 
+  const actionId = normalizeId(actionDetails?.action_id ?? details.action_id);
+  const nestedActionNodes = actionId !== undefined 
+    ? context.actionNodesByTaskId.get(actionId) || []
+    : context.nestedActionNodes.slice();
+
   context.nodes.push({
     node_id: nodeId,
     name: context.stringPool.intern(nodeName),
@@ -1285,11 +1313,16 @@ function updatePipelineNodes(
     })),
     nested_recognition_in_action:
       context.nestedNodes.length > 0 ? context.nestedNodes.slice() : undefined,
+    nested_action_nodes: nestedActionNodes.length > 0 ? nestedActionNodes : undefined,
   });
   context.nodeIdSet.add(nodeId);
   context.currentNextList = [];
   context.recognitionAttempts.length = 0;
   context.nestedNodes.length = 0;
+  context.nestedActionNodes.length = 0;
+  if (actionId !== undefined) {
+    context.actionNodesByTaskId.delete(actionId);
+  }
 }
 
 /**
@@ -1317,8 +1350,10 @@ function buildTaskNodes(
 
   const recognitionAttempts: RecognitionAttempt[] = [];
   const nestedNodes: RecognitionAttempt[] = [];
+  const nestedActionNodes: NestedActionNode[] = [];
   const recognitionsByTaskId = new Map<number, RecognitionAttempt[]>();
   const actionsByTaskId = new Map<number, ActionAttempt[]>();
+  const actionNodesByTaskId = new Map<number, NestedActionNode[]>();
 
   const context: TaskNodeBuildContext = {
     task,
@@ -1327,9 +1362,12 @@ function buildTaskNodes(
     nodeIdSet,
     recognitionAttempts,
     nestedNodes,
+    nestedActionNodes,
     currentNextList: [],
+    currentActionId: undefined,
     recognitionsByTaskId,
     actionsByTaskId,
+    actionNodesByTaskId,
   };
 
   for (const event of taskEvents) {
@@ -1339,6 +1377,7 @@ function buildTaskNodes(
     updateNestedRecognitionNode(context, message, details, eventTaskId, event.timestamp);
     updateRecognitionAttempts(context, message, details, eventTaskId, event.timestamp);
     updateActionAttempts(context, message, details, eventTaskId, event.timestamp);
+    updateActionNodes(context, message, details, eventTaskId, event.timestamp);
     updatePipelineNodes(context, message, details, eventTaskId, event.timestamp);
   }
 

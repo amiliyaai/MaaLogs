@@ -10,8 +10,10 @@
  */
 
 import type { AuxLogEntry, EventNotification, ControllerInfo, RecognitionDetail, ActionDetail, NextListItem, RecognitionAttempt } from "./logTypes";
+import type { ProjectType } from "../parsers/baseParser";
 
 export type { AuxLogEntry, EventNotification, ControllerInfo, RecognitionDetail, ActionDetail, NextListItem, RecognitionAttempt };
+export type { ProjectType };
 
 /**
  * 辅助日志解析器信息
@@ -71,6 +73,7 @@ export interface MainLogParseResult {
   events: EventNotification[];
   controllers: ControllerInfo[];
   identifierMap: Map<number, string>;
+  detectedProject?: ProjectType;
 }
 
 /**

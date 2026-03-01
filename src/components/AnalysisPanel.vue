@@ -208,6 +208,7 @@ async function doAIAnalyze() {
  * @property {Function} summarizeNextList - Next 列表摘要函数
  * @property {Function} summarizeNodeDetail - 节点配置摘要函数
  * @property {Function} summarizeFocus - Focus 信息摘要函数
+ * @property {Function} summarizeNestedActionNodes - 嵌套动作节点摘要函数
  * @property {Function} copyJson - JSON 复制函数
  * @property {PipelineCustomActionInfo[]} selectedNodeCustomActions - 选中节点的自定义动作
  * @property {AuxLogEntry[]} selectedTaskAuxLogs - 选中任务的Custom日志
@@ -243,6 +244,7 @@ const props = withDefaults(
     summarizeNextList: (node: NodeInfo) => string;
     summarizeNodeDetail: (node: NodeInfo) => string;
     summarizeFocus: (node: NodeInfo) => string;
+    summarizeNestedActionNodes: (node: NodeInfo) => string;
     copyJson: (data: unknown) => void;
     selectedNodeCustomActions: PipelineCustomActionInfo[];
     selectedTaskAuxLogs: AuxLogEntry[];
@@ -758,25 +760,25 @@ const handleNodeSelect = (nodeId: number) => {
                           </n-button>
                         </div>
                         <div v-if="attempt.reco_details.algorithm" class="attempt-detail-row">
-                          <span class="attempt-label">算法:</span>
+                          <span class="attempt-label">算法：</span>
                           <n-tag size="small" type="info">
                             {{ attempt.reco_details.algorithm }}
                           </n-tag>
                         </div>
                         <div v-if="attempt.reco_details.name" class="attempt-detail-row">
-                          <span class="attempt-label">名称:</span>
+                          <span class="attempt-label">名称：</span>
                           <span>{{ attempt.reco_details.name }}</span>
                         </div>
                         <div v-if="attempt.reco_details.reco_id" class="attempt-detail-row">
-                          <span class="attempt-label">ID:</span>
+                          <span class="attempt-label">ID：</span>
                           <span>{{ attempt.reco_details.reco_id }}</span>
                         </div>
                         <div v-if="attempt.reco_details.box" class="attempt-detail-row">
-                          <span class="attempt-label">位置:</span>
+                          <span class="attempt-label">位置：</span>
                           <span>{{ formatBox(attempt.reco_details.box) }}</span>
                         </div>
                         <div v-if="attempt.reco_details.detail" class="attempt-detail-row">
-                          <span class="attempt-label">结果:</span>
+                          <span class="attempt-label">结果：</span>
                           <n-code
                             :code="JSON.stringify(attempt.reco_details.detail, null, 2)"
                             language="json"
@@ -857,6 +859,90 @@ const handleNodeSelect = (nodeId: number) => {
                   >
                     {{ formatNextName(item) }}
                   </n-tag>
+                </div>
+              </n-collapse-item>
+              <!-- 嵌套动作节点 -->
+              <n-collapse-item name="nested-action-nodes">
+                <template #header>
+                  <div class="collapse-header">
+                    <span>嵌套动作节点</span>
+                    <span class="collapse-summary">{{
+                      summarizeNestedActionNodes(selectedNode)
+                    }}</span>
+                  </div>
+                </template>
+                <div v-if="(selectedNode.nested_action_nodes || []).length === 0" class="empty">
+                  无嵌套动作节点
+                </div>
+                <div v-else class="nested-action-nodes">
+                  <n-collapse>
+                    <n-collapse-item
+                      v-for="(nested, nestedIdx) in selectedNode.nested_action_nodes"
+                      :key="`${selectedNode.node_id}-nested-action-${nestedIdx}`"
+                      :name="`nested-action-${nestedIdx}`"
+                    >
+                      <template #header>
+                        <span>{{ nested.name || 'NestedAction' }}</span>
+                      </template>
+                      <template #header-extra>
+                        <n-tag
+                          :type="nested.status === 'success' ? 'success' : 'error'"
+                          size="tiny"
+                        >
+                          {{ formatResultStatus(nested.status) }}
+                        </n-tag>
+                      </template>
+                      <div v-if="nested.action_details" class="attempt-details">
+                        <div v-if="nested.action_details.action" class="attempt-detail-row">
+                          <span class="attempt-label">动作：</span>
+                          <n-tag size="small" type="info">
+                            {{ nested.action_details.action }}
+                          </n-tag>
+                        </div>
+                        <div v-if="nested.action_details.box" class="attempt-detail-row">
+                          <span class="attempt-label">区域:</span>
+                          <span>{{ formatBox(nested.action_details.box) }}</span>
+                        </div>
+                      </div>
+                      <div v-if="(nested.actions || []).length > 1" class="nested-attempts">
+                        <div class="nested-title">
+                          <n-tag type="info" size="small"
+                            >子动作 ({{ nested.actions?.length }})</n-tag
+                          >
+                        </div>
+                        <n-collapse>
+                          <n-collapse-item
+                            v-for="(action, actionIdx) in nested.actions"
+                            :key="`nested-action-${nestedIdx}-action-${actionIdx}`"
+                            :title="action.name || 'Action'"
+                            :name="`action-${actionIdx}`"
+                          >
+                            <template #header-extra>
+                              <n-tag
+                                :type="action.status === 'success' ? 'success' : 'error'"
+                                size="tiny"
+                              >
+                                {{ formatResultStatus(action.status) }}
+                              </n-tag>
+                            </template>
+                            <div v-if="action.action_details" class="attempt-details">
+                              <div v-if="action.action_details.action" class="attempt-detail-row">
+                                <span class="attempt-label">动作:</span>
+                                <n-tag size="small" type="info">
+                                  {{ action.action_details.action }}
+                                </n-tag>
+                              </div>
+                              <div v-if="action.action_details.box" class="attempt-detail-row">
+                                <span class="attempt-label">区域:</span>
+                                <span>{{ formatBox(action.action_details.box) }}</span>
+                              </div>
+                            </div>
+                            <div v-else class="empty">无动作详情</div>
+                          </n-collapse-item>
+                        </n-collapse>
+                      </div>
+                    </n-collapse-item>
+                  </n-collapse>
                 </div>
               </n-collapse-item>
               <!-- 节点配置 -->

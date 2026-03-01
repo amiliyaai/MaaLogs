@@ -100,6 +100,18 @@ class ProjectParserRegistry {
   }
 
   /**
+   * 获取默认项目解析器
+   *
+   * 返回优先级最高的启用解析器，用于 maa.log 的统一解析。
+   *
+   * @returns {ProjectParser | null} 项目解析器实例或 null
+   */
+  public getDefault(): ProjectParser | null {
+    const registration = this.parsers.find((r) => r.enabled);
+    return registration?.parser || null;
+  }
+
+  /**
    * 获取所有已注册的项目解析器
    *
    * @returns {ProjectParserRegistration[]} 项目解析器注册信息列表

@@ -310,6 +310,7 @@ export type NodeInfo = {
   next_list: NextListItem[];
   recognition_attempts: RecognitionAttempt[];
   nested_recognition_in_action?: RecognitionAttempt[];
+  nested_action_nodes?: NestedActionNode[];
   node_details?: {
     action_id: number;
     completed: boolean;
@@ -317,6 +318,27 @@ export type NodeInfo = {
     node_id: number;
     reco_id: number;
   };
+};
+
+/**
+ * 嵌套动作节点
+ *
+ * 在 Custom Action 中通过 context.run_action() 执行的子节点。
+ *
+ * @property {number} node_id - 节点唯一标识符
+ * @property {string} name - 节点名称
+ * @property {string} timestamp - 节点执行时间戳
+ * @property {'success' | 'failed'} status - 节点执行状态
+ * @property {ActionDetail} [action_details] - 动作详细信息
+ * @property {ActionAttempt[]} [actions] - 节点内的动作尝试
+ */
+export type NestedActionNode = {
+  node_id: number;
+  name: string;
+  timestamp: string;
+  status: "success" | "failed";
+  action_details?: ActionDetail;
+  actions?: ActionAttempt[];
 };
 
 /**

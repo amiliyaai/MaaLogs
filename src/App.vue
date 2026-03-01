@@ -84,6 +84,7 @@ import {
   summarizeNextList,
   summarizeNodeDetail,
   summarizeFocus,
+  summarizeNestedActionNodes,
   splitMatch,
 } from "./utils/format";
 import { extractCustomActionFromActionDetails } from "./utils/parse";
@@ -184,8 +185,6 @@ const {
   tasks,
   rawLines,
   auxLogs,
-  selectedParserId,
-  parserOptions,
   selectedProcessId,
   selectedThreadId,
   processOptions,
@@ -194,6 +193,11 @@ const {
   handleParse,
   resetParseState,
 } = logParser;
+
+// @ts-expect-error Debug only
+window.__tasks__ = tasks;
+// @ts-expect-error Debug only  
+window.__tasksValue__ = () => tasks.value;
 
 /**
  * 文件选择器
@@ -636,15 +640,12 @@ onBeforeUnmount(() => {
             :status-message="statusMessage"
             :is-dragging="isDragging"
             :format-size="formatSize"
-            :parser-options="parserOptions"
-            :selected-parser-id="selectedParserId"
             @file-change="handleFileChange"
             @parse="handleParse"
             @drag-over="handleDragOver"
             @drag-enter="handleDragOver"
             @drag-leave="handleDragLeave"
             @drop="handleDrop"
-            @update:selected-parser-id="selectedParserId = $event"
           />
 
           <div class="main-content">
@@ -684,6 +685,7 @@ onBeforeUnmount(() => {
               :summarize-next-list="summarizeNextList"
               :summarize-node-detail="summarizeNodeDetail"
               :summarize-focus="summarizeFocus"
+              :summarize-nested-action-nodes="summarizeNestedActionNodes"
               :copy-json="copyJson"
               :selected-node-custom-actions="selectedNodeCustomActions"
               :selected-task-aux-logs="selectedTaskAuxLogs"

@@ -1,12 +1,11 @@
 /**
  * @fileoverview MaaEnd 项目解析器
  *
- * 本文件实现了 MaaEnd 项目 (https://github.com/MaaEnd/MaaEnd) 的完整日志解析逻辑。
+ * 本文件实现了 MaaEnd 项目 (https://github.com/MaaEnd/MaaEnd) 的日志解析逻辑。
  * MaaEnd 使用 MaaFramework 的标准日志格式。
  *
- * 支持的日志格式：
- * - maa.log: 方括号格式，事件通知使用 !!!OnEventNotify!!!
- * - go-service 日志: JSON 格式或文本格式
+ * maa.log 解析：使用 baseParser 共享逻辑
+ * go-service 日志：JSON 格式或文本格式
  *
  * @module parsers/projects/maaend
  * @author MaaLogs Team
@@ -14,8 +13,6 @@
  */
 
 import type {
-  EventNotification,
-  ControllerInfo,
   AuxLogEntry,
   ProjectParser,
   MainLogParseResult,
@@ -24,19 +21,18 @@ import type {
   AuxLogParserInfo,
 } from "../../types/parserTypes";
 import type { JsonValue } from "../../types/logTypes";
-import {
-  parseBracketLine,
-  extractIdentifier,
-  createEventNotification,
-  parseControllerInfo,
-} from "../shared";
+import { parseMainLogBase } from "../baseParser";
 
-function isRecordJsonValue(value: JsonValue | undefined): value is Record<string, JsonValue> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function asString(value: JsonValue | undefined): string | undefined {
-  return typeof value === "string" ? value : undefined;
+interface JsonLogEntry {
+  time?: string;
+  level?: string;
+  msg?: string;
+  message?: string;
+  identifier?: string;
+  task_id?: number;
+  entry?: string;
+  caller?: string;
+  [key: string]: unknown;
 }
 
 function toJsonValue(value: unknown): JsonValue {
@@ -56,51 +52,6 @@ function toJsonValue(value: unknown): JsonValue {
   return String(value);
 }
 
-/**
- * 从日志行中提取事件通知（MaaEnd 原始格式）
- */
-function parseMaaEndEventNotification(
-  parsed: ReturnType<typeof parseBracketLine>,
-  fileName: string,
-  lineNumber: number
-): EventNotification | null {
-  if (!parsed) return null;
-
-  const { message, params } = parsed;
-
-  if (!message.includes("!!!OnEventNotify!!!")) return null;
-
-  const msg = asString(params["msg"]);
-  const detailsValue = params["details"];
-  if (!msg) return null;
-
-  return createEventNotification(
-    parsed,
-    fileName,
-    lineNumber,
-    msg,
-    isRecordJsonValue(detailsValue) ? detailsValue : {}
-  );
-}
-
-/**
- * JSON 日志条目结构
- */
-interface JsonLogEntry {
-  time?: string;
-  level?: string;
-  msg?: string;
-  message?: string;
-  identifier?: string;
-  task_id?: number;
-  entry?: string;
-  caller?: string;
-  [key: string]: unknown;
-}
-
-/**
- * 解析 JSON 格式的日志行
- */
 function parseJsonLine(line: string, lineNumber: number, fileName: string): AuxLogEntry | null {
   if (!line.startsWith("{")) return null;
 
@@ -160,9 +111,6 @@ function parseJsonLine(line: string, lineNumber: number, fileName: string): AuxL
   }
 }
 
-/**
- * 解析文本格式的日志行
- */
 function parseTextLine(line: string, lineNumber: number, fileName: string): AuxLogEntry | null {
   const timestampRegex =
     /^(?:\[)?(\d{4}[-/]\d{2}[-/]\d{2}[T\s]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z)?)(?:\])?\s*/;
@@ -199,9 +147,6 @@ function parseTextLine(line: string, lineNumber: number, fileName: string): AuxL
   };
 }
 
-/**
- * 解析单行辅助日志
- */
 function parseAuxLine(line: string, lineNumber: number, fileName: string): AuxLogEntry | null {
   if (line.trim().length === 0) return null;
 
@@ -222,74 +167,13 @@ function parseAuxLine(line: string, lineNumber: number, fileName: string): AuxLo
   };
 }
 
-type MainLogContext = {
-  events: EventNotification[];
-  controllers: ControllerInfo[];
-  identifierMap: Map<number, string>;
-  lastIdentifier: string | null;
-};
-
-function createMainLogContext(): MainLogContext {
-  return {
-    events: [],
-    controllers: [],
-    identifierMap: new Map(),
-    lastIdentifier: null,
-  };
-}
-
-function handleMainLogLine(
-  context: MainLogContext,
-  rawLine: string,
-  parsed: ReturnType<typeof parseBracketLine>,
-  fileName: string,
-  lineNumber: number
-): void {
-  const event = parseMaaEndEventNotification(parsed, fileName, lineNumber);
-  if (event) {
-    context.events.push(event);
-    updateIdentifier(context, rawLine);
-    if (context.lastIdentifier) {
-      context.identifierMap.set(context.events.length - 1, context.lastIdentifier);
-    }
-    return;
-  }
-  updateIdentifier(context, rawLine);
-  if (parsed) {
-    const controller = parseControllerInfo(parsed, fileName, lineNumber);
-    if (controller) {
-      context.controllers.push(controller);
-    }
-  }
-}
-
-function updateIdentifier(context: MainLogContext, rawLine: string): void {
-  const identifier = extractIdentifier(rawLine);
-  if (identifier) {
-    context.lastIdentifier = identifier;
-  }
-}
-
-/**
- * MaaEnd 项目解析器实例
- */
 export const maaEndProjectParser: ProjectParser = {
   id: "maaend",
   name: "MaaEnd",
   description: "MaaEnd 项目日志解析器",
 
   parseMainLog(lines: string[], config): MainLogParseResult {
-    const context = createMainLogContext();
-
-    for (let i = 0; i < lines.length; i++) {
-      const rawLine = lines[i].trim();
-      if (!rawLine) continue;
-
-      const parsed = parseBracketLine(rawLine);
-      if (!parsed) continue;
-
-      handleMainLogLine(context, rawLine, parsed, config.fileName, i + 1);
-    }
+    const context = parseMainLogBase(lines, config.fileName);
 
     return {
       events: context.events,

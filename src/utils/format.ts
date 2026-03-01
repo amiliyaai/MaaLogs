@@ -336,6 +336,11 @@ export function summarizeFocus(node: NodeInfo): string {
   return node.focus ? "有" : "无";
 }
 
+export function summarizeNestedActionNodes(node: NodeInfo): string {
+  const count = node.nested_action_nodes?.length || 0;
+  return count > 0 ? `${count} 个` : "无";
+}
+
 /**
  * 分割匹配文本
  *

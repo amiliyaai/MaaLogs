@@ -18,6 +18,9 @@ export * from "./project-registry";
 // 导出公共解析工具
 export * from "./shared";
 
+// 导出基础解析器（共享 maa.log 解析逻辑）
+export * from "./baseParser";
+
 // 导出项目解析器实现
 export { m9aProjectParser } from "./projects/m9a";
 export { maaEndProjectParser } from "./projects/maaend";
