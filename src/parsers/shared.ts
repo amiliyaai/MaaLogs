@@ -134,10 +134,11 @@ export function parseValue(value: string): JsonValue {
 /**
  * 解析 ADB 截图方式 bitmask
  */
-export function parseAdbScreencapMethods(bitmask: number): AdbScreencapMethod[] {
+export function parseAdbScreencapMethods(bitmask: number | bigint): AdbScreencapMethod[] {
   const methods: AdbScreencapMethod[] = [];
+  const bigBitmask = typeof bitmask === "bigint" ? bitmask : BigInt(bitmask);
   for (const [bit, name] of Object.entries(ADB_SCREENCAP_METHOD_MAP)) {
-    if ((bitmask & parseInt(bit)) !== 0) {
+    if ((bigBitmask & BigInt(bit)) !== 0n) {
       methods.push(name);
     }
   }
@@ -342,9 +343,14 @@ function parseNumberParam(value: JsonValue, fallback = 0): number {
 
 function parseBigIntParam(value: JsonValue): bigint {
   if (typeof value === "bigint") return value;
-  if (typeof value === "number") return BigInt(value);
-  const parsed = Number(value ?? "");
-  if (!Number.isNaN(parsed)) return BigInt(parsed);
+  if (typeof value === "number") return BigInt(Math.trunc(value));
+  if (typeof value === "string") {
+    try {
+      return BigInt(value);
+    } catch {
+      return 0n;
+    }
+  }
   return 0n;
 }
 
@@ -356,7 +362,7 @@ function parseAdbControllerInfo(
   const { params, timestamp, processId } = parsed;
   const adbPath = params["adb_path"] as string | undefined;
   const address = params["address"] as string | undefined;
-  const screencapMethodsBitmask = parseNumberParam(params["screencap_methods"]);
+  const screencapMethodsBitmask = parseBigIntParam(params["screencap_methods"]);
   const inputMethodsBitmask = parseBigIntParam(params["input_methods"]);
   const config = params["config"] as Record<string, unknown> | undefined;
   const agentPath = params["agent_path"] as string | undefined;

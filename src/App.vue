@@ -703,42 +703,42 @@ onBeforeUnmount(() => {
               @update:selected-aux-levels="selectedAuxLevels = $event"
               @update:hidden-callers="hiddenCallers = $event"
             />
+
+            <!-- 搜索面板 -->
+            <SearchPanel
+              v-if="viewMode === 'search'"
+              :search-text="searchText"
+              :search-case-sensitive="searchCaseSensitive"
+              :search-use-regex="searchUseRegex"
+              :hide-debug-info="hideDebugInfo"
+              :search-max-results="searchMaxResults"
+              :search-results="searchResults"
+              :search-message="searchMessage"
+              :search-history="searchHistory"
+              :has-raw-lines="rawLines.length > 0"
+              :search-item-height="searchItemHeight"
+              :split-match="splitMatch"
+              @update:search-text="searchText = $event"
+              @update:search-case-sensitive="searchCaseSensitive = $event"
+              @update:search-use-regex="searchUseRegex = $event"
+              @update:hide-debug-info="hideDebugInfo = $event"
+              @update:search-max-results="searchMaxResults = $event"
+              @perform-search="doPerformSearch"
+              @clear-history="clearHistory"
+            />
+
+            <!-- 统计面板 -->
+            <StatisticsPanel
+              v-if="viewMode === 'statistics'"
+              :node-statistics="nodeStatistics"
+              :node-summary="nodeSummary"
+              :stat-keyword="statKeyword"
+              :stat-sort="statSort"
+              :format-duration="formatDuration"
+              @update:stat-keyword="statKeyword = $event"
+              @update:stat-sort="statSort = $event"
+            />
           </div>
-
-          <!-- 搜索面板 -->
-          <SearchPanel
-            v-if="viewMode === 'search'"
-            :search-text="searchText"
-            :search-case-sensitive="searchCaseSensitive"
-            :search-use-regex="searchUseRegex"
-            :hide-debug-info="hideDebugInfo"
-            :search-max-results="searchMaxResults"
-            :search-results="searchResults"
-            :search-message="searchMessage"
-            :search-history="searchHistory"
-            :has-raw-lines="rawLines.length > 0"
-            :search-item-height="searchItemHeight"
-            :split-match="splitMatch"
-            @update:search-text="searchText = $event"
-            @update:search-case-sensitive="searchCaseSensitive = $event"
-            @update:search-use-regex="searchUseRegex = $event"
-            @update:hide-debug-info="hideDebugInfo = $event"
-            @update:search-max-results="searchMaxResults = $event"
-            @perform-search="doPerformSearch"
-            @clear-history="clearHistory"
-          />
-
-          <!-- 统计面板 -->
-          <StatisticsPanel
-            v-if="viewMode === 'statistics'"
-            :node-statistics="nodeStatistics"
-            :node-summary="nodeSummary"
-            :stat-keyword="statKeyword"
-            :stat-sort="statSort"
-            :format-duration="formatDuration"
-            @update:stat-keyword="statKeyword = $event"
-            @update:stat-sort="statSort = $event"
-          />
         </div>
       </n-dialog-provider>
     </n-message-provider>
