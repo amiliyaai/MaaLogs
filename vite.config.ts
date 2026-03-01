@@ -11,6 +11,24 @@ export default defineConfig(async () => ({
   test: {
     include: ["src/**/*.{test,spec}.{js,ts}"],
     exclude: ["node_modules", "src-tauri", "vscode"],
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "json", "html", "lcov"],
+      exclude: [
+        "node_modules/**",
+        "src-tauri/**",
+        "vscode/**",
+        "src/**/*.d.ts",
+        "src/main.ts",
+        "src/__tests__/**",
+      ],
+      thresholds: {
+        lines: 40,
+        branches: 25,
+        functions: 40,
+        statements: 40,
+      },
+    },
   },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`

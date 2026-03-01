@@ -19,7 +19,8 @@
     "format:write": "prettier . --write",
     "typecheck": "vue-tsc --noEmit",
     "test": "vitest",
-    "test:run": "vitest run"
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@tauri-apps/api": "~2.0.0",
@@ -48,6 +49,7 @@
     "@typescript-eslint/eslint-plugin": "~8.56.1",
     "@typescript-eslint/parser": "~8.56.1",
     "@vitejs/plugin-vue": "~5.2.1",
+    "@vitest/coverage-v8": "^4.0.18",
     "eslint": "~9.39.3",
     "eslint-config-prettier": "~10.1.0",
     "eslint-plugin-sonarjs": "~4.0.0",

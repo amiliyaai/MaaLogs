@@ -6,22 +6,7 @@ on:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+    uses: ./.github/workflows/check.yml
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
-      - name: Cache node_modules
-        uses: actions/cache@v4
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-npm-${{ hashFiles('package-lock.json') }}-${{ hashFiles('tsconfig.json') }}
-          restore-keys: |
-            ${{ runner.os }}-npm-${{ hashFiles('package-lock.json') }}-
-            ${{ runner.os }}-npm-
-
-      - run: npm ci
-      - run: npm run typecheck
+  test:
+    uses: ./.github/workflows/test.yml
