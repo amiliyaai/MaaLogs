@@ -1,6 +1,8 @@
 <!-- markdownlint-disable MD033 MD041 -->
 <div align="center">
 
+<img src="src-tauri/icons/512x512.png" alt="MaaLogs Logo" width="128">
+
 # MaaLogs
 
 MaaFramework 日志分析利器
@@ -17,7 +19,7 @@ MaaFramework 日志分析利器
   <br/>
   <img alt="license" src="https://img.shields.io/github/license/amiliyaai/MaaLogs">
   <img alt="commit" src="https://img.shields.io/github/commit-activity/m/amiliyaai/MaaLogs?color=%23ff69b4">
-</div>
+</p>
 
 <div align="center">
 
@@ -76,7 +78,7 @@ MaaFramework 日志分析利器
 - **TypeScript** - 类型安全开发
 - **Naive UI** - Vue 3 组件库
 - **Vite** - 快速构建工具
-- **Tauri** - 跨平台桌面应用框架
+- **Tauri 2** - 跨平台桌面应用框架
 
 ## 📁 项目结构
 
@@ -84,82 +86,19 @@ MaaFramework 日志分析利器
 MaaLogs/
 ├── src/                        # 前端源码
 │   ├── components/             # Vue 组件
-│   │   ├── AIResultCard.vue   # AI 分析结果卡片
-│   │   ├── AISettingsModal.vue # AI 设置弹窗
-│   │   ├── AnalysisPanel.vue  # 任务分析面板
-│   │   ├── AppTopBar.vue      # 顶部导航栏
-│   │   ├── ControllerInfoCard.vue # 控制器信息卡片
-│   │   ├── CustomLogPanel.vue # Custom 日志面板
-│   │   ├── FileListPanel.vue  # 文件列表面板
-│   │   ├── HeroPanel.vue      # 文件选择面板
-│   │   ├── SearchPanel.vue    # 搜索面板
-│   │   └── StatisticsPanel.vue # 统计面板
 │   ├── composables/            # Vue Composables
-│   │   ├── index.ts           # 导出入口
-│   │   ├── useFileSelection.ts # 文件选择
-│   │   ├── useLogParser.ts    # 日志解析
-│   │   ├── useSearch.ts       # 搜索功能
-│   │   └── useStatistics.ts   # 统计分析
-│   ├── parsers/               # 日志解析器
-│   │   ├── index.ts           # 解析器注册
-│   │   ├── types.ts           # 类型定义
-│   │   ├── base.ts            # 基础解析器
-│   │   ├── correlate.ts       # 日志关联
-│   │   ├── m9a.ts             # M9A 解析器
-│   │   ├── maaend.ts          # MaaEnd 解析器
-│   │   └── registry.ts        # 注册逻辑
-│   ├── types/                 # TypeScript 类型
-│   │   └── logTypes.ts       # 日志类型定义
-│   ├── utils/                # 工具函数
-│   │   ├── aiAnalyzer.ts      # AI 分析工具
-│   │   ├── file.ts            # 文件处理
-│   │   ├── format.ts          # 格式化工具
-│   │   ├── logger.ts          # 日志记录器
-│   │   └── parse.ts           # 解析工具
-│   ├── App.vue                # 主应用组件
-│   └── main.ts                # 应用入口
-├── src-tauri/                 # Tauri 后端
-│   ├── src/                  # Rust 源码
-│   │   ├── lib.rs            # 库入口
-│   │   └── main.rs            # 主入口
-│   ├── Cargo.toml            # Rust 依赖
-│   ├── tauri.conf.json       # Tauri 配置
-│   └── capabilities/          # 权限配置
-├── vscode/                    # VSCode 插件
-│   ├── src/                  # 插件源码
-│   │   ├── commands/         # 命令
-│   │   ├── providers/        # 提供者
-│   │   ├── types/            # 类型定义
-│   │   ├── utils/            # 工具函数
-│   │   ├── views/            # 视图
-│   │   └── extension.ts      # 插件入口
-│   ├── syntaxes/             # 语法高亮
-│   ├── package.json          # 插件配置
-│   └── .vscodeignore         # 忽略配置
-├── public/                    # 静态资源
-│   └── *.svg                 # 图标资源
-├── index.html                # HTML 模板
-├── package.json              # Node 依赖
-├── vite.config.ts            # Vite 配置
-├── tsconfig.json             # TypeScript 配置
-└── README.md                 # 项目文档
+│   ├── parsers/                # 日志解析器
+│   ├── types/                  # TypeScript 类型
+│   ├── utils/                  # 工具函数
+│   └── config/                 # 应用配置
+├── src-tauri/                  # Tauri 后端
+│   ├── src/                    # Rust 源码
+│   ├── icons/                  # 应用图标
+│   └── tauri.conf.json         # Tauri 配置
+├── vscode/                     # VSCode 插件
+├── public/                     # 静态资源
+└── docs/                       # 文档
 ```
-
-## 🏗️ 架构说明
-
-### 解析器架构
-
-采用可扩展的解析器架构，支持多种日志格式：
-
-- **BaseParser** - 基础解析器类
-- **MaaEndParser** - 解析 MaaEnd 格式日志
-- **M9AParser** - 解析 M9A 格式日志
-
-### 组件设计
-
-- **组件化** - 每个功能模块独立组件
-- **Composables** - 封装可复用逻辑
-- **类型安全** - 完整的 TypeScript 类型定义
 
 ## 🚀 快速开始
 
@@ -171,14 +110,7 @@ MaaLogs/
 ### 安装依赖
 
 ```bash
-# npm
 npm install
-
-# 或 pnpm
-pnpm install
-
-# 或 yarn
-yarn
 ```
 
 ### 开发模式
@@ -194,11 +126,11 @@ npm run dev
 ### 构建发布
 
 ```bash
-# Web 版本
-npm run build
-
 # Tauri 桌面应用
 npm run tauri:build
+
+# Web 版本
+npm run build
 ```
 
 ## 🔗 相关链接
@@ -211,6 +143,8 @@ npm run tauri:build
 
 ## 🔧 开发指南
 
+详细开发指南请参考 [AGENTS.md](AGENTS.md) 和 [docs/developers/](docs/developers/) 目录。
+
 ### 代码规范
 
 - 使用 TypeScript 进行类型安全开发
@@ -220,9 +154,9 @@ npm run tauri:build
 
 ### 添加新的日志解析器
 
-1. 在 `src/parsers/` 目录下创建新的解析器文件
-2. 继承 `BaseParser` 类实现解析逻辑
-3. 在 `registry.ts` 中注册解析器
+1. 在 `src/parsers/projects/` 目录下创建新的解析器文件
+2. 实现 `ProjectParser` 接口
+3. 在 `src/parsers/index.ts` 中导出解析器
 
 ### 添加新的 AI 服务商
 
