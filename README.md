@@ -1,7 +1,7 @@
 <!-- markdownlint-disable MD033 MD041 -->
 <div align="center">
 
-<img src="src-tauri/icons/512x512.png" alt="MaaLogs Logo" width="128">
+<img src="src-tauri/icons/512x512.png" alt="MaaLogs Logo" width="512">
 
 # MaaLogs
 
@@ -31,7 +31,7 @@ MaaFramework 日志分析利器
 
 ### 📊 日志分析
 
-- **多格式支持**：支持解析 `maa.log` 和 `Custom` 格式的日志文件
+- **多格式支持**：支持解析 `maa.log`（MaaFramework版本 ≥ 5.3） 和 `Custom` 格式的日志文件
 - **任务可视化**：以树形结构展示任务执行流程
 - **节点详情**：展示节点状态、识别详情、控制器和动作信息
 - **Custom 日志关联**：自动关联 Custom 日志与对应的任务
@@ -60,10 +60,9 @@ MaaFramework 日志分析利器
 ### 日志分析
 
 1. 选择日志文件（点击按钮或拖拽文件）
-2. 选择解析器（默认 MaaEnd）
-3. 点击"开始解析"
-4. 查看任务列表和节点详情
-5. 选择任务后点击"AI 分析"分析失败原因
+2. 点击"开始解析"
+3. 查看任务列表和节点详情
+4. 选择任务后点击"AI 分析"分析失败原因
 
 ### AI 智能分析
 
