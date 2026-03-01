@@ -1,7 +1,7 @@
 <!-- markdownlint-disable MD033 MD041 -->
 <div align="center">
 
-<img src="src-tauri/icons/512x512.png" alt="MaaLogs Logo" width="512">
+<img src="src-tauri/icons/512x512.png" alt="MaaLogs Logo" width="256">
 
 # MaaLogs
 
