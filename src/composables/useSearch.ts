@@ -163,6 +163,45 @@ export function useSearch(): SearcherResult {
     logger.debug("清空搜索历史");
   }
 
+  function createSearchRegex(
+    pattern: string,
+    caseSensitive: boolean,
+    useRegex: boolean
+  ): { regex: RegExp | null; error?: string } {
+    if (!useRegex) return { regex: null };
+    try {
+      return { regex: new RegExp(pattern, caseSensitive ? "g" : "gi") };
+    } catch {
+      return { regex: null, error: "正则表达式无效" };
+    }
+  }
+
+  function findMatchInLine(
+    displayLine: string,
+    keyword: string,
+    regex: RegExp | null,
+    caseSensitive: boolean
+  ): { start: number; end: number } | null {
+    if (regex) {
+      regex.lastIndex = 0;
+      const match = regex.exec(displayLine);
+      if (match && match.index !== undefined) {
+        return { start: match.index, end: match.index + match[0].length };
+      }
+      return null;
+    }
+    const searchable = caseSensitive ? displayLine : displayLine.toLowerCase();
+    const index = searchable.indexOf(keyword);
+    if (index === -1) return null;
+    return { start: index, end: index + keyword.length };
+  }
+
+  function buildSearchMessage(resultCount: number, maxResults: number): string {
+    if (resultCount === 0) return "未找到匹配结果";
+    if (resultCount >= maxResults) return `找到 ${resultCount} 条结果（已达上限）`;
+    return `找到 ${resultCount} 条结果`;
+  }
+
   /**
    * 执行文本搜索并更新结果列表
    *
@@ -193,17 +232,18 @@ export function useSearch(): SearcherResult {
     }
 
     // 编译正则表达式（如果启用）
-    let regex: RegExp | null = null;
-    if (searchUseRegex.value) {
-      try {
-        regex = new RegExp(searchText.value, searchCaseSensitive.value ? "g" : "gi");
-      } catch {
-        searchResults.value = [];
-        searchMessage.value = "正则表达式无效";
-        logger.error("正则表达式无效", { pattern: searchText.value });
-        return;
-      }
+    const regexResult = createSearchRegex(
+      searchText.value,
+      searchCaseSensitive.value,
+      searchUseRegex.value
+    );
+    if (regexResult.error) {
+      searchResults.value = [];
+      searchMessage.value = regexResult.error;
+      logger.error("正则表达式无效", { pattern: searchText.value });
+      return;
     }
+    const regex = regexResult.regex;
 
     // 执行搜索
     const results: SearchResult[] = [];
@@ -215,40 +255,23 @@ export function useSearch(): SearcherResult {
 
       // 规范化显示行（可能隐藏调试信息）
       const displayLine = normalizeSearchLine(line.line, hideDebugInfo.value);
-      let matchStart = -1;
-      let matchEnd = -1;
-
-      // 执行匹配
-      if (regex) {
-        // 正则表达式匹配
-        regex.lastIndex = 0;
-        const match = regex.exec(displayLine);
-        if (match && match.index !== undefined) {
-          matchStart = match.index;
-          matchEnd = matchStart + match[0].length;
-        }
-      } else {
-        // 普通文本匹配
-        if (searchCaseSensitive.value) {
-          matchStart = displayLine.indexOf(keyword);
-          if (matchStart !== -1) matchEnd = matchStart + keyword.length;
-        } else {
-          const lowerLine = displayLine.toLowerCase();
-          matchStart = lowerLine.indexOf(keyword);
-          if (matchStart !== -1) matchEnd = matchStart + keyword.length;
-        }
-      }
+      const match = findMatchInLine(
+        displayLine,
+        keyword,
+        regex,
+        searchCaseSensitive.value
+      );
 
       // 添加匹配结果
-      if (matchStart !== -1) {
+      if (match) {
         const key = `${line.fileName}-${line.lineNumber}-${results.length}`;
         results.push({
           fileName: line.fileName,
           lineNumber: line.lineNumber,
           line: displayLine,
           rawLine: line.line,
-          matchStart,
-          matchEnd,
+          matchStart: match.start,
+          matchEnd: match.end,
           key,
         });
       }
@@ -256,10 +279,7 @@ export function useSearch(): SearcherResult {
 
     // 更新状态
     searchResults.value = results;
-    searchMessage.value =
-      results.length > 0
-        ? `找到 ${results.length} 条结果${results.length >= searchMaxResults.value ? "（已达上限）" : ""}`
-        : "未找到匹配结果";
+    searchMessage.value = buildSearchMessage(results.length, searchMaxResults.value);
 
     // 添加到搜索历史
     addToHistory(searchText.value);

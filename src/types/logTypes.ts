@@ -69,6 +69,15 @@ export type SelectedFile = {
  *   params: { task_id: 1 }
  * };
  */
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | bigint
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue };
+
 export type LogLine = {
   timestamp: string;
   level: "DBG" | "INF" | "TRC" | "WRN" | "ERR";
@@ -78,7 +87,7 @@ export type LogLine = {
   lineNumber?: string;
   functionName?: string;
   message: string;
-  params: Record<string, any>;
+  params: Record<string, JsonValue>;
   status?: "enter" | "leave";
   duration?: number;
   _lineNumber?: number;
@@ -114,7 +123,7 @@ export type EventNotification = {
   timestamp: string;
   level: string;
   message: string;
-  details: Record<string, any>;
+  details: Record<string, JsonValue>;
   fileName: string;
   processId: string;
   threadId: string;
@@ -166,7 +175,7 @@ export type AuxLogEntry = {
   task_id?: number;
   entry?: string;
   caller?: string;
-  details?: Record<string, any>;
+  details?: Record<string, JsonValue>;
   correlation?: {
     status: "matched" | "unmatched" | "failed";
     reason?: string;
@@ -297,7 +306,7 @@ export type NodeInfo = {
   task_id: number;
   reco_details?: RecognitionDetail;
   action_details?: ActionDetail;
-  focus?: any;
+  focus?: JsonValue;
   next_list: NextListItem[];
   recognition_attempts: RecognitionAttempt[];
   nested_recognition_in_action?: RecognitionAttempt[];
@@ -325,7 +334,7 @@ export type RecognitionDetail = {
   reco_id: number;
   algorithm: string;
   box: [number, number, number, number] | null;
-  detail: any;
+  detail: JsonValue;
   name: string;
 };
 
@@ -345,7 +354,7 @@ export type ActionDetail = {
   action_id: number;
   action: string;
   box: [number, number, number, number];
-  detail: any;
+  detail: JsonValue;
   name: string;
   success: boolean;
 };

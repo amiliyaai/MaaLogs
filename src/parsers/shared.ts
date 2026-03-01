@@ -9,7 +9,15 @@
  * @license MIT
  */
 
-import type { EventNotification, ControllerInfo, AdbScreencapMethod, AdbInputMethod, Win32ScreencapMethod, Win32InputMethod } from "../types/logTypes";
+import type {
+  EventNotification,
+  ControllerInfo,
+  AdbScreencapMethod,
+  AdbInputMethod,
+  Win32ScreencapMethod,
+  Win32InputMethod,
+  JsonValue,
+} from "../types/logTypes";
 
 /**
  * ADB 截图方式 Bitmask 映射
@@ -73,7 +81,7 @@ export interface BracketLineResult {
   lineNumber?: string;
   functionName: string;
   message: string;
-  params: Record<string, unknown>;
+  params: Record<string, JsonValue>;
   status?: "enter" | "leave";
   duration?: number;
 }
@@ -83,7 +91,7 @@ export interface BracketLineResult {
  */
 export interface MessageParseResult {
   message: string;
-  params: Record<string, unknown>;
+  params: Record<string, JsonValue>;
   status?: "enter" | "leave";
   duration?: number;
 }
@@ -91,7 +99,7 @@ export interface MessageParseResult {
 /**
  * 解析值类型
  */
-export function parseValue(value: string): unknown {
+export function parseValue(value: string): JsonValue {
   if (value.startsWith("{") || value.startsWith("[")) {
     try {
       return JSON.parse(value);
@@ -167,14 +175,27 @@ export function parseWin32InputMethod(value: number): Win32InputMethod {
 /**
  * 解析方括号格式的日志行
  */
-export function parseBracketLine(line: string): BracketLineResult | null {
-  const regex =
-    /^\[([^\]]+)\]\[([^\]]+)\]\[([^\]]+)\]\[([^\]]+)\](?:\[([^\]]+)\])?(?:\[([^\]]+)\])?(?:\[([^\]]+)\])?\s*([\s\S]*)$/;
-  const match = line.match(regex);
-  if (!match) return null;
+function readBracketSegments(
+  line: string,
+  maxSegments: number
+): { segments: string[]; rest: string } | null {
+  if (!line.startsWith("[")) return null;
+  const segments: string[] = [];
+  let index = 0;
+  while (index < line.length && line[index] === "[" && segments.length < maxSegments) {
+    const end = line.indexOf("]", index + 1);
+    if (end === -1) return null;
+    segments.push(line.slice(index + 1, end));
+    index = end + 1;
+  }
+  return { segments, rest: line.slice(index).trimStart() };
+}
 
-  const [, timestamp, level, processId, threadId, opt1, opt2, opt3, rest] = match;
-
+function resolveSourceAndFunction(
+  opt1?: string,
+  opt2?: string,
+  opt3?: string
+): { sourceFile?: string; lineNumber?: string; functionName: string } {
   let sourceFile: string | undefined;
   let lineNumber: string | undefined;
   let functionName = "";
@@ -201,7 +222,16 @@ export function parseBracketLine(line: string): BracketLineResult | null {
     }
   }
 
-  const parsed = parseMessageAndParams(rest || "");
+  return { sourceFile, lineNumber, functionName };
+}
+
+export function parseBracketLine(line: string): BracketLineResult | null {
+  const bracketResult = readBracketSegments(line, 7);
+  if (!bracketResult || bracketResult.segments.length < 4) return null;
+
+  const [timestamp, level, processId, threadId, opt1, opt2, opt3] = bracketResult.segments;
+  const { sourceFile, lineNumber, functionName } = resolveSourceAndFunction(opt1, opt2, opt3);
+  const parsed = parseMessageAndParams(bracketResult.rest);
 
   return {
     timestamp: timestamp || "",
@@ -221,146 +251,167 @@ export function parseBracketLine(line: string): BracketLineResult | null {
 /**
  * 解析消息和参数
  */
-export function parseMessageAndParams(message: string): MessageParseResult {
-  const params: Record<string, unknown> = {};
-  let status: "enter" | "leave" | undefined;
-  let duration: number | undefined;
-  const extractedParams: string[] = [];
+function readBracketToken(
+  message: string,
+  start: number
+): { token: string; nextIndex: number } | null {
+  let depth = 1;
+  let braceDepth = 0;
+  let index = start + 1;
+  while (index < message.length && (depth > 0 || braceDepth > 0)) {
+    const char = message[index];
+    if (char === "{") {
+      braceDepth += 1;
+    } else if (char === "}") {
+      braceDepth -= 1;
+    } else if (char === "[" && braceDepth === 0) {
+      depth += 1;
+    } else if (char === "]" && braceDepth === 0) {
+      depth -= 1;
+    }
+    index += 1;
+  }
+  if (depth !== 0) return null;
+  return { token: message.substring(start + 1, index - 1), nextIndex: index };
+}
 
-  let i = 0;
-  while (i < message.length) {
-    if (message[i] === "[") {
-      let depth = 1;
-      let braceDepth = 0;
-      let j = i + 1;
-      while (j < message.length && (depth > 0 || braceDepth > 0)) {
-        if (message[j] === "{") {
-          braceDepth++;
-        } else if (message[j] === "}") {
-          braceDepth--;
-        } else if (message[j] === "[" && braceDepth === 0) {
-          depth++;
-        } else if (message[j] === "]" && braceDepth === 0) {
-          depth--;
-        }
-        j++;
-      }
-      if (depth === 0) {
-        const param = message.substring(i + 1, j - 1);
-        extractedParams.push(param);
-        i = j;
-      } else {
-        i++;
-      }
+function collectBracketTokens(message: string): string[] {
+  const tokens: string[] = [];
+  let index = 0;
+  while (index < message.length) {
+    const start = message.indexOf("[", index);
+    if (start === -1) break;
+    const token = readBracketToken(message, start);
+    if (token) {
+      tokens.push(token.token);
+      index = token.nextIndex;
     } else {
-      i++;
+      index = start + 1;
     }
   }
+  return tokens;
+}
 
-  for (const param of extractedParams) {
-    const kvMatch = param.match(/^([^=]+)=(.+)$/);
+function buildParams(tokens: string[]): Record<string, JsonValue> {
+  const params: Record<string, JsonValue> = {};
+  for (const token of tokens) {
+    const kvMatch = token.match(/^([^=]+)=(.+)$/);
     if (kvMatch) {
       const [, key, value] = kvMatch;
       params[key.trim()] = parseValue(value.trim());
     } else {
-      params[param.trim()] = true;
+      params[token.trim()] = true;
     }
   }
+  return params;
+}
 
+function stripTokens(message: string, tokens: string[]): string {
   let cleanMessage = message;
-  for (const param of extractedParams) {
-    cleanMessage = cleanMessage.replace(`[${param}]`, "");
+  for (const token of tokens) {
+    cleanMessage = cleanMessage.replace(`[${token}]`, "");
   }
-  cleanMessage = cleanMessage.trim();
+  return cleanMessage.trim();
+}
 
-  const statusMatch = cleanMessage.match(/\|\s*(enter|leave)(?:,\s*(\d+)ms)?/);
-  if (statusMatch) {
-    status = statusMatch[1] as "enter" | "leave";
-    if (statusMatch[2]) {
-      duration = parseInt(statusMatch[2]);
-    }
-    cleanMessage = cleanMessage.replace(/\|\s*(enter|leave).*$/, "").trim();
-  }
+function parseStatus(message: string): { message: string; status?: "enter" | "leave"; duration?: number } {
+  const statusMatch = message.match(/\|\s*(enter|leave)(?:,\s*(\d+)ms)?/);
+  if (!statusMatch) return { message };
+  const status = statusMatch[1] as "enter" | "leave";
+  const duration = statusMatch[2] ? parseInt(statusMatch[2]) : undefined;
+  const cleaned = message.replace(/\|\s*(enter|leave).*$/, "").trim();
+  return { message: cleaned, status, duration };
+}
 
-  return { message: cleanMessage, params, status, duration };
+export function parseMessageAndParams(message: string): MessageParseResult {
+  const tokens = collectBracketTokens(message);
+  const params = buildParams(tokens);
+  const cleanedMessage = stripTokens(message, tokens);
+  const { message: finalMessage, status, duration } = parseStatus(cleanedMessage);
+  return { message: finalMessage, params, status, duration };
 }
 
 /**
  * 从日志行解析控制器信息
  */
+function parseNumberParam(value: JsonValue, fallback = 0): number {
+  if (typeof value === "number") return value;
+  const parsed = parseInt(String(value ?? ""));
+  return Number.isNaN(parsed) ? fallback : parsed;
+}
+
+function parseBigIntParam(value: JsonValue): bigint {
+  if (typeof value === "bigint") return value;
+  if (typeof value === "number") return BigInt(value);
+  const parsed = Number(value ?? "");
+  if (!Number.isNaN(parsed)) return BigInt(parsed);
+  return 0n;
+}
+
+function parseAdbControllerInfo(
+  parsed: BracketLineResult,
+  fileName: string,
+  lineNumber: number
+): ControllerInfo {
+  const { params, timestamp, processId } = parsed;
+  const adbPath = params["adb_path"] as string | undefined;
+  const address = params["address"] as string | undefined;
+  const screencapMethodsBitmask = parseNumberParam(params["screencap_methods"]);
+  const inputMethodsBitmask = parseBigIntParam(params["input_methods"]);
+  const config = params["config"] as Record<string, unknown> | undefined;
+  const agentPath = params["agent_path"] as string | undefined;
+
+  return {
+    type: "adb",
+    processId,
+    adbPath,
+    address,
+    screencapMethods: parseAdbScreencapMethods(screencapMethodsBitmask),
+    inputMethods: parseAdbInputMethods(inputMethodsBitmask),
+    config,
+    agentPath,
+    timestamp,
+    fileName,
+    lineNumber,
+  };
+}
+
+function parseWin32ControllerInfo(
+  parsed: BracketLineResult,
+  fileName: string,
+  lineNumber: number
+): ControllerInfo {
+  const { params, timestamp, processId } = parsed;
+  const screencapMethodValue = parseNumberParam(params["screencap_method"]);
+  const mouseMethodValue = parseNumberParam(params["mouse_method"]);
+  const keyboardMethodValue = parseNumberParam(params["keyboard_method"]);
+
+  return {
+    type: "win32",
+    processId,
+    screencapMethod: parseWin32ScreencapMethod(screencapMethodValue),
+    mouseMethod: parseWin32InputMethod(mouseMethodValue),
+    keyboardMethod: parseWin32InputMethod(keyboardMethodValue),
+    timestamp,
+    fileName,
+    lineNumber,
+  };
+}
+
 export function parseControllerInfo(
   parsed: BracketLineResult,
   fileName: string,
   lineNumber: number
 ): ControllerInfo | null {
-  const { functionName, params, timestamp, status, processId } = parsed;
+  const { functionName, status } = parsed;
 
-  if (functionName !== "MaaAdbControllerCreate" && functionName !== "MaaWin32ControllerCreate") {
-    return null;
-  }
-
-  if (status !== "enter") {
-    return null;
-  }
-
+  if (status !== "enter") return null;
   if (functionName === "MaaAdbControllerCreate") {
-    const adbPath = params["adb_path"] as string | undefined;
-    const address = params["address"] as string | undefined;
-    const screencapMethodsBitmask =
-      typeof params["screencap_methods"] === "number"
-        ? params["screencap_methods"]
-        : parseInt(String(params["screencap_methods"] || "0"));
-    const inputMethodsValue = params["input_methods"];
-    const inputMethodsBitmask =
-      typeof inputMethodsValue === "bigint"
-        ? inputMethodsValue
-        : typeof inputMethodsValue === "number"
-          ? BigInt(inputMethodsValue)
-          : 0n;
-    const config = params["config"] as Record<string, unknown> | undefined;
-    const agentPath = params["agent_path"] as string | undefined;
-
-    return {
-      type: "adb",
-      processId,
-      adbPath,
-      address,
-      screencapMethods: parseAdbScreencapMethods(screencapMethodsBitmask),
-      inputMethods: parseAdbInputMethods(inputMethodsBitmask),
-      config,
-      agentPath,
-      timestamp,
-      fileName,
-      lineNumber,
-    };
+    return parseAdbControllerInfo(parsed, fileName, lineNumber);
   }
-
   if (functionName === "MaaWin32ControllerCreate") {
-    const screencapMethodValue =
-      typeof params["screencap_method"] === "number"
-        ? params["screencap_method"]
-        : parseInt(String(params["screencap_method"] || "0"));
-    const mouseMethodValue =
-      typeof params["mouse_method"] === "number"
-        ? params["mouse_method"]
-        : parseInt(String(params["mouse_method"] || "0"));
-    const keyboardMethodValue =
-      typeof params["keyboard_method"] === "number"
-        ? params["keyboard_method"]
-        : parseInt(String(params["keyboard_method"] || "0"));
-
-    return {
-      type: "win32",
-      processId,
-      screencapMethod: parseWin32ScreencapMethod(screencapMethodValue),
-      mouseMethod: parseWin32InputMethod(mouseMethodValue),
-      keyboardMethod: parseWin32InputMethod(keyboardMethodValue),
-      timestamp,
-      fileName,
-      lineNumber,
-    };
+    return parseWin32ControllerInfo(parsed, fileName, lineNumber);
   }
-
   return null;
 }
 
@@ -380,7 +431,7 @@ export function createEventNotification(
   fileName: string,
   lineNumber: number,
   msg: string,
-  details: Record<string, unknown>
+  details: Record<string, JsonValue>
 ): EventNotification {
   return {
     timestamp: parsed.timestamp,

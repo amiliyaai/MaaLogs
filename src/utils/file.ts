@@ -16,15 +16,41 @@ import { unzipSync } from "fflate";
 import type { SelectedFile, PipelineCustomActionInfo } from "../types/logTypes";
 import { parsePipelineCustomActions } from "./parse";
 
-/**
- * 支持的日志文件名正则表达式
- *
- * 匹配格式：
- * - maa.log: MaaEnd 项目主日志
- * - go-service.log: MaaEnd 项目辅助日志
- * - YYYY-MM-DD.log: M9A 项目日期格式日志（如 2025-11-16.log）
- */
 const LOG_FILE_PATTERN = /^(?:maa|go-service|\d{4}-\d{2}-\d{2})\.log$/i;
+const MAX_ZIP_ENTRIES = 2000;
+const MAX_ZIP_UNCOMPRESSED_BYTES = 60 * 1024 * 1024;
+const MAX_BROWSER_FILE_BYTES = 80 * 1024 * 1024;
+
+function isSupportedLogOrConfigFile(name: string): boolean {
+  const lower = name.toLowerCase();
+  return lower.endsWith(".log") || lower.endsWith(".json") || lower.endsWith(".jsonc");
+}
+
+function extractZipFiles(
+  zip: Record<string, Uint8Array>,
+  allowEntry: (name: string) => boolean,
+  decoder: TextDecoder
+): File[] {
+  const files: File[] = [];
+  let entryCount = 0;
+  let totalBytes = 0;
+
+  for (const [entryName, data] of Object.entries(zip)) {
+    entryCount++;
+    if (entryCount > MAX_ZIP_ENTRIES) break;
+    if (data instanceof Uint8Array) {
+      totalBytes += data.length;
+      if (totalBytes > MAX_ZIP_UNCOMPRESSED_BYTES) break;
+    }
+    const entryBaseName = getFileNameFromPath(entryName);
+    if (!allowEntry(entryBaseName)) continue;
+
+    const text = decoder.decode(data as Uint8Array);
+    files.push(new File([text], entryBaseName, { type: "text/plain" }));
+  }
+
+  return files;
+}
 
 /**
  * 判断文件名是否为支持的日志文件
@@ -155,10 +181,7 @@ export async function expandSelectedFiles(fileList: File[]): Promise<File[]> {
    * @param {string} name - 文件名
    * @returns {boolean} 是否支持
    */
-  const allowFile = (name: string): boolean => {
-    const lower = name.toLowerCase();
-    return lower.endsWith(".log") || lower.endsWith(".json") || lower.endsWith(".jsonc");
-  };
+  const allowFile = (name: string): boolean => isSupportedLogOrConfigFile(name);
 
   /**
    * 判断 ZIP 条目是否为需要提取的日志文件
@@ -181,14 +204,7 @@ export async function expandSelectedFiles(fileList: File[]): Promise<File[]> {
         const buf = new Uint8Array(await file.arrayBuffer());
         const zip = unzipSync(buf);
         const decoder = new TextDecoder("utf-8");
-
-        for (const [entryName, data] of Object.entries(zip)) {
-          const entryBaseName = getFileNameFromPath(entryName);
-          if (!allowZipEntry(entryBaseName)) continue;
-
-          const text = decoder.decode(data as Uint8Array);
-          outFiles.push(new File([text], entryBaseName, { type: "text/plain" }));
-        }
+        outFiles.push(...extractZipFiles(zip, allowZipEntry, decoder));
       } catch {
         // ZIP 解析失败，跳过此文件
         continue;
@@ -198,6 +214,7 @@ export async function expandSelectedFiles(fileList: File[]): Promise<File[]> {
 
     // 处理普通文件
     if (allowFile(file.name)) {
+      if (file.size > MAX_BROWSER_FILE_BYTES) continue;
       outFiles.push(file);
     }
   }
@@ -235,10 +252,7 @@ export async function applySelectedPaths(paths: string[]): Promise<{
    * @param {string} name - 文件名
    * @returns {boolean} 是否支持
    */
-  const allowFile = (name: string): boolean => {
-    const lower = name.toLowerCase();
-    return lower.endsWith(".log") || lower.endsWith(".json") || lower.endsWith(".jsonc");
-  };
+  const allowFile = (name: string): boolean => isSupportedLogOrConfigFile(name);
 
   /**
    * 判断文件夹中的文件是否为需要提取的日志文件
@@ -260,31 +274,26 @@ export async function applySelectedPaths(paths: string[]): Promise<{
    * @param {string} dirPath - 文件夹路径
    * @returns {Promise<boolean>} 是否成功读取文件夹
    */
+  async function walkDir(current: string): Promise<void> {
+    const entries = await readDir(current);
+    for (const entry of entries) {
+      if (entry.isDirectory) {
+        const next = await join(current, entry.name);
+        await walkDir(next);
+      } else if (entry.isFile && allowDirectoryFile(entry.name)) {
+        const filePath = await join(current, entry.name);
+        const text = await readTextFile(filePath);
+        outFiles.push(new File([text], entry.name, { type: "text/plain" }));
+      }
+    }
+  }
+
   async function collectDir(dirPath: string): Promise<boolean> {
     try {
-      const rootEntries = await readDir(dirPath);
+      await readDir(dirPath);
       hasDirectory = true;
-
-      /**
-       * 递归遍历文件夹
-       * @param {string} current - 当前路径
-       */
-      async function walk(current: string): Promise<void> {
-        const entries = await readDir(current);
-        for (const entry of entries) {
-          if (entry.isDirectory) {
-            const next = await join(current, entry.name);
-            await walk(next);
-          } else if (entry.isFile && allowDirectoryFile(entry.name)) {
-            const filePath = await join(current, entry.name);
-            const text = await readTextFile(filePath);
-            outFiles.push(new File([text], entry.name, { type: "text/plain" }));
-          }
-        }
-      }
-
-      await walk(dirPath);
-      return rootEntries.length >= 0;
+      await walkDir(dirPath);
+      return true;
     } catch (error) {
       if (error) errors.push(String(error));
       return false;
@@ -295,47 +304,46 @@ export async function applySelectedPaths(paths: string[]): Promise<{
    * 处理单个文件路径
    * @param {string} filePath - 文件路径
    */
-  async function collectFile(filePath: string): Promise<void> {
+  async function collectZipFile(filePath: string): Promise<boolean> {
     const name = getFileNameFromPath(filePath);
+    if (!name.toLowerCase().endsWith(".zip")) return false;
+    try {
+      const buf = await readFile(filePath);
+      const zip = unzipSync(buf);
+      outFiles.push(...extractZipFiles(zip, allowDirectoryFile, decoder));
+      return true;
+    } catch (error) {
+      if (error) errors.push(String(error));
+      return true;
+    }
+  }
 
-    // 处理 ZIP 文件
-    if (name.toLowerCase().endsWith(".zip")) {
+  async function collectPlainFile(filePath: string): Promise<boolean> {
+    const name = getFileNameFromPath(filePath);
+    if (!allowFile(name)) return false;
+    try {
+      const text = await readTextFile(filePath);
+      outFiles.push(new File([text], name, { type: "text/plain" }));
+      return true;
+    } catch (error) {
+      if (error) errors.push(String(error));
       try {
-        const buf = await readFile(filePath);
-        const zip = unzipSync(buf);
-        for (const [entryName, data] of Object.entries(zip)) {
-          const entryBaseName = getFileNameFromPath(entryName);
-          if (!allowDirectoryFile(entryBaseName)) continue;
-
-          const text = decoder.decode(data as Uint8Array);
-          outFiles.push(new File([text], entryBaseName, { type: "text/plain" }));
-        }
-        return;
-      } catch (error) {
-        if (error) errors.push(String(error));
+        const url = convertFileSrc(filePath);
+        const response = await fetch(url);
+        const blob = await response.blob();
+        outFiles.push(new File([blob], name, { type: "text/plain" }));
+        return true;
+      } catch (fallbackError) {
+        if (fallbackError) errors.push(String(fallbackError));
+        return false;
       }
     }
+  }
 
-    // 处理普通文件
-    if (allowFile(name)) {
-      try {
-        const text = await readTextFile(filePath);
-        outFiles.push(new File([text], name, { type: "text/plain" }));
-        return;
-      } catch (error) {
-        if (error) errors.push(String(error));
-        // 尝试使用 convertFileSrc 作为后备方案
-        try {
-          const url = convertFileSrc(filePath);
-          const response = await fetch(url);
-          const blob = await response.blob();
-          outFiles.push(new File([blob], name, { type: "text/plain" }));
-          return;
-        } catch (fallbackError) {
-          if (fallbackError) errors.push(String(fallbackError));
-        }
-      }
-    }
+  async function collectFile(filePath: string): Promise<void> {
+    const handledZip = await collectZipFile(filePath);
+    if (handledZip) return;
+    await collectPlainFile(filePath);
   }
 
   for (const p of paths) {

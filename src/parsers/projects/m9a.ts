@@ -27,6 +27,7 @@ import type {
   AuxLogParseResult,
   AuxLogParserInfo,
 } from "../../types/parserTypes";
+import type { JsonValue } from "../../types/logTypes";
 import {
   parseBracketLine,
   extractIdentifier,
@@ -34,17 +35,17 @@ import {
   parseControllerInfo,
 } from "../shared";
 
+function isRecordJsonValue(value: JsonValue | undefined): value is Record<string, JsonValue> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 /**
  * 解析单行 M9A custom 日志
  */
 function parseM9aCustomLine(line: string, lineNumber: number, fileName: string): AuxLogEntry | null {
-  const regex =
-    /^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3})\s*\|\s*(\w+)\s*\|\s*([^|]+)\s*\|\s*(.*)$/;
-  const match = line.match(regex);
-
-  if (!match) return null;
-
-  const [, timestamp, level, caller, message] = match;
+  const parts = splitCustomLine(line);
+  if (!parts) return null;
+  const { timestamp, level, caller, message } = parts;
 
   const callerParts = caller.trim().split(":");
   const callerInfo = callerParts.length >= 2 ? caller.trim() : undefined;
@@ -76,6 +77,23 @@ function parseM9aCustomLine(line: string, lineNumber: number, fileName: string):
   };
 }
 
+function splitCustomLine(
+  line: string
+): { timestamp: string; level: string; caller: string; message: string } | null {
+  const first = line.indexOf("|");
+  if (first === -1) return null;
+  const second = line.indexOf("|", first + 1);
+  if (second === -1) return null;
+  const third = line.indexOf("|", second + 1);
+  if (third === -1) return null;
+  const timestamp = line.slice(0, first).trim();
+  const level = line.slice(first + 1, second).trim();
+  const caller = line.slice(second + 1, third).trim();
+  const message = line.slice(third + 1).trim();
+  if (!timestamp || !level || !caller) return null;
+  return { timestamp, level, caller, message };
+}
+
 /**
  * 从日志行中提取事件通知
  */
@@ -85,30 +103,24 @@ function parseM9aEventNotification(
   lineNumber: number
 ): EventNotification | null {
   if (!parsed) return null;
+  const taskerEvent = getTaskerEvent(parsed);
+  if (!taskerEvent) return null;
+  return createEventNotification(parsed, fileName, lineNumber, taskerEvent.msg, taskerEvent.details);
+}
 
+function getTaskerEvent(
+  parsed: ReturnType<typeof parseBracketLine>
+): { msg: string; details: Record<string, JsonValue> } | null {
+  if (!parsed) return null;
   const { params, functionName } = parsed;
-
-  if (functionName === "MaaNS::MessageNotifier::notify") {
-    const msg = params["msg"];
-    const details = params["details"] as Record<string, unknown> | undefined;
-
-    if (!msg || typeof msg !== "string") return null;
-
-    if (msg.startsWith("Tasker.")) {
-      const entry = details?.entry as string | undefined;
-      if (entry && !entry.startsWith("MaaNS::")) {
-        return createEventNotification(
-          parsed,
-          fileName,
-          lineNumber,
-          msg,
-          details || {}
-        );
-      }
-    }
-  }
-
-  return null;
+  if (functionName !== "MaaNS::MessageNotifier::notify") return null;
+  const msg = typeof params["msg"] === "string" ? params["msg"] : undefined;
+  if (!msg || !msg.startsWith("Tasker.")) return null;
+  const detailsValue = params["details"];
+  const details = isRecordJsonValue(detailsValue) ? detailsValue : undefined;
+  const entry = typeof details?.entry === "string" ? details.entry : undefined;
+  if (!entry || entry.startsWith("MaaNS::")) return null;
+  return { msg, details: details || {} };
 }
 
 /**
@@ -143,7 +155,7 @@ interface RecognitionCache {
   reco_id: number;
   algorithm: string;
   box: [number, number, number, number] | null;
-  detail: unknown;
+  detail: JsonValue;
   timestamp: string;
 }
 
@@ -190,10 +202,10 @@ function parseOCRerAnalyze(
 
   const bestResult = params["best_result_"];
   let box: [number, number, number, number] | null = null;
-  let detail: unknown = null;
+  let detail: JsonValue = null;
 
-  if (bestResult && typeof bestResult === "object" && bestResult !== null && !Array.isArray(bestResult)) {
-    const resultObj = bestResult as Record<string, unknown>;
+  if (bestResult && typeof bestResult === "object" && !Array.isArray(bestResult)) {
+    const resultObj = bestResult as Record<string, JsonValue>;
     box = parseBoxArray(resultObj.box);
     detail = bestResult;
   }
@@ -231,10 +243,10 @@ function parseTemplateMatcherAnalyze(
 
   const bestResult = params["best_result_"];
   let box: [number, number, number, number] | null = null;
-  let detail: unknown = null;
+  let detail: JsonValue = null;
 
-  if (bestResult && typeof bestResult === "object" && bestResult !== null && !Array.isArray(bestResult)) {
-    const resultObj = bestResult as Record<string, unknown>;
+  if (bestResult && typeof bestResult === "object" && !Array.isArray(bestResult)) {
+    const resultObj = bestResult as Record<string, JsonValue>;
     box = parseBoxArray(resultObj.box);
     detail = bestResult;
   }
@@ -272,10 +284,10 @@ function parseCustomRecognitionAnalyze(
 
   const bestResult = params["best_result_"];
   let box: [number, number, number, number] | null = null;
-  let detail: unknown = null;
+  let detail: JsonValue = null;
 
-  if (bestResult && typeof bestResult === "object" && bestResult !== null && !Array.isArray(bestResult)) {
-    const resultObj = bestResult as Record<string, unknown>;
+  if (bestResult && typeof bestResult === "object" && !Array.isArray(bestResult)) {
+    const resultObj = bestResult as Record<string, JsonValue>;
     box = parseBoxArray(resultObj.box);
     detail = bestResult;
   }
@@ -314,7 +326,9 @@ function parseRecognitionAttempt(
 
   let name: string;
   if (isCustom) {
-    name = params["name_"] as string;
+    const nameValue = params["name_"];
+    if (typeof nameValue !== "string") return null;
+    name = nameValue;
   } else {
     name = message.trim().split(/\s+/)[0];
   }
@@ -378,7 +392,7 @@ function parseNodeHitLine(
     reco_id: cachedReco?.reco_id || newCounter,
   };
 
-  const details: Record<string, unknown> = {
+  const details: Record<string, JsonValue> = {
     name: nodeName,
     node_id: newCounter,
     task_id: currentTaskId,
@@ -586,8 +600,7 @@ function parseActuatorSleep(
   if (!functionName?.includes("Actuator::sleep")) return null;
   if (status === "leave") return null;
 
-  const match = message.match(/(\d+)ms/);
-  const duration = match ? parseInt(match[1]) : 0;
+  const duration = parseDurationMs(message);
 
   return {
     action_id: actionId,
@@ -599,6 +612,19 @@ function parseActuatorSleep(
     name: "Sleep",
     success: true,
   };
+}
+
+function parseDurationMs(message: string): number {
+  const msIndex = message.indexOf("ms");
+  if (msIndex === -1) return 0;
+  let index = msIndex - 1;
+  let digits = "";
+  while (index >= 0 && message[index] >= "0" && message[index] <= "9") {
+    digits = message[index] + digits;
+    index -= 1;
+  }
+  if (!digits) return 0;
+  return parseInt(digits);
 }
 
 /**
@@ -630,7 +656,7 @@ function parseCustomActionRun(
   if (status === "enter") {
     const rect = parseBoxString(rectStr);
 
-    const details: Record<string, unknown> = {
+    const details: Record<string, JsonValue> = {
       name: nodeName,
       action_name: actionName,
       custom_param: customParam === "null" ? null : customParam,
@@ -646,6 +672,536 @@ function parseCustomActionRun(
   return null;
 }
 
+type ParseContext = {
+  events: EventNotification[];
+  controllers: ControllerInfo[];
+  identifierMap: Map<number, string>;
+  lastIdentifier: string | null;
+  taskIdByThread: Map<string, number>;
+  recoCache: Map<string, RecognitionCache>;
+  actionContexts: Map<string, ActionContext>;
+  nodeEventIndexByName: Map<string, number>;
+  pendingRunRecognition: { curNode: string; nextList: NextListItem[] } | null;
+  pendingRecognitionAttempts: RecognitionAttempt[];
+  nestedRecognitionContext: NestedRecognitionContext | null;
+  nestedAttemptsByParent: Map<string, RecognitionAttempt[]>;
+  lastParentNodeName: string | null;
+  nodeIdCounter: number;
+  actionIdCounter: number;
+};
+
+function createParseContext(): ParseContext {
+  return {
+    events: [],
+    controllers: [],
+    identifierMap: new Map(),
+    lastIdentifier: null,
+    taskIdByThread: new Map(),
+    recoCache: new Map(),
+    actionContexts: new Map(),
+    nodeEventIndexByName: new Map(),
+    pendingRunRecognition: null,
+    pendingRecognitionAttempts: [],
+    nestedRecognitionContext: null,
+    nestedAttemptsByParent: new Map(),
+    lastParentNodeName: null,
+    nodeIdCounter: 0,
+    actionIdCounter: 0,
+  };
+}
+
+function handleEventNotification(
+  context: ParseContext,
+  parsed: ReturnType<typeof parseBracketLine>,
+  rawLine: string,
+  fileName: string,
+  lineNumber: number
+): boolean {
+  if (!parsed) return false;
+  const event = parseM9aEventNotification(parsed, fileName, lineNumber);
+  if (!event) return false;
+  context.events.push(event);
+
+  const taskId = event.details?.task_id;
+  if (typeof taskId === "number") {
+    context.taskIdByThread.set(parsed.threadId, taskId);
+  }
+
+  const identifier = extractIdentifier(rawLine);
+  if (identifier) {
+    context.lastIdentifier = identifier;
+  }
+  if (context.lastIdentifier) {
+    context.identifierMap.set(context.events.length - 1, context.lastIdentifier);
+  }
+  return true;
+}
+
+function handleRecognitionAnalyze(
+  context: ParseContext,
+  parsed: ReturnType<typeof parseBracketLine>,
+  analyzer: (parsed: ReturnType<typeof parseBracketLine>) => RecognitionCache | null
+): boolean {
+  const reco = analyzer(parsed);
+  if (!reco) return false;
+  context.recoCache.set(reco.name, reco);
+  if (!context.nestedRecognitionContext && context.pendingRunRecognition) {
+    const attempt = parseRecognitionAttempt(parsed, context.recoCache);
+    if (attempt) {
+      context.pendingRecognitionAttempts.push(attempt);
+    }
+  }
+  return true;
+}
+
+function handleCustomRecognitionAnalyze(
+  context: ParseContext,
+  parsed: ReturnType<typeof parseBracketLine>
+): boolean {
+  const customReco = parseCustomRecognitionAnalyze(parsed);
+  if (!customReco) return false;
+  context.recoCache.set(customReco.name, customReco);
+  if (context.pendingRunRecognition) {
+    const attempt = parseRecognitionAttempt(parsed, context.recoCache);
+    if (attempt) {
+      const nestedAttempts = context.nestedAttemptsByParent.get(customReco.name);
+      if (nestedAttempts && nestedAttempts.length > 0) {
+        attempt.nested_nodes = nestedAttempts;
+        context.nestedAttemptsByParent.delete(customReco.name);
+      }
+      context.pendingRecognitionAttempts.push(attempt);
+    }
+  }
+  context.nestedRecognitionContext = null;
+  return true;
+}
+
+function handleCustomRecognitionEnter(
+  context: ParseContext,
+  parsed: ReturnType<typeof parseBracketLine>
+): boolean {
+  if (!parsed || !parsed.functionName?.includes("CustomRecognition::analyze")) return false;
+  const name = parsed.params["name_"] as string;
+  if (name && !parsed.params["best_result_"]) {
+    context.nestedRecognitionContext = {
+      parentRecoName: name,
+      entryNode: "",
+    };
+  }
+  return true;
+}
+
+function handleContextRunRecognition(
+  context: ParseContext,
+  parsed: ReturnType<typeof parseBracketLine>
+): boolean {
+  const contextRunReco = parseContextRunRecognition(parsed);
+  if (!contextRunReco) return false;
+  if (contextRunReco.isEnter) {
+    context.nestedRecognitionContext = {
+      parentRecoName: context.lastParentNodeName || "",
+      entryNode: contextRunReco.entry,
+    };
+  } else {
+    context.nestedRecognitionContext = null;
+  }
+  return true;
+}
+
+function applyPendingRunRecognition(context: ParseContext): void {
+  const pending = context.pendingRunRecognition;
+  if (!pending || context.pendingRecognitionAttempts.length === 0) return;
+  const parentEventIndex = context.nodeEventIndexByName.get(pending.curNode);
+  if (parentEventIndex === undefined) return;
+  const parentEvent = context.events[parentEventIndex];
+  if (!parentEvent?.details) return;
+  if (pending.nextList.length > 0 && !parentEvent.details.next_list) {
+    parentEvent.details.next_list = pending.nextList;
+  }
+  if (!parentEvent.details.recognition_attempts) {
+    parentEvent.details.recognition_attempts = context.pendingRecognitionAttempts.slice();
+  }
+}
+
+function handleRunRecognition(
+  context: ParseContext,
+  parsed: ReturnType<typeof parseBracketLine>
+): boolean {
+  const runRecognition = parseRunRecognition(parsed);
+  if (!runRecognition) return false;
+  if (runRecognition.isEnter) {
+    if (context.nestedRecognitionContext) {
+      context.pendingRunRecognition = null;
+      context.pendingRecognitionAttempts.length = 0;
+    } else {
+      context.pendingRunRecognition = runRecognition;
+      context.pendingRecognitionAttempts.length = 0;
+    }
+  } else if (!context.nestedRecognitionContext) {
+    applyPendingRunRecognition(context);
+    context.pendingRunRecognition = null;
+    context.pendingRecognitionAttempts.length = 0;
+  }
+  return true;
+}
+
+function handleNodeDisabled(
+  context: ParseContext,
+  parsed: ReturnType<typeof parseBracketLine>
+): boolean {
+  if (!parsed) return false;
+  const nodeDisabled = parseNodeDisabled(parsed);
+  if (!nodeDisabled || !context.pendingRunRecognition) return false;
+  context.pendingRecognitionAttempts.push({
+    reco_id: 0,
+    name: nodeDisabled.nodeName,
+    timestamp: parsed.timestamp,
+    status: "disabled",
+  });
+  return true;
+}
+
+function buildRecoDetails(
+  nodeName: string,
+  cachedReco: RecognitionCache
+): RecognitionDetail {
+  return {
+    name: nodeName,
+    reco_id: cachedReco.reco_id,
+    algorithm: cachedReco.algorithm,
+    box: cachedReco.box,
+    detail: cachedReco.detail,
+  };
+}
+
+function buildNestedAttempt(
+  nodeName: string,
+  event: EventNotification,
+  cachedReco: RecognitionCache | null
+): RecognitionAttempt {
+  return {
+    reco_id: cachedReco?.reco_id || 0,
+    name: nodeName || "",
+    timestamp: event.timestamp,
+    status: cachedReco?.box ? "success" : "failed",
+    reco_details: cachedReco ? buildRecoDetails(nodeName, cachedReco) : undefined,
+  };
+}
+
+function ensureParentAttempts(
+  context: ParseContext,
+  parentName: string,
+  parentEvent: EventNotification
+): RecognitionAttempt[] {
+  if (!parentEvent.details) return [];
+  if (!parentEvent.details.recognition_attempts) {
+    const parentCachedReco = context.recoCache.get(parentName);
+    const parentAttempt: Record<string, JsonValue> = {
+      reco_id: parentCachedReco?.reco_id || 0,
+      name: parentName,
+      timestamp: parentEvent.timestamp,
+      status: parentCachedReco?.box ? "success" : "failed",
+    };
+    if (parentCachedReco) {
+      parentAttempt.reco_details = buildRecoDetails(parentName, parentCachedReco);
+    }
+    parentEvent.details.recognition_attempts = [parentAttempt];
+  }
+  return parentEvent.details.recognition_attempts as RecognitionAttempt[];
+}
+
+function attachNestedAttempt(
+  context: ParseContext,
+  nestedAttempt: RecognitionAttempt,
+  parentName: string
+): void {
+  if (tryAttachNestedToParent(context, parentName, nestedAttempt)) return;
+  queueNestedAttempt(context, parentName, nestedAttempt);
+}
+
+function getParentEvent(context: ParseContext, parentName: string): EventNotification | null {
+  if (!parentName) return null;
+  const parentEventIndex = context.nodeEventIndexByName.get(parentName);
+  if (parentEventIndex === undefined) return null;
+  const parentEvent = context.events[parentEventIndex];
+  if (!parentEvent?.details) return null;
+  return parentEvent;
+}
+
+function tryAttachNestedToParent(
+  context: ParseContext,
+  parentName: string,
+  nestedAttempt: RecognitionAttempt
+): boolean {
+  const parentEvent = getParentEvent(context, parentName);
+  if (!parentEvent) return false;
+  const attempts = ensureParentAttempts(context, parentName, parentEvent);
+  const lastAttempt = attempts[attempts.length - 1];
+  if (!lastAttempt) return false;
+  if (!lastAttempt.nested_nodes) {
+    lastAttempt.nested_nodes = [];
+  }
+  lastAttempt.nested_nodes.push(nestedAttempt);
+  return true;
+}
+
+function queueNestedAttempt(
+  context: ParseContext,
+  parentName: string,
+  nestedAttempt: RecognitionAttempt
+): void {
+  if (!context.nestedAttemptsByParent.has(parentName)) {
+    context.nestedAttemptsByParent.set(parentName, []);
+  }
+  context.nestedAttemptsByParent.get(parentName)!.push(nestedAttempt);
+}
+
+function handleNestedNodeHit(
+  context: ParseContext,
+  nodeHitResult: { event: EventNotification; nodeIdCounter: number }
+): void {
+  const nodeName = nodeHitResult.event.details?.name as string;
+  const cachedReco = nodeName ? context.recoCache.get(nodeName) : null;
+  const nestedAttempt = buildNestedAttempt(nodeName || "", nodeHitResult.event, cachedReco || null);
+  const parentName =
+    context.nestedRecognitionContext?.parentRecoName || context.lastParentNodeName || "";
+  attachNestedAttempt(context, nestedAttempt, parentName);
+}
+
+function applyPendingToParent(
+  context: ParseContext,
+  parentName: string,
+  nextList: NextListItem[]
+): void {
+  const parentEventIndex = context.nodeEventIndexByName.get(parentName);
+  if (parentEventIndex === undefined) return;
+  const parentEvent = context.events[parentEventIndex];
+  if (!parentEvent?.details) return;
+  if (nextList.length > 0 && !parentEvent.details.next_list) {
+    parentEvent.details.next_list = nextList;
+  }
+  if (context.pendingRecognitionAttempts.length > 0 && !parentEvent.details.recognition_attempts) {
+    parentEvent.details.recognition_attempts = context.pendingRecognitionAttempts.slice();
+  }
+}
+
+function handleMainNodeHit(
+  context: ParseContext,
+  nodeHitResult: { event: EventNotification; nodeIdCounter: number }
+): void {
+  context.events.push(nodeHitResult.event);
+  const nodeName = nodeHitResult.event.details?.name as string;
+  if (nodeName) {
+    context.nodeEventIndexByName.set(nodeName, context.events.length - 1);
+    context.lastParentNodeName = nodeName;
+  }
+
+  if (context.pendingRunRecognition && nodeHitResult.event.details) {
+    const { curNode, nextList } = context.pendingRunRecognition;
+    const eventDetails = nodeHitResult.event.details;
+    const isDirectHit =
+      nodeName === curNode && nextList.length === 1 && nextList[0].name === curNode;
+
+    if (!isDirectHit) {
+      if (nextList.length > 0) {
+        eventDetails.next_list = nextList;
+      }
+      if (context.pendingRecognitionAttempts.length > 0) {
+        eventDetails.recognition_attempts = context.pendingRecognitionAttempts.slice();
+      }
+    }
+
+    if (nodeName !== curNode) {
+      applyPendingToParent(context, curNode, nextList);
+    }
+    context.pendingRunRecognition = null;
+    context.pendingRecognitionAttempts.length = 0;
+  }
+}
+
+function handleNodeHit(
+  context: ParseContext,
+  parsed: ReturnType<typeof parseBracketLine>,
+  fileName: string,
+  lineNumber: number
+): boolean {
+  if (!parsed) return false;
+  const currentTaskId = context.taskIdByThread.get(parsed.threadId) || 0;
+  const nodeHitResult = parseNodeHitLine(
+    parsed,
+    fileName,
+    lineNumber,
+    currentTaskId,
+    context.recoCache,
+    context.nodeIdCounter
+  );
+  if (!nodeHitResult) return false;
+  context.nodeIdCounter = nodeHitResult.nodeIdCounter;
+  if (context.nestedRecognitionContext) {
+    handleNestedNodeHit(context, nodeHitResult);
+  } else {
+    handleMainNodeHit(context, nodeHitResult);
+  }
+  return true;
+}
+
+function handleActuatorRun(
+  context: ParseContext,
+  parsed: ReturnType<typeof parseBracketLine>,
+  lineNumber: number
+): boolean {
+  if (!parsed) return false;
+  const actuatorRun = parseActuatorRun(parsed);
+  if (!actuatorRun) return false;
+  const { nodeName, isEnter } = actuatorRun;
+  const processId = parsed.processId;
+
+  if (isEnter && nodeName) {
+    startActionContext(context, processId, nodeName, parsed.timestamp, lineNumber);
+  } else if (!isEnter) {
+    finalizeActionContext(context, processId);
+  }
+  return true;
+}
+
+function startActionContext(
+  context: ParseContext,
+  processId: string,
+  nodeName: string,
+  timestamp: string,
+  lineNumber: number
+): void {
+  context.actionContexts.set(processId, {
+    nodeName,
+    startTime: timestamp,
+    startLineNumber: lineNumber,
+    actions: [],
+  });
+}
+
+function finalizeActionContext(context: ParseContext, processId: string): void {
+  const ctx = context.actionContexts.get(processId);
+  if (!ctx) {
+    context.actionContexts.delete(processId);
+    return;
+  }
+  if (ctx.actions.length > 0) {
+    const eventIndex = context.nodeEventIndexByName.get(ctx.nodeName);
+    if (eventIndex !== undefined && context.events[eventIndex]) {
+      const nodeEvent = context.events[eventIndex];
+      if (nodeEvent.details) {
+        const realActions = ctx.actions.filter((a) => a.action !== "Sleep");
+        if (realActions.length > 0) {
+          nodeEvent.details.action_details = realActions[0];
+        }
+      }
+    }
+  }
+  context.actionContexts.delete(processId);
+}
+
+function parseActionFromParsed(
+  parsed: ReturnType<typeof parseBracketLine>,
+  actionId: number
+): ActionDetail | null {
+  return (
+    parseMtouchHelperClick(parsed, actionId) ||
+    parseMtouchHelperSwipe(parsed, actionId) ||
+    parseActuatorSleep(parsed, actionId)
+  );
+}
+
+function handleActionDetails(
+  context: ParseContext,
+  parsed: ReturnType<typeof parseBracketLine>
+): boolean {
+  if (!parsed) return false;
+  const ctx = context.actionContexts.get(parsed.processId);
+  if (!ctx) return false;
+  const action = parseActionFromParsed(parsed, context.actionIdCounter + 1);
+  if (!action) return false;
+  context.actionIdCounter += 1;
+  ctx.actions.push(action);
+  return true;
+}
+
+function handleCustomAction(
+  context: ParseContext,
+  parsed: ReturnType<typeof parseBracketLine>,
+  fileName: string,
+  lineNumber: number
+): boolean {
+  const customActionResult = parseCustomActionRun(
+    parsed,
+    fileName,
+    lineNumber,
+    context.actionIdCounter
+  );
+  if (!customActionResult) return false;
+  context.actionIdCounter = customActionResult.actionId;
+  context.events.push(customActionResult.event);
+  return true;
+}
+
+function handleIdentifierAndController(
+  context: ParseContext,
+  rawLine: string,
+  parsed: ReturnType<typeof parseBracketLine>,
+  fileName: string,
+  lineNumber: number
+): void {
+  const identifier = extractIdentifier(rawLine);
+  if (identifier) {
+    context.lastIdentifier = identifier;
+  }
+  if (parsed) {
+    const controller = parseControllerInfo(parsed, fileName, lineNumber);
+    if (controller) {
+      context.controllers.push(controller);
+    }
+  }
+}
+
+type LineHandler = (
+  context: ParseContext,
+  parsed: ReturnType<typeof parseBracketLine>,
+  rawLine: string,
+  fileName: string,
+  lineNumber: number
+) => boolean;
+
+const lineHandlers: LineHandler[] = [
+  (context, parsed, rawLine, fileName, lineNumber) =>
+    handleEventNotification(context, parsed, rawLine, fileName, lineNumber),
+  (context, parsed) => handleRecognitionAnalyze(context, parsed, parseOCRerAnalyze),
+  (context, parsed) => handleRecognitionAnalyze(context, parsed, parseTemplateMatcherAnalyze),
+  (context, parsed) => handleCustomRecognitionAnalyze(context, parsed),
+  (context, parsed) => handleCustomRecognitionEnter(context, parsed),
+  (context, parsed) => handleContextRunRecognition(context, parsed),
+  (context, parsed) => handleRunRecognition(context, parsed),
+  (context, parsed) => handleNodeDisabled(context, parsed),
+  (context, parsed, _rawLine, fileName, lineNumber) =>
+    handleNodeHit(context, parsed, fileName, lineNumber),
+  (context, parsed, _rawLine, _fileName, lineNumber) =>
+    handleActuatorRun(context, parsed, lineNumber),
+  (context, parsed) => handleActionDetails(context, parsed),
+  (context, parsed, _rawLine, fileName, lineNumber) =>
+    handleCustomAction(context, parsed, fileName, lineNumber),
+];
+
+function handleLine(
+  context: ParseContext,
+  parsed: ReturnType<typeof parseBracketLine>,
+  rawLine: string,
+  fileName: string,
+  lineNumber: number
+): boolean {
+  for (const handler of lineHandlers) {
+    if (handler(context, parsed, rawLine, fileName, lineNumber)) return true;
+  }
+  return false;
+}
+
 /**
  * M9A 项目解析器实例
  */
@@ -655,370 +1211,25 @@ export const m9aProjectParser: ProjectParser = {
   description: "M9A 项目日志解析器",
 
   parseMainLog(lines: string[], config): MainLogParseResult {
-    let nodeIdCounter = 0;
-    let actionIdCounter = 0;
-
-    const events: EventNotification[] = [];
-    const controllers: ControllerInfo[] = [];
-    const identifierMap = new Map<number, string>();
-    let lastIdentifier: string | null = null;
-
-    const taskIdByThread = new Map<string, number>();
-    const recoCache = new Map<string, RecognitionCache>();
-    const actionContexts = new Map<string, ActionContext>();
-    const nodeEventIndexByName = new Map<string, number>();
-    let pendingRunRecognition: { curNode: string; nextList: NextListItem[] } | null = null;
-    const pendingRecognitionAttempts: RecognitionAttempt[] = [];
-    let nestedRecognitionContext: NestedRecognitionContext | null = null;
-    const nestedAttemptsByParent = new Map<string, RecognitionAttempt[]>();
-    let lastParentNodeName: string | null = null;
+    const context = createParseContext();
 
     for (let i = 0; i < lines.length; i++) {
       const rawLine = lines[i].trim();
       if (!rawLine) continue;
-
       const parsed = parseBracketLine(rawLine);
       if (!parsed) continue;
+      const lineNumber = i + 1;
 
-      const event = parseM9aEventNotification(parsed, config.fileName, i + 1);
-      if (event) {
-        events.push(event);
-
-        const taskId = event.details?.task_id;
-        if (typeof taskId === "number") {
-          taskIdByThread.set(parsed.threadId, taskId);
-        }
-
-        const identifier = extractIdentifier(rawLine);
-        if (identifier) {
-          lastIdentifier = identifier;
-        }
-        if (lastIdentifier) {
-          identifierMap.set(events.length - 1, lastIdentifier);
-        }
-        continue;
-      }
-
-      const ocrReco = parseOCRerAnalyze(parsed);
-      if (ocrReco) {
-        recoCache.set(ocrReco.name, ocrReco);
-        if (nestedRecognitionContext) {
-          // 嵌套识别的 OCRer，不添加到 pendingRecognitionAttempts
-        } else if (pendingRunRecognition) {
-          const attempt = parseRecognitionAttempt(parsed, recoCache);
-          if (attempt) {
-            pendingRecognitionAttempts.push(attempt);
-          }
-        }
-        continue;
-      }
-
-      const templateReco = parseTemplateMatcherAnalyze(parsed);
-      if (templateReco) {
-        recoCache.set(templateReco.name, templateReco);
-        if (nestedRecognitionContext) {
-          // 嵌套识别的 TemplateMatcher，不添加到 pendingRecognitionAttempts
-        } else if (pendingRunRecognition) {
-          const attempt = parseRecognitionAttempt(parsed, recoCache);
-          if (attempt) {
-            pendingRecognitionAttempts.push(attempt);
-          }
-        }
-        continue;
-      }
-
-      const customReco = parseCustomRecognitionAnalyze(parsed);
-      if (customReco) {
-        recoCache.set(customReco.name, customReco);
-        if (pendingRunRecognition) {
-          const attempt = parseRecognitionAttempt(parsed, recoCache);
-          if (attempt) {
-            // 附加嵌套识别结果
-            const nestedAttempts = nestedAttemptsByParent.get(customReco.name);
-            if (nestedAttempts && nestedAttempts.length > 0) {
-              attempt.nested_nodes = nestedAttempts;
-              nestedAttemptsByParent.delete(customReco.name);
-            }
-            pendingRecognitionAttempts.push(attempt);
-          }
-        }
-        // CustomRecognition 返回结果，清除嵌套上下文
-        nestedRecognitionContext = null;
-        continue;
-      }
-
-      // 检测 CustomRecognition::analyze | enter（没有 best_result_ 的行）
-      if (parsed.functionName?.includes("CustomRecognition::analyze")) {
-        const name = parsed.params["name_"] as string;
-        if (name && !parsed.params["best_result_"]) {
-          // 进入 CustomRecognition，设置嵌套上下文
-          nestedRecognitionContext = {
-            parentRecoName: name,
-            entryNode: "",
-          };
-        }
-        continue;
-      }
-
-      const contextRunReco = parseContextRunRecognition(parsed);
-      if (contextRunReco) {
-        if (contextRunReco.isEnter) {
-          nestedRecognitionContext = {
-            parentRecoName: lastParentNodeName || "",
-            entryNode: contextRunReco.entry,
-          };
-        } else {
-          nestedRecognitionContext = null;
-        }
-        continue;
-      }
-
-      const runRecognition = parseRunRecognition(parsed);
-      if (runRecognition) {
-        if (runRecognition.isEnter) {
-          if (nestedRecognitionContext) {
-            // 嵌套识别的 run_recognition，跳过主流程处理
-            pendingRunRecognition = null;
-            pendingRecognitionAttempts.length = 0;
-          } else {
-            pendingRunRecognition = runRecognition;
-            pendingRecognitionAttempts.length = 0;
-          }
-        } else {
-          if (!nestedRecognitionContext) {
-            // run_recognition | leave，但没有 node hit
-            // 需要将 next_list 和 recognition_attempts 设置到父节点上
-            if (pendingRunRecognition && pendingRecognitionAttempts.length > 0) {
-              const { curNode, nextList } = pendingRunRecognition;
-              const parentEventIndex = nodeEventIndexByName.get(curNode);
-              if (parentEventIndex !== undefined && events[parentEventIndex]) {
-                const parentEvent = events[parentEventIndex];
-                if (parentEvent.details) {
-                  if (nextList.length > 0 && !parentEvent.details.next_list) {
-                    parentEvent.details.next_list = nextList;
-                  }
-                  if (!parentEvent.details.recognition_attempts) {
-                    parentEvent.details.recognition_attempts = pendingRecognitionAttempts.slice();
-                  }
-                }
-              }
-            }
-            pendingRunRecognition = null;
-            pendingRecognitionAttempts.length = 0;
-          }
-        }
-        continue;
-      }
-
-      // 处理 node disabled
-      const nodeDisabled = parseNodeDisabled(parsed);
-      if (nodeDisabled && pendingRunRecognition) {
-        // 添加一个 disabled 状态的识别尝试
-        pendingRecognitionAttempts.push({
-          reco_id: 0,
-          name: nodeDisabled.nodeName,
-          timestamp: parsed.timestamp,
-          status: "disabled",
-        });
-        continue;
-      }
-
-      const currentTaskId = taskIdByThread.get(parsed.threadId) || 0;
-
-      const nodeHitResult = parseNodeHitLine(parsed, config.fileName, i + 1, currentTaskId, recoCache, nodeIdCounter);
-      if (nodeHitResult) {
-        nodeIdCounter = nodeHitResult.nodeIdCounter;
-
-        if (nestedRecognitionContext) {
-          // 嵌套识别的 node hit，存储到父节点的 nested_nodes
-          const nodeName = nodeHitResult.event.details?.name as string;
-          const cachedReco = nodeName ? recoCache.get(nodeName) : null;
-          const nestedAttempt: RecognitionAttempt = {
-            reco_id: cachedReco?.reco_id || 0,
-            name: nodeName || "",
-            timestamp: nodeHitResult.event.timestamp,
-            status: cachedReco?.box ? "success" : "failed",
-            reco_details: cachedReco
-              ? {
-                  name: nodeName || "",
-                  reco_id: cachedReco.reco_id,
-                  algorithm: cachedReco.algorithm,
-                  box: cachedReco.box,
-                  detail: cachedReco.detail,
-                }
-              : undefined,
-          };
-
-          // 对于 MaaContextRunRecognition 调用，parentRecoName 为空，使用 lastParentNodeName
-          const parentName = nestedRecognitionContext.parentRecoName || lastParentNodeName || "";
-          if (parentName) {
-            // 直接附加到父节点事件的 recognition_attempts 中最后一个 attempt 的 nested_nodes
-            const parentEventIndex = nodeEventIndexByName.get(parentName);
-            if (parentEventIndex !== undefined && events[parentEventIndex]) {
-              const parentEvent = events[parentEventIndex];
-              if (parentEvent.details) {
-                // 确保 recognition_attempts 存在
-                if (!parentEvent.details.recognition_attempts) {
-                  // 创建一个基于父节点的 attempt
-                  const parentCachedReco = recoCache.get(parentName);
-                  parentEvent.details.recognition_attempts = [{
-                    reco_id: parentCachedReco?.reco_id || 0,
-                    name: parentName,
-                    timestamp: parentEvent.timestamp,
-                    status: parentCachedReco?.box ? "success" : "failed",
-                    reco_details: parentCachedReco
-                      ? {
-                          name: parentName,
-                          reco_id: parentCachedReco.reco_id,
-                          algorithm: parentCachedReco.algorithm,
-                          box: parentCachedReco.box,
-                          detail: parentCachedReco.detail,
-                        }
-                      : undefined,
-                  }];
-                }
-                const attempts = parentEvent.details.recognition_attempts as RecognitionAttempt[];
-                const lastAttempt = attempts[attempts.length - 1];
-                if (lastAttempt) {
-                  if (!lastAttempt.nested_nodes) {
-                    lastAttempt.nested_nodes = [];
-                  }
-                  lastAttempt.nested_nodes.push(nestedAttempt);
-                }
-              }
-            }
-          } else {
-            // 没有父节点名称，存储到 nestedAttemptsByParent
-            if (!nestedAttemptsByParent.has(parentName)) {
-              nestedAttemptsByParent.set(parentName, []);
-            }
-            nestedAttemptsByParent.get(parentName)!.push(nestedAttempt);
-          }
-          continue;
-        }
-
-        events.push(nodeHitResult.event);
-        const nodeName = nodeHitResult.event.details?.name as string;
-        if (nodeName) {
-          nodeEventIndexByName.set(nodeName, events.length - 1);
-          lastParentNodeName = nodeName;
-        }
-
-        if (pendingRunRecognition && nodeHitResult.event.details) {
-          const { curNode, nextList } = pendingRunRecognition;
-          const eventDetails = nodeHitResult.event.details;
-
-          // 如果 nodeName === curNode 且 nextList 只包含自己，这是 direct_hit，跳过设置
-          const isDirectHit = nodeName === curNode && nextList.length === 1 && nextList[0].name === curNode;
-
-          if (!isDirectHit) {
-            // 设置当前节点的 next_list
-            if (nextList.length > 0) {
-              eventDetails.next_list = nextList;
-            }
-
-            // 设置当前节点的 recognition_attempts
-            if (pendingRecognitionAttempts.length > 0) {
-              eventDetails.recognition_attempts = pendingRecognitionAttempts.slice();
-            }
-          }
-
-          // 如果 nodeName !== curNode，也需要更新父节点的信息
-          if (nodeName !== curNode) {
-            const parentEventIndex = nodeEventIndexByName.get(curNode);
-            if (parentEventIndex !== undefined && events[parentEventIndex]) {
-              const parentEvent = events[parentEventIndex];
-              if (parentEvent.details) {
-                if (nextList.length > 0 && !parentEvent.details.next_list) {
-                  parentEvent.details.next_list = nextList;
-                }
-                if (pendingRecognitionAttempts.length > 0 && !parentEvent.details.recognition_attempts) {
-                  parentEvent.details.recognition_attempts = pendingRecognitionAttempts.slice();
-                }
-              }
-            }
-          }
-          pendingRunRecognition = null;
-          pendingRecognitionAttempts.length = 0;
-        }
-
-        continue;
-      }
-
-      const actuatorRun = parseActuatorRun(parsed);
-      if (actuatorRun) {
-        const { nodeName, isEnter } = actuatorRun;
-        const processId = parsed.processId;
-
-        if (isEnter && nodeName) {
-          actionContexts.set(processId, {
-            nodeName,
-            startTime: parsed.timestamp,
-            startLineNumber: i + 1,
-            actions: [],
-          });
-        } else if (!isEnter) {
-          const ctx = actionContexts.get(processId);
-          if (ctx && ctx.actions.length > 0) {
-            const eventIndex = nodeEventIndexByName.get(ctx.nodeName);
-            if (eventIndex !== undefined && events[eventIndex]) {
-              const nodeEvent = events[eventIndex];
-              if (nodeEvent.details) {
-                const realActions = ctx.actions.filter((a) => a.action !== "Sleep");
-                if (realActions.length > 0) {
-                  nodeEvent.details.action_details = realActions[0];
-                }
-              }
-            }
-          }
-          actionContexts.delete(processId);
-        }
-        continue;
-      }
-
-      const ctx = actionContexts.get(parsed.processId);
-      if (ctx) {
-        const clickAction = parseMtouchHelperClick(parsed, actionIdCounter + 1);
-        if (clickAction) {
-          actionIdCounter++;
-          ctx.actions.push(clickAction);
-          continue;
-        }
-
-        const swipeAction = parseMtouchHelperSwipe(parsed, actionIdCounter + 1);
-        if (swipeAction) {
-          actionIdCounter++;
-          ctx.actions.push(swipeAction);
-          continue;
-        }
-
-        const sleepAction = parseActuatorSleep(parsed, actionIdCounter + 1);
-        if (sleepAction) {
-          actionIdCounter++;
-          ctx.actions.push(sleepAction);
-          continue;
-        }
-      }
-
-      const customActionResult = parseCustomActionRun(parsed, config.fileName, i + 1, actionIdCounter);
-      if (customActionResult) {
-        actionIdCounter = customActionResult.actionId;
-        events.push(customActionResult.event);
-        continue;
-      }
-
-      const identifier = extractIdentifier(rawLine);
-      if (identifier) {
-        lastIdentifier = identifier;
-      }
-
-      const controller = parseControllerInfo(parsed, config.fileName, i + 1);
-      if (controller) {
-        controllers.push(controller);
+      if (!handleLine(context, parsed, rawLine, config.fileName, lineNumber)) {
+        handleIdentifierAndController(context, rawLine, parsed, config.fileName, lineNumber);
       }
     }
 
-    return { events, controllers, identifierMap };
+    return {
+      events: context.events,
+      controllers: context.controllers,
+      identifierMap: context.identifierMap,
+    };
   },
 
   parseAuxLog(lines: string[], config: AuxLogParserConfig): AuxLogParseResult {

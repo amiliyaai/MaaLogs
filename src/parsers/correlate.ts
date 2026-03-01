@@ -83,6 +83,28 @@ export interface CorrelationResult {
  * const correlatedEntries = correlateAuxLogsWithTasks(auxLogs, tasks);
  * console.log(correlatedEntries[0].correlation?.taskKey);
  */
+type TaskTimeRange = {
+  task: TaskInfo;
+  startTime: number;
+  endTime: number;
+};
+
+function buildTaskTimeRanges(tasks: TaskInfo[]): {
+  all: TaskTimeRange[];
+  byTaskKey: Map<string, TaskTimeRange>;
+} {
+  const all: TaskTimeRange[] = [];
+  const byTaskKey = new Map<string, TaskTimeRange>();
+  for (const task of tasks) {
+    const startTime = new Date(task.start_time).getTime();
+    const endTime = task.end_time ? new Date(task.end_time).getTime() : startTime + 60000;
+    const range = { task, startTime, endTime };
+    all.push(range);
+    byTaskKey.set(task.key, range);
+  }
+  return { all, byTaskKey };
+}
+
 export function correlateAuxLogsWithTasks(
   entries: AuxLogEntry[],
   tasks: TaskInfo[],
@@ -91,6 +113,8 @@ export function correlateAuxLogsWithTasks(
   if (entries.length === 0 || tasks.length === 0) {
     return entries;
   }
+
+  const taskTimes = buildTaskTimeRanges(tasks);
 
   // 构建任务索引
   const taskByIdentifier = new Map<string, TaskInfo>();
@@ -111,7 +135,7 @@ export function correlateAuxLogsWithTasks(
 
   // 处理每条日志
   return entries.map((entry) => {
-    const result = correlateEntry(entry, tasks, taskByIdentifier, taskByTaskId, config);
+    const result = correlateEntry(entry, taskTimes, taskByIdentifier, taskByTaskId, config);
     if (result) {
       entry.correlation = result;
     }
@@ -136,70 +160,84 @@ export function correlateAuxLogsWithTasks(
  */
 function correlateEntry(
   entry: AuxLogEntry,
-  tasks: TaskInfo[],
+  taskTimes: { all: TaskTimeRange[]; byTaskKey: Map<string, TaskTimeRange> },
   taskByIdentifier: Map<string, TaskInfo>,
   taskByTaskId: Map<number, TaskInfo[]>,
   config: CorrelationConfig
 ): CorrelationResult | null {
-  // 策略 1：identifier 匹配
-  if (config.enableIdentifierMatch && entry.identifier) {
-    const task = taskByIdentifier.get(entry.identifier);
-    if (task) {
-      return {
-        status: "matched",
-        reason: "identifier_match",
-        taskKey: task.key,
-        score: 1.0,
-      };
-    }
-  }
+  const identifierMatch = matchByIdentifier(entry, taskByIdentifier, config);
+  if (identifierMatch) return identifierMatch;
 
-  // 策略 2：task_id 匹配
-  if (config.enableTaskIdMatch && entry.task_id !== undefined) {
-    const taskList = taskByTaskId.get(entry.task_id);
-    if (taskList && taskList.length > 0) {
-      // 如果有多个任务，尝试通过时间窗口进一步筛选
-      if (taskList.length === 1) {
-        return {
-          status: "matched",
-          reason: "task_id_match",
-          taskKey: taskList[0].key,
-          score: 0.9,
-        };
-      }
+  const taskIdMatch = matchByTaskId(entry, taskTimes, taskByTaskId, config);
+  if (taskIdMatch) return taskIdMatch;
 
-      // 多个任务时，选择时间最接近的
-      const bestMatch = findBestTimeMatch(entry, taskList, config.timeWindowMs);
-      if (bestMatch) {
-        return {
-          status: "matched",
-          reason: "task_id_time_match",
-          taskKey: bestMatch.task.key,
-          score: bestMatch.score,
-          driftMs: bestMatch.driftMs,
-        };
-      }
-    }
-  }
+  const timeWindowMatch = matchByTimeWindow(entry, taskTimes.all, config);
+  if (timeWindowMatch) return timeWindowMatch;
 
-  // 策略 3：时间窗口匹配
-  if (config.enableTimeWindowMatch && entry.timestampMs) {
-    const bestMatch = findBestTimeMatch(entry, tasks, config.timeWindowMs);
-    if (bestMatch && bestMatch.score > 0.5) {
-      return {
-        status: "matched",
-        reason: "time_window_match",
-        taskKey: bestMatch.task.key,
-        score: bestMatch.score,
-        driftMs: bestMatch.driftMs,
-      };
-    }
-  }
+  return { status: "unmatched", reason: "no_matching_task" };
+}
 
-  // 未匹配
+function matchByIdentifier(
+  entry: AuxLogEntry,
+  taskByIdentifier: Map<string, TaskInfo>,
+  config: CorrelationConfig
+): CorrelationResult | null {
+  if (!config.enableIdentifierMatch || !entry.identifier) return null;
+  const task = taskByIdentifier.get(entry.identifier);
+  if (!task) return null;
   return {
-    status: "unmatched",
-    reason: "no_matching_task",
+    status: "matched",
+    reason: "identifier_match",
+    taskKey: task.key,
+    score: 1.0,
+  };
+}
+
+function matchByTaskId(
+  entry: AuxLogEntry,
+  taskTimes: { all: TaskTimeRange[]; byTaskKey: Map<string, TaskTimeRange> },
+  taskByTaskId: Map<number, TaskInfo[]>,
+  config: CorrelationConfig
+): CorrelationResult | null {
+  if (!config.enableTaskIdMatch || entry.task_id === undefined) return null;
+  const taskList = taskByTaskId.get(entry.task_id);
+  if (!taskList || taskList.length === 0) return null;
+  if (taskList.length === 1) {
+    return {
+      status: "matched",
+      reason: "task_id_match",
+      taskKey: taskList[0].key,
+      score: 0.9,
+    };
+  }
+  const timeList = taskList
+    .map((task) => taskTimes.byTaskKey.get(task.key))
+    .filter((range): range is TaskTimeRange => !!range);
+  const bestMatch = findBestTimeMatch(entry, timeList, config.timeWindowMs);
+  if (!bestMatch) return null;
+  return {
+    status: "matched",
+    reason: "task_id_time_match",
+    taskKey: bestMatch.task.key,
+    score: bestMatch.score,
+    driftMs: bestMatch.driftMs,
+  };
+}
+
+function matchByTimeWindow(
+  entry: AuxLogEntry,
+  allTasks: TaskTimeRange[],
+  config: CorrelationConfig
+): CorrelationResult | null {
+  if (!config.enableTimeWindowMatch || !entry.timestampMs) return null;
+  const bestMatch = findBestTimeMatch(entry, allTasks, config.timeWindowMs);
+  if (!bestMatch || bestMatch.score <= 0.5) return null;
+  return {
+    status: "matched",
+    reason: "time_window_match",
+    taskKey: bestMatch.task.key,
+    score: bestMatch.score,
+    driftMs: bestMatch.driftMs,
   };
 }
 
@@ -215,7 +253,7 @@ function correlateEntry(
  */
 function findBestTimeMatch(
   entry: AuxLogEntry,
-  tasks: TaskInfo[],
+  tasks: TaskTimeRange[],
   timeWindowMs: number
 ): { task: TaskInfo; score: number; driftMs: number } | null {
   if (!entry.timestampMs) return null;
@@ -223,10 +261,8 @@ function findBestTimeMatch(
   let bestMatch: { task: TaskInfo; score: number; driftMs: number } | null = null;
   let minDrift = Infinity;
 
-  for (const task of tasks) {
-    // 计算任务的时间范围
-    const startTime = new Date(task.start_time).getTime();
-    const endTime = task.end_time ? new Date(task.end_time).getTime() : startTime + 60000;
+  for (const taskInfo of tasks) {
+    const { task, startTime, endTime } = taskInfo;
 
     // 检查日志时间是否在任务时间范围内
     if (

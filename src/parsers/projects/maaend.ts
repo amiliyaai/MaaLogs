@@ -23,12 +23,38 @@ import type {
   AuxLogParseResult,
   AuxLogParserInfo,
 } from "../../types/parserTypes";
+import type { JsonValue } from "../../types/logTypes";
 import {
   parseBracketLine,
   extractIdentifier,
   createEventNotification,
   parseControllerInfo,
 } from "../shared";
+
+function isRecordJsonValue(value: JsonValue | undefined): value is Record<string, JsonValue> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function asString(value: JsonValue | undefined): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
+function toJsonValue(value: unknown): JsonValue {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return value;
+  }
+  if (typeof value === "bigint") return value;
+  if (Array.isArray(value)) return value.map((item) => toJsonValue(item));
+  if (typeof value === "object") {
+    const record: Record<string, JsonValue> = {};
+    for (const [key, item] of Object.entries(value)) {
+      record[key] = toJsonValue(item);
+    }
+    return record;
+  }
+  return String(value);
+}
 
 /**
  * 从日志行中提取事件通知（MaaEnd 原始格式）
@@ -44,16 +70,16 @@ function parseMaaEndEventNotification(
 
   if (!message.includes("!!!OnEventNotify!!!")) return null;
 
-  const msg = params["msg"];
-  const details = params["details"];
+  const msg = asString(params["msg"]);
+  const detailsValue = params["details"];
   if (!msg) return null;
 
   return createEventNotification(
     parsed,
     fileName,
     lineNumber,
-    msg as string,
-    (details as Record<string, unknown>) || {}
+    msg,
+    isRecordJsonValue(detailsValue) ? detailsValue : {}
   );
 }
 
@@ -104,7 +130,7 @@ function parseJsonLine(line: string, lineNumber: number, fileName: string): AuxL
       lineNumber,
     };
 
-    const details: Record<string, unknown> = {};
+    const details: Record<string, JsonValue> = {};
     for (const [key, value] of Object.entries(json)) {
       if (
         ![
@@ -121,7 +147,7 @@ function parseJsonLine(line: string, lineNumber: number, fileName: string): AuxL
           "caller",
         ].includes(key)
       ) {
-        details[key] = value;
+        details[key] = toJsonValue(value);
       }
     }
     if (Object.keys(details).length > 0) {
@@ -196,6 +222,54 @@ function parseAuxLine(line: string, lineNumber: number, fileName: string): AuxLo
   };
 }
 
+type MainLogContext = {
+  events: EventNotification[];
+  controllers: ControllerInfo[];
+  identifierMap: Map<number, string>;
+  lastIdentifier: string | null;
+};
+
+function createMainLogContext(): MainLogContext {
+  return {
+    events: [],
+    controllers: [],
+    identifierMap: new Map(),
+    lastIdentifier: null,
+  };
+}
+
+function handleMainLogLine(
+  context: MainLogContext,
+  rawLine: string,
+  parsed: ReturnType<typeof parseBracketLine>,
+  fileName: string,
+  lineNumber: number
+): void {
+  const event = parseMaaEndEventNotification(parsed, fileName, lineNumber);
+  if (event) {
+    context.events.push(event);
+    updateIdentifier(context, rawLine);
+    if (context.lastIdentifier) {
+      context.identifierMap.set(context.events.length - 1, context.lastIdentifier);
+    }
+    return;
+  }
+  updateIdentifier(context, rawLine);
+  if (parsed) {
+    const controller = parseControllerInfo(parsed, fileName, lineNumber);
+    if (controller) {
+      context.controllers.push(controller);
+    }
+  }
+}
+
+function updateIdentifier(context: MainLogContext, rawLine: string): void {
+  const identifier = extractIdentifier(rawLine);
+  if (identifier) {
+    context.lastIdentifier = identifier;
+  }
+}
+
 /**
  * MaaEnd 项目解析器实例
  */
@@ -205,10 +279,7 @@ export const maaEndProjectParser: ProjectParser = {
   description: "MaaEnd 项目日志解析器",
 
   parseMainLog(lines: string[], config): MainLogParseResult {
-    const events: EventNotification[] = [];
-    const controllers: ControllerInfo[] = [];
-    const identifierMap = new Map<number, string>();
-    let lastIdentifier: string | null = null;
+    const context = createMainLogContext();
 
     for (let i = 0; i < lines.length; i++) {
       const rawLine = lines[i].trim();
@@ -217,29 +288,14 @@ export const maaEndProjectParser: ProjectParser = {
       const parsed = parseBracketLine(rawLine);
       if (!parsed) continue;
 
-      const event = parseMaaEndEventNotification(parsed, config.fileName, i + 1);
-      if (event) {
-        events.push(event);
-        const identifier = extractIdentifier(rawLine);
-        if (identifier) {
-          lastIdentifier = identifier;
-        }
-        if (lastIdentifier) {
-          identifierMap.set(events.length - 1, lastIdentifier);
-        }
-      } else {
-        const identifier = extractIdentifier(rawLine);
-        if (identifier) {
-          lastIdentifier = identifier;
-        }
-        const controller = parseControllerInfo(parsed, config.fileName, i + 1);
-        if (controller) {
-          controllers.push(controller);
-        }
-      }
+      handleMainLogLine(context, rawLine, parsed, config.fileName, i + 1);
     }
 
-    return { events, controllers, identifierMap };
+    return {
+      events: context.events,
+      controllers: context.controllers,
+      identifierMap: context.identifierMap,
+    };
   },
 
   parseAuxLog(lines: string[], config: AuxLogParserConfig): AuxLogParseResult {

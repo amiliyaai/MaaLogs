@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, watch, defineComponent, h } from "vue";
-import { VueFlow, useVueFlow, Position } from "@vue-flow/core";
+import { ref, watch, defineComponent, h, type PropType } from "vue";
+import { VueFlow, useVueFlow, Position, MarkerType, type Node, type Edge } from "@vue-flow/core";
 import { Background } from "@vue-flow/background";
 import { Controls } from "@vue-flow/controls";
 import { MiniMap } from "@vue-flow/minimap";
@@ -18,10 +18,6 @@ const props = withDefaults(defineProps<Props>(), {
   height: "400px",
 });
 
-const emit = defineEmits<{
-  (e: "select-node", nodeId: number): void;
-}>();
-
 const { fitView } = useVueFlow();
 
 const elk = new ELK();
@@ -29,10 +25,23 @@ const elk = new ELK();
 const nodeWidth = 180;
 const nodeHeight = 64;
 
-const flowNodes = ref<any[]>([]);
-const flowEdges = ref<any[]>([]);
+type FlowNodeData = {
+  orderNum: number;
+  nodeName: string;
+  status: string;
+  icon: string;
+  bg: string;
+  border: string;
+  shadow: string;
+  isSuccess: boolean;
+  isFailed: boolean;
+  isRunning: boolean;
+};
 
-const getMiniMapNodeColor = (node: any) => {
+const flowNodes = ref<Node<FlowNodeData>[]>([]);
+const flowEdges = ref<Edge[]>([]);
+
+const getMiniMapNodeColor = (node: Node<FlowNodeData>) => {
   if (node.data?.isSuccess) return "#52c41a";
   if (node.data?.isFailed) return "#f5222d";
   return "#1890ff";
@@ -119,7 +128,7 @@ const getLayoutedElements = async () => {
     };
   });
 
-  const edges: any[] = [];
+  const edges: Edge[] = [];
   const nameToNodeMap = new Map(
     Array.from(uniqueNodeMap.entries()).map(([name, { index }]) => [name, { id: name, index }])
   );
@@ -145,7 +154,7 @@ const getLayoutedElements = async () => {
             strokeWidth: isJumpBack ? 3 : 2,
           },
           markerEnd: {
-            type: "arrowclosed",
+            type: MarkerType.ArrowClosed,
             color: getEdgeColor(isJumpBack, isRunning),
           },
           label: nextItem.anchor ? "🔗" : `${edgeOrder}→${targetInfo.index + 1}`,
@@ -207,10 +216,55 @@ const getLayoutedElements = async () => {
 };
 
 const CustomNode = defineComponent({
-  props: ["data", "selected"],
+  props: {
+    id: {
+      type: String,
+      required: true,
+    },
+    type: {
+      type: String,
+      required: true,
+    },
+    data: {
+      type: Object as PropType<FlowNodeData>,
+      required: true,
+    },
+    selected: {
+      type: Boolean,
+      required: true,
+    },
+    connectable: {
+      type: Boolean,
+      required: true,
+    },
+    position: {
+      type: Object as PropType<{ x: number; y: number }>,
+      required: true,
+    },
+    dimensions: {
+      type: Object as PropType<{ width: number; height: number }>,
+      required: true,
+    },
+    dragging: {
+      type: Boolean,
+      required: true,
+    },
+    resizing: {
+      type: Boolean,
+      required: true,
+    },
+    zIndex: {
+      type: Number,
+      required: true,
+    },
+    events: {
+      type: Object as PropType<any>,
+      required: true,
+    },
+  },
   setup(props) {
     return () => {
-      const { data, selected } = props;
+      const { data, selected, zIndex } = props;
       return h(
         "div",
         {
@@ -221,7 +275,7 @@ const CustomNode = defineComponent({
             data.isFailed && "is-failed",
             data.isRunning && "is-running",
           ],
-          style: { background: data.bg, boxShadow: data.shadow },
+          style: { background: data.bg, boxShadow: data.shadow, zIndex },
         },
         [
           h("div", { class: "node-order" }, data.orderNum),
@@ -237,6 +291,10 @@ const CustomNode = defineComponent({
     };
   },
 });
+
+const nodeTypes = {
+  custom: CustomNode,
+};
 
 watch(
   () => [props.nodes, props.selectedNodeId],
@@ -259,7 +317,7 @@ watch(
       v-model:edges="flowEdges"
       :fit-view-on-init="true"
       :default-viewport="{ zoom: 0.8 }"
-      :node-types="{ custom: CustomNode as any }"
+      :node-types="nodeTypes"
     >
       <Background pattern-color="#e8f4ff" :gap="16" />
       <Controls position="bottom-right" />

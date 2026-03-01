@@ -28,11 +28,20 @@ import type {
   Win32ScreencapMethod,
   Win32InputMethod,
   RecognitionDetail,
+  JsonValue,
 } from "../types/logTypes";
 import { createLogger } from "./logger";
 import { parseMessageAndParams } from "../parsers/shared";
 
 const logger = createLogger("Parse");
+
+function isRecordJsonValue(value: JsonValue | undefined): value is Record<string, JsonValue> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function asString(value: JsonValue | undefined): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
 
 /**
  * ADB 截图方式 Bitmask 映射
@@ -177,6 +186,53 @@ export function parseWin32InputMethod(value: number): Win32InputMethod {
   return WIN32_INPUT_METHOD_MAP[value] || "Unknown";
 }
 
+function parseNumberParam(params: Record<string, JsonValue>, key: string): number {
+  const value = params[key];
+  if (typeof value === "number") return value;
+  const parsed = Number.parseInt(String(value ?? "0"), 10);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function parseBigIntParam(params: Record<string, JsonValue>, key: string): bigint {
+  const value = params[key];
+  if (typeof value === "bigint") return value;
+  if (typeof value === "number" && Number.isFinite(value)) return BigInt(value);
+  const parsed = Number.parseInt(String(value ?? "0"), 10);
+  return Number.isFinite(parsed) ? BigInt(parsed) : 0n;
+}
+
+function parseLineTokens(line: string, maxTokens: number): { tokens: string[]; rest: string } | null {
+  const tokens: string[] = [];
+  let index = 0;
+  while (index < line.length && line[index] === "[" && tokens.length < maxTokens) {
+    const end = line.indexOf("]", index + 1);
+    if (end === -1) return null;
+    tokens.push(line.slice(index + 1, end));
+    index = end + 1;
+  }
+  return { tokens, rest: line.slice(index).trimStart() };
+}
+
+function resolveSourceAndFunction(
+  part1?: string,
+  part2?: string,
+  part3?: string
+): { sourceFile?: string; lineNumber?: string; functionName?: string } {
+  if (part3) {
+    return { sourceFile: part1, lineNumber: part2, functionName: part3 };
+  }
+  if (part1 && !part2) {
+    if (part1.includes(".cpp") || part1.includes(".h")) {
+      return { sourceFile: part1 };
+    }
+    return { functionName: part1 };
+  }
+  if (part1 && part2) {
+    return { sourceFile: part1, lineNumber: part2 };
+  }
+  return {};
+}
+
 /**
  * 从日志行解析控制器信息
  *
@@ -210,17 +266,8 @@ export function parseControllerInfo(parsed: LogLine, fileName: string): Controll
   if (functionName === "MaaAdbControllerCreate") {
     const adbPath = params["adb_path"] as string | undefined;
     const address = params["address"] as string | undefined;
-    const screencapMethodsBitmask =
-      typeof params["screencap_methods"] === "number"
-        ? params["screencap_methods"]
-        : parseInt(String(params["screencap_methods"] || "0"));
-    const inputMethodsValue = params["input_methods"];
-    const inputMethodsBitmask =
-      typeof inputMethodsValue === "bigint"
-        ? inputMethodsValue
-        : typeof inputMethodsValue === "number"
-          ? BigInt(inputMethodsValue)
-          : 0n;
+    const screencapMethodsBitmask = parseNumberParam(params, "screencap_methods");
+    const inputMethodsBitmask = parseBigIntParam(params, "input_methods");
     const config = params["config"] as Record<string, unknown> | undefined;
     const agentPath = params["agent_path"] as string | undefined;
 
@@ -240,18 +287,9 @@ export function parseControllerInfo(parsed: LogLine, fileName: string): Controll
   }
 
   if (functionName === "MaaWin32ControllerCreate") {
-    const screencapMethodValue =
-      typeof params["screencap_method"] === "number"
-        ? params["screencap_method"]
-        : parseInt(String(params["screencap_method"] || "0"));
-    const mouseMethodValue =
-      typeof params["mouse_method"] === "number"
-        ? params["mouse_method"]
-        : parseInt(String(params["mouse_method"] || "0"));
-    const keyboardMethodValue =
-      typeof params["keyboard_method"] === "number"
-        ? params["keyboard_method"]
-        : parseInt(String(params["keyboard_method"] || "0"));
+    const screencapMethodValue = parseNumberParam(params, "screencap_method");
+    const mouseMethodValue = parseNumberParam(params, "mouse_method");
+    const keyboardMethodValue = parseNumberParam(params, "keyboard_method");
 
     return {
       type: "win32",
@@ -543,35 +581,13 @@ export function buildIdentifierRanges(
  * // 返回 LogLine 对象
  */
 export function parseLine(line: string, lineNum: number): LogLine | null {
-  // 匹配方括号分隔的日志格式
-  const regex =
-    /^\[([^\]]+)\]\[([^\]]+)\]\[([^\]]+)\]\[([^\]]+)\](?:\[([^\]]+)\])?(?:\[([^\]]+)\])?(?:\[([^\]]+)\])?\s*(.*)$/;
-  const match = line.match(regex);
-  if (!match) return null;
-
-  const [, timestamp, level, processId, threadId, part1, part2, part3, rest] = match;
-  let sourceFile: string | undefined;
-  let lineNumber: string | undefined;
-  let functionName: string | undefined;
-  const message = rest;
-
-  // 解析可选的源码位置信息
-  if (part3) {
-    sourceFile = part1;
-    lineNumber = part2;
-    functionName = part3;
-  } else if (part1 && !part2) {
-    if (part1.includes(".cpp") || part1.includes(".h")) {
-      sourceFile = part1;
-    } else {
-      functionName = part1;
-    }
-  } else if (part1 && part2) {
-    sourceFile = part1;
-    lineNumber = part2;
-  }
-
-  const { message: cleanMessage, params, status, duration } = parseMessageAndParams(message);
+  const parsed = parseLineTokens(line, 7);
+  if (!parsed) return null;
+  const { tokens, rest } = parsed;
+  if (tokens.length < 4) return null;
+  const [timestamp, level, processId, threadId, part1, part2, part3] = tokens;
+  const { sourceFile, lineNumber, functionName } = resolveSourceAndFunction(part1, part2, part3);
+  const { message: cleanMessage, params, status, duration } = parseMessageAndParams(rest);
 
   return {
     timestamp,
@@ -616,15 +632,15 @@ export function parseEventNotification(
 
   // 格式1：原始格式，包含 !!!OnEventNotify!!!
   if (message.includes("!!!OnEventNotify!!!")) {
-    const msg = params["msg"];
-    const details = params["details"];
+    const msg = asString(params["msg"]);
+    const detailsValue = params["details"];
     if (!msg) return null;
 
     return {
       timestamp: parsed.timestamp,
       level: parsed.level,
       message: msg,
-      details: details || {},
+      details: isRecordJsonValue(detailsValue) ? detailsValue : {},
       _lineNumber: parsed._lineNumber,
       fileName,
       processId: parsed.processId,
@@ -634,17 +650,17 @@ export function parseEventNotification(
 
   // 格式2：M9A 格式，functionName 为 MaaNS::MessageNotifier::notify
   if (functionName === "MaaNS::MessageNotifier::notify") {
-    const msg = params["msg"];
-    const details = params["details"];
+    const msg = asString(params["msg"]);
+    const detailsValue = params["details"];
     if (!msg) return null;
 
     // 只处理任务相关的事件
-    if (typeof msg === "string" && msg.startsWith("Tasker.")) {
+    if (msg.startsWith("Tasker.")) {
       return {
         timestamp: parsed.timestamp,
         level: parsed.level,
         message: msg,
-        details: details || {},
+        details: isRecordJsonValue(detailsValue) ? detailsValue : {},
         _lineNumber: parsed._lineNumber,
         fileName,
         processId: parsed.processId,
@@ -707,12 +723,7 @@ export function extractCustomActionFromPipeline(node: unknown): string | null {
 
   const nodeObj = node as Record<string, unknown>;
   const action = nodeObj.action;
-  const actionType =
-    typeof action === "string"
-      ? action
-      : typeof action === "object"
-        ? (action as Record<string, unknown>).type || (action as Record<string, unknown>).action
-        : null;
+  const actionType = getActionType(action);
 
   if (actionType !== "Custom") return null;
 
@@ -728,6 +739,14 @@ export function extractCustomActionFromPipeline(node: unknown): string | null {
 
   const fallback = nodeObj.custom_action || nodeObj.customAction;
   return typeof fallback === "string" ? fallback : null;
+}
+
+function getActionType(action: unknown): string | null {
+  if (typeof action === "string") return action;
+  if (!action || typeof action !== "object") return null;
+  const actionObj = action as Record<string, unknown>;
+  const type = actionObj.type ?? actionObj.action;
+  return typeof type === "string" ? type : null;
 }
 
 /**
@@ -886,12 +905,109 @@ export function buildTasks(
     uuid: string,
     fallback: { processId: string; threadId: string }
   ) => (uuid && taskUuidMap.get(uuid)) || taskProcessMap.get(taskId) || fallback;
-  const normalizeTaskId = (details?: Record<string, unknown>) =>
+  const normalizeTaskId = (details?: Record<string, JsonValue>) =>
     normalizeId(details?.task_id ?? details?.taskId);
+  const nextTaskKey = () => `task-${taskKeyCounter++}`;
+
+  const finalizeRunningTask = (task: TaskInfo, endTime: string, endIndex: number) => {
+    task.status = "failed";
+    task.end_time = stringPool.intern(endTime);
+    task._endEventIndex = endIndex;
+    updateTaskDuration(task, task.end_time);
+  };
+
+  const handleTaskStart = (
+    event: EventNotification,
+    eventTaskId: number | undefined,
+    index: number,
+    processThread: { processId: string; threadId: string }
+  ) => {
+    const taskId = eventTaskId;
+    if (taskId === undefined) return;
+
+    const details = event.details as Record<string, JsonValue>;
+    const uuid = (details.uuid as string) || "";
+    const taskKey = buildTaskKey(taskId, uuid, event.processId);
+    const entry = (details.entry as string) || "";
+
+    if (taskId && runningTaskMap.has(taskKey)) {
+      const prevTask = runningTaskMap.get(taskKey);
+      if (prevTask && !prevTask.end_time) {
+        finalizeRunningTask(prevTask, event.timestamp, Math.max(index - 1, prevTask._startEventIndex ?? index - 1));
+      }
+      runningTaskMap.delete(taskKey);
+    }
+
+    if (taskId && !runningTaskMap.has(taskKey)) {
+      const processInfo = resolveProcessInfo(taskId, uuid, processThread);
+      const identifier = getIdentifierForEventIndex(index);
+
+      const task: TaskInfo = {
+        key: nextTaskKey(),
+        fileName: event.fileName,
+        task_id: taskId,
+        entry: stringPool.intern(entry),
+        hash: stringPool.intern((details.hash as string) || ""),
+        uuid: stringPool.intern(uuid),
+        start_time: stringPool.intern(event.timestamp),
+        status: "running",
+        nodes: [],
+        processId: stringPool.intern(processInfo.processId || ""),
+        threadId: stringPool.intern(processInfo.threadId || ""),
+        identifier,
+        _startEventIndex: index,
+      };
+      tasks.push(task);
+      runningTaskMap.set(taskKey, task);
+    }
+  };
+
+  const handleTaskEnd = (
+    event: EventNotification,
+    eventTaskId: number | undefined,
+    index: number,
+    processThread: { processId: string; threadId: string }
+  ) => {
+    const taskId = eventTaskId;
+    if (taskId === undefined) return;
+
+    const details = event.details as Record<string, JsonValue>;
+    const uuid = (details.uuid as string) || "";
+    const taskKey = buildTaskKey(taskId, uuid, event.processId);
+    let matchedTask = runningTaskMap.get(taskKey) || null;
+
+    if (!matchedTask) {
+      matchedTask =
+        tasks.find(
+          (t) =>
+            t.task_id === taskId &&
+            t.processId === event.processId &&
+            !t.end_time &&
+            (!uuid || t.uuid === uuid)
+        ) || null;
+    }
+
+    if (matchedTask) {
+      matchedTask.status = event.message === "Tasker.Task.Succeeded" ? "succeeded" : "failed";
+      matchedTask.end_time = stringPool.intern(event.timestamp);
+      matchedTask._endEventIndex = index;
+
+      if (!matchedTask.processId || !matchedTask.threadId) {
+        const processInfo = resolveProcessInfo(taskId, uuid, processThread);
+        matchedTask.processId = stringPool.intern(processInfo.processId || "");
+        matchedTask.threadId = stringPool.intern(processInfo.threadId || "");
+      }
+
+      if (matchedTask.end_time) {
+        updateTaskDuration(matchedTask, matchedTask.end_time);
+      }
+      runningTaskMap.delete(taskKey);
+    }
+  };
 
   for (let i = 0; i < events.length; i++) {
     const event = events[i];
-    const { message, details, fileName } = event;
+    const { message, details } = event;
     const eventTaskId = normalizeTaskId(details);
     const processThread = { processId: event.processId, threadId: event.threadId };
 
@@ -902,86 +1018,14 @@ export function buildTasks(
       }
     }
 
-    if (details?.uuid) {
+    if (typeof details.uuid === "string") {
       taskUuidMap.set(details.uuid, processThread);
     }
 
     if (message === "Tasker.Task.Starting") {
-      const taskId = eventTaskId;
-      if (taskId === undefined) continue;
-
-      const uuid = details.uuid || "";
-      const taskKey = buildTaskKey(taskId, uuid, event.processId);
-      const entry = details.entry || "";
-
-      if (taskId && runningTaskMap.has(taskKey)) {
-        const prevTask = runningTaskMap.get(taskKey);
-        if (prevTask && !prevTask.end_time) {
-          prevTask.status = "failed";
-          prevTask.end_time = stringPool.intern(event.timestamp);
-          prevTask._endEventIndex = Math.max(i - 1, prevTask._startEventIndex ?? i - 1);
-          updateTaskDuration(prevTask, prevTask.end_time);
-        }
-        runningTaskMap.delete(taskKey);
-      }
-
-      if (taskId && !runningTaskMap.has(taskKey)) {
-        const processInfo = resolveProcessInfo(taskId, uuid, processThread);
-        const identifier = getIdentifierForEventIndex(i);
-
-        const task: TaskInfo = {
-          key: `task-${taskKeyCounter++}`,
-          fileName,
-          task_id: taskId,
-          entry: stringPool.intern(entry),
-          hash: stringPool.intern(details.hash || ""),
-          uuid: stringPool.intern(uuid),
-          start_time: stringPool.intern(event.timestamp),
-          status: "running",
-          nodes: [],
-          processId: stringPool.intern(processInfo.processId || ""),
-          threadId: stringPool.intern(processInfo.threadId || ""),
-          identifier,
-          _startEventIndex: i,
-        };
-        tasks.push(task);
-        runningTaskMap.set(taskKey, task);
-      }
+      handleTaskStart(event, eventTaskId, i, processThread);
     } else if (message === "Tasker.Task.Succeeded" || message === "Tasker.Task.Failed") {
-      const taskId = eventTaskId;
-      if (taskId === undefined) continue;
-
-      const uuid = details.uuid || "";
-      const taskKey = buildTaskKey(taskId, uuid, event.processId);
-      let matchedTask = runningTaskMap.get(taskKey) || null;
-
-      if (!matchedTask) {
-        matchedTask =
-          tasks.find(
-            (t) =>
-              t.task_id === taskId &&
-              t.processId === event.processId &&
-              !t.end_time &&
-              (!uuid || t.uuid === uuid)
-          ) || null;
-      }
-
-      if (matchedTask) {
-        matchedTask.status = message === "Tasker.Task.Succeeded" ? "succeeded" : "failed";
-        matchedTask.end_time = stringPool.intern(event.timestamp);
-        matchedTask._endEventIndex = i;
-
-        if (!matchedTask.processId || !matchedTask.threadId) {
-          const processInfo = resolveProcessInfo(taskId, uuid, processThread);
-          matchedTask.processId = stringPool.intern(processInfo.processId || "");
-          matchedTask.threadId = stringPool.intern(processInfo.threadId || "");
-        }
-
-        if (matchedTask.end_time) {
-          updateTaskDuration(matchedTask, matchedTask.end_time);
-        }
-        runningTaskMap.delete(taskKey);
-      }
+      handleTaskEnd(event, eventTaskId, i, processThread);
     }
   }
 
@@ -1072,23 +1116,35 @@ type TaskNodeBuildContext = {
 function updateNextListFromEvent(
   context: TaskNodeBuildContext,
   message: string,
-  details: Record<string, unknown>,
+  details: Record<string, JsonValue>,
   eventTaskId: number | undefined
 ) {
   if (message !== "Node.NextList.Starting" && message !== "Node.NextList.Succeeded") return;
   if (eventTaskId !== context.task.task_id) return;
   const list = Array.isArray(details.list) ? details.list : [];
-  context.currentNextList = list.map((item: Record<string, unknown>) => ({
-    name: context.stringPool.intern((item.name as string) || ""),
-    anchor: (item.anchor as boolean) || false,
-    jump_back: (item.jump_back as boolean) || false,
-  }));
+  context.currentNextList = list.map((item) => {
+    if (!isRecordJsonValue(item)) {
+      return {
+        name: context.stringPool.intern(""),
+        anchor: false,
+        jump_back: false,
+      };
+    }
+    const name = typeof item.name === "string" ? item.name : "";
+    const anchor = typeof item.anchor === "boolean" ? item.anchor : false;
+    const jumpBack = typeof item.jump_back === "boolean" ? item.jump_back : false;
+    return {
+      name: context.stringPool.intern(name),
+      anchor,
+      jump_back: jumpBack,
+    };
+  });
 }
 
 function updateNestedRecognitionNode(
   context: TaskNodeBuildContext,
   message: string,
-  details: Record<string, unknown>,
+  details: Record<string, JsonValue>,
   eventTaskId: number | undefined,
   timestamp: string
 ) {
@@ -1114,7 +1170,7 @@ function updateNestedRecognitionNode(
 function updateRecognitionAttempts(
   context: TaskNodeBuildContext,
   message: string,
-  details: Record<string, unknown>,
+  details: Record<string, JsonValue>,
   eventTaskId: number | undefined,
   timestamp: string
 ) {
@@ -1152,7 +1208,7 @@ function updateRecognitionAttempts(
 function updateActionAttempts(
   context: TaskNodeBuildContext,
   message: string,
-  details: Record<string, unknown>,
+  details: Record<string, JsonValue>,
   eventTaskId: number | undefined,
   timestamp: string
 ) {
@@ -1176,7 +1232,7 @@ function updateActionAttempts(
 function updatePipelineNodes(
   context: TaskNodeBuildContext,
   message: string,
-  details: Record<string, unknown>,
+  details: Record<string, JsonValue>,
   eventTaskId: number | undefined,
   timestamp: string
 ) {
@@ -1305,84 +1361,76 @@ function buildTaskNodes(
  * const stats = computeNodeStatistics(tasks);
  * console.log(stats[0].avgDuration); // 平均耗时（毫秒）
  */
-export function computeNodeStatistics(tasks: TaskInfo[]): {
-  name: string;
+type NodeStatsBucket = {
   count: number;
   totalDuration: number;
-  avgDuration: number;
   minDuration: number;
   maxDuration: number;
   successCount: number;
   failCount: number;
-  successRate: number;
-}[] {
-  const statsMap = new Map<
-    string,
-    {
-      count: number;
-      totalDuration: number;
-      minDuration: number;
-      maxDuration: number;
-      successCount: number;
-      failCount: number;
-    }
-  >();
+};
 
-  // 收集每个节点的耗时数据
-  for (const task of tasks) {
-    const nodes = task.nodes;
-    for (let i = 0; i < nodes.length; i++) {
-      const node = nodes[i];
-      const nextNode = nodes[i + 1];
-      let duration: number | undefined;
-
-      // 计算节点耗时
-      if (nextNode) {
-        const currentTime = new Date(node.timestamp).getTime();
-        const nextTime = new Date(nextNode.timestamp).getTime();
-        duration = nextTime - currentTime;
-      } else if (task.end_time) {
-        const currentTime = new Date(node.timestamp).getTime();
-        const endTime = new Date(task.end_time).getTime();
-        duration = endTime - currentTime;
-      } else {
-        continue;
-      }
-
-      // 过滤异常值
-      if (duration === undefined) {
-        continue;
-      }
-
-      if (!Number.isFinite(duration) || duration < 0 || duration > 3600000) {
-        continue;
-      }
-
-      if (!statsMap.has(node.name)) {
-        statsMap.set(node.name, {
-          count: 0,
-          totalDuration: 0,
-          minDuration: duration,
-          maxDuration: duration,
-          successCount: 0,
-          failCount: 0,
-        });
-      }
-
-      const stats = statsMap.get(node.name)!;
-      stats.count += 1;
-      stats.totalDuration += duration;
-      if (duration < stats.minDuration) stats.minDuration = duration;
-      if (duration > stats.maxDuration) stats.maxDuration = duration;
-      if (node.status === "success") {
-        stats.successCount++;
-      } else {
-        stats.failCount++;
-      }
-    }
+function getNodeDuration(
+  currentTimestamp: string,
+  nextTimestamp?: string,
+  taskEnd?: string
+): number | null {
+  const currentTime = new Date(currentTimestamp).getTime();
+  let endTime: number | null = null;
+  if (nextTimestamp) {
+    endTime = new Date(nextTimestamp).getTime();
+  } else if (taskEnd) {
+    endTime = new Date(taskEnd).getTime();
   }
+  if (endTime === null) return null;
+  const duration = endTime - currentTime;
+  if (!Number.isFinite(duration) || duration < 0 || duration > 3600000) return null;
+  return duration;
+}
 
-  // 计算统计指标
+function getOrCreateStats(
+  statsMap: Map<string, NodeStatsBucket>,
+  name: string,
+  initialDuration: number
+): NodeStatsBucket {
+  if (!statsMap.has(name)) {
+    statsMap.set(name, {
+      count: 0,
+      totalDuration: 0,
+      minDuration: initialDuration,
+      maxDuration: initialDuration,
+      successCount: 0,
+      failCount: 0,
+    });
+  }
+  return statsMap.get(name)!;
+}
+
+function updateStatsBucket(stats: NodeStatsBucket, duration: number, status: NodeInfo["status"]): void {
+  stats.count += 1;
+  stats.totalDuration += duration;
+  if (duration < stats.minDuration) stats.minDuration = duration;
+  if (duration > stats.maxDuration) stats.maxDuration = duration;
+  if (status === "success") {
+    stats.successCount++;
+  } else {
+    stats.failCount++;
+  }
+}
+
+function addTaskNodeStats(statsMap: Map<string, NodeStatsBucket>, task: TaskInfo): void {
+  const nodes = task.nodes;
+  for (let i = 0; i < nodes.length; i++) {
+    const node = nodes[i];
+    const nextNode = nodes[i + 1];
+    const duration = getNodeDuration(node.timestamp, nextNode?.timestamp, task.end_time);
+    if (duration === null) continue;
+    const stats = getOrCreateStats(statsMap, node.name, duration);
+    updateStatsBucket(stats, duration, node.status);
+  }
+}
+
+function buildStatsResult(statsMap: Map<string, NodeStatsBucket>) {
   const result: {
     name: string;
     count: number;
@@ -1415,6 +1463,25 @@ export function computeNodeStatistics(tasks: TaskInfo[]): {
   return result;
 }
 
+export function computeNodeStatistics(tasks: TaskInfo[]): {
+  name: string;
+  count: number;
+  totalDuration: number;
+  avgDuration: number;
+  minDuration: number;
+  maxDuration: number;
+  successCount: number;
+  failCount: number;
+  successRate: number;
+}[] {
+  const statsMap = new Map<string, NodeStatsBucket>();
+
+  for (const task of tasks) {
+    addTaskNodeStats(statsMap, task);
+  }
+  return buildStatsResult(statsMap);
+}
+
 /**
  * 调试信息模式正则表达式
  *
@@ -1424,7 +1491,8 @@ export function computeNodeStatistics(tasks: TaskInfo[]): {
  * - [L123] - 行号标识
  * - [xxx.cpp] / [xxx.h] - 源文件名
  */
-export const debugInfoPattern = /\[P[xX]\d+\]|\[T[xX]\d+\]|\[L\d+\]|\[[^\]]+\.(cpp|h|hpp|c)\]/gi;
+export const debugInfoPattern =
+  /\[(?:px|tx|l)\d+\]|\[[^\]\r\n]{1,80}\.(?:c|cpp|h|hpp)\]/gi;
 
 /**
  * 根据调试隐藏开关规范化搜索文本

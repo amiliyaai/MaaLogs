@@ -1,3 +1,5 @@
+import type { Store } from "@tauri-apps/plugin-store";
+
 const SALT_LENGTH = 16;
 const IV_LENGTH = 12;
 const ALGORITHM = "AES-GCM";
@@ -66,14 +68,17 @@ export async function decrypt(encryptedData: string, password: string): Promise<
     const decrypted = await crypto.subtle.decrypt({ name: ALGORITHM, iv }, key, data);
 
     return new TextDecoder().decode(decrypted);
-  } catch (e: any) {
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new Error("DECRYPTION_FAILED");
+    }
     throw new Error("DECRYPTION_FAILED");
   }
 }
 
-let store: any = null;
+let store: Store | null = null;
 
-export async function getStore() {
+export async function getStore(): Promise<Store> {
   if (!store) {
     const { Store } = await import("@tauri-apps/plugin-store");
     store = await Store.load("app-settings.json", { autoSave: 500, defaults: {} });

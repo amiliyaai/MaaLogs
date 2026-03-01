@@ -14,7 +14,7 @@
  * @license MIT
  */
 
-import { ref, computed, type Ref, type ComputedRef } from "vue";
+import { ref, computed, shallowRef, type Ref, type ComputedRef } from "vue";
 import type {
   TaskInfo,
   RawLine,
@@ -59,6 +59,67 @@ function mergeMultilineLogs(lines: string[]): string[] {
   }
 
   return merged;
+}
+
+type FileLineEntry = { file: SelectedFile; lines: string[] };
+
+type ParseCollections = {
+  events: EventNotification[];
+  allLines: RawLine[];
+  auxEntries: AuxLogEntry[];
+  controllerInfos: ControllerInfo[];
+  eventIdentifierMap: Map<number, string>;
+};
+
+async function readSelectedFiles(
+  files: SelectedFile[]
+): Promise<{ fileLines: FileLineEntry[]; totalLines: number }> {
+  const fileLines: FileLineEntry[] = [];
+  let totalLines = 0;
+  for (const file of files) {
+    const text = await file.file.text();
+    const rawLines = text.split(/\r?\n/);
+    const lines = mergeMultilineLogs(rawLines);
+    fileLines.push({ file, lines });
+    totalLines += lines.length;
+  }
+  return { fileLines, totalLines };
+}
+
+function collectRawLines(allLines: RawLine[], fileName: string, lines: string[]): void {
+  for (let i = 0; i < lines.length; i++) {
+    allLines.push({ fileName, lineNumber: i + 1, line: lines[i] });
+  }
+}
+
+function mergeMainLogResult(
+  collections: ParseCollections,
+  result: { events: EventNotification[]; controllers: ControllerInfo[]; identifierMap: Map<number, string> }
+): void {
+  const startIndex = collections.events.length;
+  collections.events.push(...result.events);
+  collections.controllerInfos.push(...result.controllers);
+  for (const [idx, identifier] of result.identifierMap) {
+    collections.eventIdentifierMap.set(startIndex + idx, identifier);
+  }
+}
+
+function getProjectParser(parserId: string) {
+  const projectParser = projectParserRegistry.get(parserId);
+  if (!projectParser) {
+    logger.warn("未找到选择的解析器", { parserId });
+    return null;
+  }
+  return projectParser;
+}
+
+function buildTaskMessage(taskCount: number): string {
+  return taskCount > 0 ? `解析完成，共 ${taskCount} 个任务` : "解析完成，未识别到任务";
+}
+
+function buildStatusMessage(taskCount: number, auxLogCount: number): string {
+  if (auxLogCount > 0) return `${buildTaskMessage(taskCount)}，Custom日志 ${auxLogCount} 条`;
+  return buildTaskMessage(taskCount);
 }
 
 /**
@@ -166,7 +227,7 @@ export function useLogParser(_config: LogParserConfig = {}): LogParserResult {
   /** 状态消息 */
   const statusMessage = ref("请先选择日志文件");
   /** 解析后的任务列表 */
-  const tasks = ref<TaskInfo[]>([]);
+  const tasks = shallowRef<TaskInfo[]>([]);
   /** 原始行数据 */
   const rawLines = ref<RawLine[]>([]);
   /** 辅助日志条目 */
@@ -190,7 +251,13 @@ export function useLogParser(_config: LogParserConfig = {}): LogParserResult {
    * 从所有任务中提取唯一的进程 ID，生成下拉选项。
    */
   const processOptions = computed(() => {
-    const ids = Array.from(new Set(tasks.value.map((task) => task.processId).filter(Boolean)));
+    const idSet = new Set<string>();
+    for (const task of tasks.value) {
+      if (task.processId) {
+        idSet.add(task.processId);
+      }
+    }
+    const ids = Array.from(idSet);
     return [{ label: "全部进程", value: "all" }, ...ids.map((id) => ({ label: id, value: id }))];
   });
 
@@ -200,7 +267,13 @@ export function useLogParser(_config: LogParserConfig = {}): LogParserResult {
    * 从所有任务中提取唯一的线程 ID，生成下拉选项。
    */
   const threadOptions = computed(() => {
-    const ids = Array.from(new Set(tasks.value.map((task) => task.threadId).filter(Boolean)));
+    const idSet = new Set<string>();
+    for (const task of tasks.value) {
+      if (task.threadId) {
+        idSet.add(task.threadId);
+      }
+    }
+    const ids = Array.from(idSet);
     return [{ label: "全部线程", value: "all" }, ...ids.map((id) => ({ label: id, value: id }))];
   });
 
@@ -210,13 +283,17 @@ export function useLogParser(_config: LogParserConfig = {}): LogParserResult {
    * 根据选择的进程和线程 ID 过滤任务。
    */
   const filteredTasks = computed(() => {
-    return tasks.value.filter((task) => {
-      const matchesProcess =
-        selectedProcessId.value === "all" || task.processId === selectedProcessId.value;
-      const matchesThread =
-        selectedThreadId.value === "all" || task.threadId === selectedThreadId.value;
-      return matchesProcess && matchesThread;
-    });
+    const result: TaskInfo[] = [];
+    const processId = selectedProcessId.value;
+    const threadId = selectedThreadId.value;
+    for (const task of tasks.value) {
+      const matchesProcess = processId === "all" || task.processId === processId;
+      const matchesThread = threadId === "all" || task.threadId === threadId;
+      if (matchesProcess && matchesThread) {
+        result.push(task);
+      }
+    }
+    return result;
   });
 
   // ============================================
@@ -263,62 +340,29 @@ export function useLogParser(_config: LogParserConfig = {}): LogParserResult {
     logger.info("开始解析日志");
 
     try {
-      // 初始化数据结构
-      const events: EventNotification[] = [];
-      const allLines: RawLine[] = [];
-      const auxEntries: AuxLogEntry[] = [];
-      const controllerInfos: ControllerInfo[] = [];
-      const eventIdentifierMap = new Map<number, string>();
-      let totalLines = 0;
-      const fileLines: { file: SelectedFile; lines: string[] }[] = [];
-
-      // 读取所有文件内容
-      for (const file of selectedFiles.value) {
-        const text = await file.file.text();
-        const rawLines = text.split(/\r?\n/);
-        const lines = mergeMultilineLogs(rawLines);
-        fileLines.push({ file, lines });
-        totalLines += lines.length;
-      }
-
+      const collections: ParseCollections = {
+        events: [],
+        allLines: [],
+        auxEntries: [],
+        controllerInfos: [],
+        eventIdentifierMap: new Map<number, string>(),
+      };
+      const { fileLines, totalLines } = await readSelectedFiles(selectedFiles.value);
       let processed = 0;
 
-      // 处理每个文件
       for (const entry of fileLines) {
         const { file, lines } = entry;
-
-        // 使用用户选择的项目解析器
-        const projectParser = projectParserRegistry.get(selectedParserId.value);
-        if (!projectParser) {
-          logger.warn("未找到选择的解析器", { parserId: selectedParserId.value });
-          continue;
-        }
-
-        // 记录原始行
-        for (let i = 0; i < lines.length; i++) {
-          allLines.push({ fileName: file.name, lineNumber: i + 1, line: lines[i] });
-        }
-
-        // 判断文件类型并使用对应解析方法
+        const projectParser = getProjectParser(selectedParserId.value);
+        if (!projectParser) continue;
+        collectRawLines(collections.allLines, file.name, lines);
         if (isMainLog(file.name)) {
-          // 主日志文件：使用 parseMainLog
           const result = projectParser.parseMainLog(lines, { fileName: file.name });
-
-          // 合并结果
-          events.push(...result.events);
-          controllerInfos.push(...result.controllers);
-
-          // 合并 identifier 映射
-          for (const [idx, identifier] of result.identifierMap) {
-            eventIdentifierMap.set(events.length - result.events.length + idx, identifier);
-          }
+          mergeMainLogResult(collections, result);
         } else {
-          // 辅助日志文件：使用 parseAuxLog
           const result = projectParser.parseAuxLog(lines, { fileName: file.name });
-          auxEntries.push(...result.entries);
+          collections.auxEntries.push(...result.entries);
         }
 
-        // 更新进度
         processed += lines.length;
         const percentage = totalLines > 0 ? Math.round((processed / totalLines) * 100) : 0;
         parseProgress.value = percentage;
@@ -326,24 +370,23 @@ export function useLogParser(_config: LogParserConfig = {}): LogParserResult {
         await new Promise((resolve) => setTimeout(resolve, 0));
       }
 
-      // 构建最终结果
-      rawLines.value = allLines;
-      const identifierRanges = buildIdentifierRanges(eventIdentifierMap, events.length);
+      rawLines.value = collections.allLines;
+      const identifierRanges = buildIdentifierRanges(
+        collections.eventIdentifierMap,
+        collections.events.length
+      );
       logger.debug("identifier 范围", {
         count: identifierRanges.length,
         samples: identifierRanges.slice(0, 5),
       });
 
-      // 构建任务列表
       const stringPool = new StringPool();
-      tasks.value = buildTasks(events, stringPool, identifierRanges);
+      tasks.value = buildTasks(collections.events, stringPool, identifierRanges);
       stringPool.clear();
 
-      // 关联控制器信息到任务
-      associateControllersToTasks(tasks.value, controllerInfos);
+      associateControllersToTasks(tasks.value as TaskInfo[], collections.controllerInfos);
 
-      // 关联辅助日志
-      auxLogs.value = correlateAuxLogs(auxEntries, tasks.value);
+      auxLogs.value = correlateAuxLogs(collections.auxEntries, tasks.value);
       logger.info("Custom日志关联完成", {
         total: auxLogs.value.length,
         matched: auxLogs.value.filter((item) => item.correlation?.status === "matched").length,
@@ -353,15 +396,7 @@ export function useLogParser(_config: LogParserConfig = {}): LogParserResult {
 
       parseState.value = "done";
 
-      // 生成状态消息
-      const taskMessage =
-        tasks.value.length > 0
-          ? `解析完成，共 ${tasks.value.length} 个任务`
-          : "解析完成，未识别到任务";
-      statusMessage.value =
-        auxLogs.value.length > 0
-          ? `${taskMessage}，Custom日志 ${auxLogs.value.length} 条`
-          : taskMessage;
+      statusMessage.value = buildStatusMessage(tasks.value.length, auxLogs.value.length);
     } catch (error) {
       parseState.value = "ready";
       statusMessage.value = "解析失败，请检查日志内容";
