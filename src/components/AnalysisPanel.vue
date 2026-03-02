@@ -81,7 +81,9 @@ import {
   NSelect,
   NTag,
   NSpin,
+  NIcon,
 } from "naive-ui";
+import { PictureFilled } from "@vicons/antd";
 import { DynamicScroller, DynamicScrollerItem } from "vue-virtual-scroller";
 import { ref, watch, onMounted } from "vue";
 import { convertFileSrc } from "@tauri-apps/api/core";
@@ -484,7 +486,9 @@ function openScreenshot(filePath: string): void {
                   <div class="node-main">
                     <div class="node-name">
                       <span>{{ item.name || item.node_id }}</span>
-                      <span v-if="item.error_screenshot" class="error-screenshot-badge" title="有错误截图">📷</span>
+                      <n-icon v-if="item.error_screenshot" class="error-screenshot-badge" color="#d03050" size="18" title="有错误截图">
+                        <PictureFilled />
+                      </n-icon>
                     </div>
                     <div class="node-sub">
                       <div>时间：{{ item.timestamp }}</div>
