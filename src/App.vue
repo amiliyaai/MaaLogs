@@ -301,13 +301,21 @@ const selectedNodeFocusLogs = computed(() => {
   const nodeName = selectedNode.value.name;
   const taskKey = selectedTask.value.key;
 
-  const focusLogs = auxLogs.value.filter(
-    (log) =>
-      log.source === "focus" &&
-      log.correlation?.status === "matched" &&
-      log.correlation?.taskKey === taskKey &&
-      log.details?.nodeName === nodeName
-  );
+  const recognitionAttemptNames = new Set<string>();
+  recognitionAttemptNames.add(nodeName);
+  for (const attempt of selectedNode.value.recognition_attempts ?? []) {
+    if (attempt.name) {
+      recognitionAttemptNames.add(attempt.name);
+    }
+  }
+
+  const focusLogs = auxLogs.value.filter((log) => {
+    if (log.source !== "focus") return false;
+    if (log.correlation?.status !== "matched") return false;
+    if (log.correlation?.taskKey !== taskKey) return false;
+    const logNodeName = log.details?.nodeName;
+    return typeof logNodeName === "string" && recognitionAttemptNames.has(logNodeName);
+  });
 
   const recognition = focusLogs.filter((log) => {
     const event = log.details?.event;
@@ -349,6 +357,7 @@ const selectedTaskAuxLogs = computed(() => {
 
   return auxLogs.value.filter(
     (log) =>
+      log.source !== "focus" &&
       log.correlation?.status === "matched" &&
       log.correlation?.taskKey === taskKey &&
       matchesLevel(log) &&

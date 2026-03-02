@@ -397,6 +397,91 @@ describe("buildFocusLogEntries", () => {
     expect(entries[0].entry).toBe("MainTask");
   });
 
+  it("should build focus log entries from PipelineNode events (real-world scenario)", () => {
+    const events: EventNotification[] = [
+      {
+        timestamp: "2026-03-02 12:11:42.000",
+        level: "INF",
+        processId: "Px1",
+        threadId: "Tx1",
+        message: "Node.PipelineNode.Starting",
+        details: {
+          name: "SeizeEntrustTaskFound7.31wMoney",
+          focus: {
+            "Node.Recognition.Failed": "不对不对，不是武陵订单！",
+            "Node.Recognition.Starting": "再看一眼~",
+            "Node.Recognition.Succeeded": "确定就是你啦~"
+          },
+        },
+        fileName: "maa.log",
+        _lineNumber: 1,
+      },
+      {
+        timestamp: "2026-03-02 12:11:42.551",
+        level: "INF",
+        processId: "Px1",
+        threadId: "Tx1",
+        message: "Node.Recognition.Starting",
+        details: {
+          task_id: 1,
+          entry: "MainTask",
+          name: "SeizeEntrustTaskFound7.31wMoney",
+        },
+        fileName: "maa.log",
+        _lineNumber: 10,
+      },
+      {
+        timestamp: "2026-03-02 12:11:42.800",
+        level: "INF",
+        processId: "Px1",
+        threadId: "Tx1",
+        message: "Node.Recognition.Failed",
+        details: {
+          task_id: 1,
+          entry: "MainTask",
+          name: "SeizeEntrustTaskFound7.31wMoney",
+        },
+        fileName: "maa.log",
+        _lineNumber: 15,
+      },
+      {
+        timestamp: "2026-03-02 12:11:43.000",
+        level: "INF",
+        processId: "Px1",
+        threadId: "Tx1",
+        message: "Node.Recognition.Starting",
+        details: {
+          task_id: 1,
+          entry: "MainTask",
+          name: "SeizeEntrustTaskFound7.31wMoney",
+        },
+        fileName: "maa.log",
+        _lineNumber: 20,
+      },
+      {
+        timestamp: "2026-03-02 12:11:43.500",
+        level: "INF",
+        processId: "Px1",
+        threadId: "Tx1",
+        message: "Node.Recognition.Succeeded",
+        details: {
+          task_id: 1,
+          entry: "MainTask",
+          name: "SeizeEntrustTaskFound7.31wMoney",
+        },
+        fileName: "maa.log",
+        _lineNumber: 25,
+      },
+    ];
+
+    const entries = buildFocusLogEntries(events);
+    expect(entries).toHaveLength(4);
+    expect(entries[0].message).toBe("再看一眼~");
+    expect(entries[1].message).toBe("不对不对，不是武陵订单！");
+    expect(entries[2].message).toBe("再看一眼~");
+    expect(entries[3].message).toBe("确定就是你啦~");
+  });
+
   it("should skip focus logs when display excludes log", () => {
     const events: EventNotification[] = [
       {
@@ -417,6 +502,127 @@ describe("buildFocusLogEntries", () => {
 
     const entries = buildFocusLogEntries(events);
     expect(entries).toHaveLength(0);
+  });
+
+  it("should build focus log entries from real MaaEnd log data", () => {
+    const events: EventNotification[] = [
+      {
+        timestamp: "2026-03-03 03:07:04.015",
+        level: "INF",
+        processId: "Px3220",
+        threadId: "Tx64911",
+        message: "Node.Recognition.Starting",
+        details: {
+          focus: {
+            "Node.Recognition.Succeeded": "好友列表已满，结束任务"
+          },
+          name: "BatchAddFriendsFriendListFullToast",
+          reco_id: 400000060,
+          task_id: 200000004
+        },
+        fileName: "maa.log",
+        _lineNumber: 35666,
+      },
+      {
+        timestamp: "2026-03-03 03:07:04.123",
+        level: "INF",
+        processId: "Px3220",
+        threadId: "Tx64911",
+        message: "Node.Recognition.Succeeded",
+        details: {
+          focus: {
+            "Node.Recognition.Succeeded": "好友列表已满，结束任务"
+          },
+          name: "BatchAddFriendsFriendListFullToast",
+          reco_details: {
+            algorithm: "OCR",
+            box: [526, 114, 221, 15],
+            detail: {
+              all: [
+                {
+                  box: [526, 114, 221, 15],
+                  score: 0.996005,
+                  text: "你的好友列表已满，无法再发送申请"
+                }
+              ],
+              best: {
+                box: [526, 114, 221, 15],
+                score: 0.996005,
+                text: "你的好友列表已满，无法再发送申请"
+              },
+              filtered: [
+                {
+                  box: [526, 114, 221, 15],
+                  score: 0.996005,
+                  text: "你的好友列表已满，无法再发送申请"
+                }
+              ]
+            },
+            name: "BatchAddFriendsFriendListFullToast",
+            reco_id: 400000060
+          },
+          reco_id: 400000060,
+          task_id: 200000004
+        },
+        fileName: "maa.log",
+        _lineNumber: 35671,
+      }
+    ];
+
+    const entries = buildFocusLogEntries(events);
+    expect(entries).toHaveLength(2);
+    expect(entries[0].message).toBe("好友列表已满，结束任务");
+    expect(entries[0].details?.event).toBe("Node.Recognition.Starting");
+    expect(entries[0].details?.nodeName).toBe("BatchAddFriendsFriendListFullToast");
+    expect(entries[1].message).toBe("好友列表已满，结束任务");
+    expect(entries[1].details?.event).toBe("Node.Recognition.Succeeded");
+    expect(entries[1].details?.nodeName).toBe("BatchAddFriendsFriendListFullToast");
+  });
+
+  it("should build focus log entries using first template when event type doesn't match (PriorStealGateProductionAndClueCheck)", () => {
+    const events: EventNotification[] = [
+      {
+        timestamp: "2026-03-02 12:11:42.551",
+        level: "INF",
+        processId: "Px32112",
+        threadId: "Tx32177",
+        message: "Node.Recognition.Starting",
+        details: {
+          focus: {
+            "Node.Recognition.Succeeded": "助力生产和线索交流剩余次数均大于0,进入偷菜模式"
+          },
+          name: "PriorStealGateProductionAndClueCheck",
+          reco_id: 400000012,
+          task_id: 200000001
+        },
+        fileName: "maa.log",
+        _lineNumber: 2235,
+      },
+      {
+        timestamp: "2026-03-02 12:11:43.827",
+        level: "INF",
+        processId: "Px32112",
+        threadId: "Tx32177",
+        message: "Node.Recognition.Failed",
+        details: {
+          focus: {
+            "Node.Recognition.Succeeded": "助力生产和线索交流剩余次数均大于0,进入偷菜模式"
+          },
+          name: "PriorStealGateProductionAndClueCheck",
+          reco_id: 400000012,
+          task_id: 200000001
+        },
+        fileName: "maa.log",
+        _lineNumber: 2255,
+      }
+    ];
+
+    const entries = buildFocusLogEntries(events);
+    expect(entries).toHaveLength(2);
+    expect(entries[0].message).toBe("助力生产和线索交流剩余次数均大于0,进入偷菜模式");
+    expect(entries[0].details?.event).toBe("Node.Recognition.Starting");
+    expect(entries[1].message).toBe("助力生产和线索交流剩余次数均大于0,进入偷菜模式");
+    expect(entries[1].details?.event).toBe("Node.Recognition.Failed");
   });
 });
 

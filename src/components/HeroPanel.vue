@@ -77,7 +77,6 @@ const emitParse = () => emit("parse");
     <!-- 主标题和操作区域 -->
     <div class="hero-text">
       <h1>📊 日志解析 · 任务与节点可视化</h1>
-      <p class="hero-subtitle">请选择你的日志文件以开始分析</p>
       <div class="actions">
         <!-- 目录选择按钮 -->
         <NButton size="small" @click="emit('select-directory')">📂 选择日志目录</NButton>
@@ -91,11 +90,10 @@ const emitParse = () => emit("parse");
           {{ parseState === "parsing" ? "解析中…" : "开始解析" }}
         </NButton>
       </div>
-      <!-- 拖拽提示 -->
+      <!-- 提示 -->
       <div class="drag-hint">
-        <div class="hint-line">💡 导入 maa.log、导入 Custom 日志（可选）</div>
+        <div class="hint-line" style="font-weight: bold">💡 请选择日志根目录，以便导入 maa.log、Custom 日志、错误截图！！！</div>
         <div class="hint-line">📂 支持拖拽导入（日志压缩包或日志目录）</div>
-        <div class="hint-line highlight">✨ 导入 Custom 日志可增强 AI 分析和显示任务相关日志</div>
       </div>
     </div>
     <!-- 状态信息卡片 -->
