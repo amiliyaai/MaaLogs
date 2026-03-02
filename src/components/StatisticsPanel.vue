@@ -108,12 +108,14 @@ const statSortOptions = [
       <!-- 控制区域 -->
       <div class="stat-controls">
         <!-- 关键字过滤输入框 -->
+        <span class="control-label">节点过滤：</span>
         <n-input
           :value="statKeyword"
           placeholder="按节点名过滤"
           @update:value="emit('update:statKeyword', $event)"
         />
         <!-- 排序选择器 -->
+        <span class="control-label">排序方式：</span>
         <n-select
           size="small"
           :options="statSortOptions"
@@ -207,5 +209,18 @@ const statSortOptions = [
 <style scoped>
 .stat-scroller {
   max-height: 400px;
+}
+
+.stat-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.control-label {
+  font-size: 14px;
+  color: #333;
+  white-space: nowrap;
 }
 </style>
