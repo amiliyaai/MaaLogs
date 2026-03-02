@@ -1032,18 +1032,17 @@ export function buildTasks(
 /**
  * 任务去重函数
  *
- * 合并相同任务（相同 entry、start_time、uuid 但不同 processId/threadId 的任务）
+ * 合并相同任务（相同 entry、task_id、uuid、hash 但不同 processId/threadId 的任务）
  * 优先保留有控制器信息的任务
  *
  * @param tasks - 原始任务列表
  * @returns 去重后的任务列表
  */
 function deduplicateTasks(tasks: TaskInfo[]): TaskInfo[] {
-  // 使用任务签名（entry + start_time + uuid）来识别重复任务
   const taskSignatureMap = new Map<string, TaskInfo[]>();
 
   for (const task of tasks) {
-    const signature = `${task.entry || ""}|${task.start_time || ""}|${task.uuid || ""}`;
+    const signature = `${task.entry || ""}|${task.task_id || ""}|${task.uuid || ""}|${task.hash || ""}`;
     if (!taskSignatureMap.has(signature)) {
       taskSignatureMap.set(signature, []);
     }
