@@ -732,45 +732,54 @@ function extractEntryName(details: Record<string, JsonValue>): string | undefine
   return undefined;
 }
 
+function buildSingleFocusEntry(
+  event: EventNotification,
+  index: number
+): AuxLogEntry | null {
+  const details = isRecordJsonValue(event.details) ? event.details : {};
+  const focus = isRecordJsonValue(details.focus) ? details.focus : undefined;
+  if (!focus) return null;
+
+  const template = focus[event.message];
+  if (!template) return null;
+
+  const normalized = normalizeFocusTemplate(template);
+  if (!normalized || !normalized.display.includes("log")) return null;
+
+  const message = applyFocusTemplate(normalized.content, details).trim();
+  if (!message) return null;
+
+  const taskId = normalizeId(details.task_id ?? details.taskId);
+  const entry = extractEntryName(details);
+  const timestampMs = parseTimestampToMs(event.timestamp) ?? undefined;
+  const identifier = typeof details.identifier === "string" ? details.identifier : undefined;
+  const nodeName = typeof details.name === "string" ? details.name : undefined;
+
+  return {
+    key: `focus-${event.fileName}-${event._lineNumber ?? index + 1}`,
+    source: "focus",
+    timestamp: event.timestamp,
+    timestampMs,
+    level: "info",
+    message,
+    identifier,
+    task_id: taskId,
+    entry,
+    caller: `${event.fileName}:${event._lineNumber ?? index + 1}`,
+    fileName: event.fileName,
+    lineNumber: event._lineNumber ?? index + 1,
+    details: {
+      event: event.message,
+      ...(nodeName ? { nodeName } : {}),
+    },
+  };
+}
+
 export function buildFocusLogEntries(events: EventNotification[]): AuxLogEntry[] {
   const entries: AuxLogEntry[] = [];
   for (let i = 0; i < events.length; i++) {
-    const event = events[i];
-    const details = isRecordJsonValue(event.details) ? event.details : {};
-    const focus = isRecordJsonValue(details.focus) ? details.focus : undefined;
-    if (!focus) continue;
-
-    const template = focus[event.message];
-    if (!template) continue;
-
-    const normalized = normalizeFocusTemplate(template);
-    if (!normalized || !normalized.display.includes("log")) continue;
-
-    const message = applyFocusTemplate(normalized.content, details).trim();
-    if (!message) continue;
-
-    const taskId = normalizeId(details.task_id ?? details.taskId);
-    const entry = extractEntryName(details);
-    const timestampMs = parseTimestampToMs(event.timestamp) ?? undefined;
-    const identifier = typeof details.identifier === "string" ? details.identifier : undefined;
-
-    entries.push({
-      key: `focus-${event.fileName}-${event._lineNumber ?? i + 1}`,
-      source: "focus",
-      timestamp: event.timestamp,
-      timestampMs,
-      level: "info",
-      message,
-      identifier,
-      task_id: taskId,
-      entry,
-      caller: `${event.fileName}:${event._lineNumber ?? i + 1}`,
-      fileName: event.fileName,
-      lineNumber: event._lineNumber ?? i + 1,
-      details: {
-        event: event.message,
-      },
-    });
+    const entry = buildSingleFocusEntry(events[i], i);
+    if (entry) entries.push(entry);
   }
   return entries;
 }

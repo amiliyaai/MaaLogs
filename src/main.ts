@@ -14,11 +14,6 @@
 import { createApp } from "vue";
 import App from "./App.vue";
 
-import "@vue-flow/core/dist/style.css";
-import "@vue-flow/core/dist/theme-default.css";
-import "@vue-flow/controls/dist/style.css";
-import "@vue-flow/minimap/dist/style.css";
-
 // 导入项目解析器注册相关模块
 import { projectParserRegistry } from "./parsers/project-registry";
 import { m9aProjectParser } from "./parsers/projects/m9a";

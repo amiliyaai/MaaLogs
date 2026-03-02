@@ -249,6 +249,7 @@ const props = withDefaults(
     summarizeNestedActionNodes: (node: NodeInfo) => string;
     copyJson: (data: unknown) => void;
     selectedNodeCustomActions: PipelineCustomActionInfo[];
+    selectedNodeFocusLogs?: { recognition: AuxLogEntry[]; action: AuxLogEntry[] };
     selectedTaskAuxLogs: AuxLogEntry[];
     formatAuxLevel: (
       value: string
@@ -260,6 +261,7 @@ const props = withDefaults(
   {
     selectedAuxLevels: () => ["error", "warn", "info", "debug", "other"],
     hiddenCallers: () => [],
+    selectedNodeFocusLogs: () => ({ recognition: [], action: [] }),
   }
 );
 
@@ -1015,6 +1017,56 @@ function openScreenshot(filePath: string): void {
                 />
                 <div v-else class="empty">无 Focus 信息</div>
               </n-collapse-item>
+              <!-- Focus 消息 - 识别 -->
+              <n-collapse-item name="focus-recognition">
+                <template #header>
+                  <div class="collapse-header">
+                    <span>识别 Focus</span>
+                    <span class="collapse-summary">{{ props.selectedNodeFocusLogs.recognition.length }}</span>
+                  </div>
+                </template>
+                <div v-if="props.selectedNodeFocusLogs.recognition.length === 0" class="empty">
+                  无识别 Focus 消息
+                </div>
+                <div v-else class="focus-log-list">
+                  <div
+                    v-for="log in props.selectedNodeFocusLogs.recognition"
+                    :key="log.key"
+                    class="focus-log-item"
+                  >
+                    <div class="focus-log-header">
+                      <n-tag size="small" type="info">{{ log.details?.event }}</n-tag>
+                      <span class="focus-log-time">{{ log.timestamp }}</span>
+                    </div>
+                    <div class="focus-log-message">{{ log.message }}</div>
+                  </div>
+                </div>
+              </n-collapse-item>
+              <!-- Focus 消息 - 动作 -->
+              <n-collapse-item name="focus-action">
+                <template #header>
+                  <div class="collapse-header">
+                    <span>动作 Focus</span>
+                    <span class="collapse-summary">{{ props.selectedNodeFocusLogs.action.length }}</span>
+                  </div>
+                </template>
+                <div v-if="props.selectedNodeFocusLogs.action.length === 0" class="empty">
+                  无动作 Focus 消息
+                </div>
+                <div v-else class="focus-log-list">
+                  <div
+                    v-for="log in props.selectedNodeFocusLogs.action"
+                    :key="log.key"
+                    class="focus-log-item"
+                  >
+                    <div class="focus-log-header">
+                      <n-tag size="small" type="info">{{ log.details?.event }}</n-tag>
+                      <span class="focus-log-time">{{ log.timestamp }}</span>
+                    </div>
+                    <div class="focus-log-message">{{ log.message }}</div>
+                  </div>
+                </div>
+              </n-collapse-item>
             </n-collapse>
           </template>
           <!-- Custom 日志区域 -->
@@ -1291,5 +1343,36 @@ function openScreenshot(filePath: string): void {
   max-width: 100%;
   max-height: 70vh;
   object-fit: contain;
+}
+
+.focus-log-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.focus-log-item {
+  padding: 8px 12px;
+  background: var(--n-color-modal);
+  border-radius: 6px;
+  border: 1px solid var(--n-border-color);
+}
+
+.focus-log-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.focus-log-time {
+  font-size: 11px;
+  color: var(--n-text-color-3);
+}
+
+.focus-log-message {
+  font-size: 13px;
+  color: var(--n-text-color);
+  word-break: break-all;
 }
 </style>

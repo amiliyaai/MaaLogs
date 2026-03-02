@@ -136,6 +136,7 @@ describe("correlateAuxLogsWithTasks", () => {
     const config = {
       ...DEFAULT_CORRELATION_CONFIG,
       enableTaskIdMatch: false,
+      enableTimeWindowMatch: false,
     };
 
     const result = correlateAuxLogsWithTasks([entry], [task], config);

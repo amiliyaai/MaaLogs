@@ -291,6 +291,38 @@ const selectedNodeCustomActions = computed(() => {
 });
 
 /**
+ * 当前选中节点的 Focus 消息
+ */
+const selectedNodeFocusLogs = computed(() => {
+  if (!selectedNode.value || !selectedTask.value) {
+    return { recognition: [], action: [] };
+  }
+
+  const nodeName = selectedNode.value.name;
+  const taskKey = selectedTask.value.key;
+
+  const focusLogs = auxLogs.value.filter(
+    (log) =>
+      log.source === "focus" &&
+      log.correlation?.status === "matched" &&
+      log.correlation?.taskKey === taskKey &&
+      log.details?.nodeName === nodeName
+  );
+
+  const recognition = focusLogs.filter((log) => {
+    const event = log.details?.event;
+    return typeof event === "string" && event.startsWith("Node.Recognition");
+  });
+
+  const action = focusLogs.filter((log) => {
+    const event = log.details?.event;
+    return typeof event === "string" && event.startsWith("Node.Action");
+  });
+
+  return { recognition, action };
+});
+
+/**
  * 当前选中任务的Custom日志
  */
 const selectedTaskAuxLogs = computed(() => {
@@ -689,6 +721,7 @@ onBeforeUnmount(() => {
               :summarize-nested-action-nodes="summarizeNestedActionNodes"
               :copy-json="copyJson"
               :selected-node-custom-actions="selectedNodeCustomActions"
+              :selected-node-focus-logs="selectedNodeFocusLogs"
               :selected-task-aux-logs="selectedTaskAuxLogs"
               :format-aux-level="formatAuxLevel"
               :selected-aux-levels="selectedAuxLevels"
