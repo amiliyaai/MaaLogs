@@ -149,7 +149,7 @@ export function useFileSelection(
       directory: true,
       multiple: false,
     });
-    
+
     if (selected && typeof selected === "string") {
       await handleTauriDrop([selected]);
     }

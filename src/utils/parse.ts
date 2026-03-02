@@ -673,7 +673,10 @@ function resolveFocusTemplateValue(
   details: Record<string, JsonValue>,
   path: string
 ): JsonValue | undefined {
-  const parts = path.split(".").map((part) => part.trim()).filter(Boolean);
+  const parts = path
+    .split(".")
+    .map((part) => part.trim())
+    .filter(Boolean);
   let current: JsonValue = details;
   for (const part of parts) {
     if (typeof current !== "object" || current === null || Array.isArray(current)) {
@@ -724,9 +727,9 @@ function normalizeFocusTemplate(
 
 /**
  * 从事件详情中提取条目名称
- * 
+ *
  * 优先使用 entry 字段，其次使用 name 字段
- * 
+ *
  * @param details - 事件详情对象
  * @returns 条目名称或 undefined
  */
@@ -742,11 +745,11 @@ function extractEntryName(details: Record<string, JsonValue>): string | undefine
 
 /**
  * 构建 Focus 消息
- * 
+ *
  * 1. 优先查找与事件类型完全匹配的模板
  * 2. 如果没有完全匹配的模板，使用 focus 配置中的第一个模板
  * 3. 应用模板并返回格式化后的消息
- * 
+ *
  * @param event - 事件通知对象
  * @param focus - Focus 配置对象
  * @param details - 事件详情对象
@@ -758,21 +761,21 @@ function buildFocusMessage(
   details: Record<string, JsonValue>
 ): string | null {
   let template: JsonValue | undefined;
-  
+
   for (const key of Object.keys(focus)) {
     if (event.message.startsWith(key)) {
       template = focus[key];
       break;
     }
   }
-  
+
   if (!template) {
     const focusKeys = Object.keys(focus);
     if (focusKeys.length > 0) {
       template = focus[focusKeys[0]];
     }
   }
-  
+
   if (!template) {
     return null;
   }
@@ -788,7 +791,7 @@ function buildFocusMessage(
 
 /**
  * 构建单个 Focus 日志条目
- * 
+ *
  * @param event - 事件通知对象
  * @param index - 事件索引
  * @param focusMap - 节点名称到 Focus 配置的映射
@@ -800,18 +803,18 @@ function buildSingleFocusEntry(
   focusMap: Map<string, Record<string, JsonValue>>
 ): AuxLogEntry | null {
   const details = isRecordJsonValue(event.details) ? event.details : {};
-  
+
   const nodeName = typeof details.name === "string" ? details.name : undefined;
-  
+
   let focus: Record<string, JsonValue> | undefined;
-  
+
   const directFocus = isRecordJsonValue(details.focus) ? details.focus : undefined;
   if (directFocus) {
     focus = directFocus;
   } else if (nodeName) {
     focus = focusMap.get(nodeName);
   }
-  
+
   if (!focus) return null;
 
   if (!event.message.startsWith("Node.Recognition") && !event.message.startsWith("Node.Action")) {
@@ -819,7 +822,7 @@ function buildSingleFocusEntry(
   }
 
   const message = buildFocusMessage(event, focus, details);
-  
+
   if (!message) {
     return null;
   }
@@ -851,43 +854,45 @@ function buildSingleFocusEntry(
 
 /**
  * 从事件列表中构建 Focus 配置映射
- * 
+ *
  * 从 Node.PipelineNode 事件中提取节点名称和 Focus 配置，
  * 构建节点名称到 Focus 配置的映射关系。
- * 
+ *
  * @param events - 事件列表
  * @returns 节点名称到 Focus 配置的 Map
  */
-function buildFocusMapFromEvents(events: EventNotification[]): Map<string, Record<string, JsonValue>> {
+function buildFocusMapFromEvents(
+  events: EventNotification[]
+): Map<string, Record<string, JsonValue>> {
   const focusMap = new Map<string, Record<string, JsonValue>>();
-  
+
   for (const event of events) {
     if (!event.message.startsWith("Node.PipelineNode.")) {
       continue;
     }
-    
+
     const details = isRecordJsonValue(event.details) ? event.details : {};
     const nodeName = typeof details.name === "string" ? details.name : undefined;
     const focus = isRecordJsonValue(details.focus) ? details.focus : undefined;
-    
+
     if (nodeName && focus) {
       focusMap.set(nodeName, focus);
     }
   }
-  
+
   return focusMap;
 }
 
 /**
  * 从事件列表中构建 Focus 日志条目
- * 
+ *
  * @param events - 事件列表
  * @returns Focus 日志条目数组
  */
 export function buildFocusLogEntries(events: EventNotification[]): AuxLogEntry[] {
   const entries: AuxLogEntry[] = [];
   const focusMap = buildFocusMapFromEvents(events);
-  
+
   for (let i = 0; i < events.length; i++) {
     const entry = buildSingleFocusEntry(events[i], i, focusMap);
     if (entry) entries.push(entry);

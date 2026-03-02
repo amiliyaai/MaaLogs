@@ -410,7 +410,7 @@ describe("buildFocusLogEntries", () => {
           focus: {
             "Node.Recognition.Failed": "不对不对，不是武陵订单！",
             "Node.Recognition.Starting": "再看一眼~",
-            "Node.Recognition.Succeeded": "确定就是你啦~"
+            "Node.Recognition.Succeeded": "确定就是你啦~",
           },
         },
         fileName: "maa.log",
@@ -514,11 +514,11 @@ describe("buildFocusLogEntries", () => {
         message: "Node.Recognition.Starting",
         details: {
           focus: {
-            "Node.Recognition.Succeeded": "好友列表已满，结束任务"
+            "Node.Recognition.Succeeded": "好友列表已满，结束任务",
           },
           name: "BatchAddFriendsFriendListFullToast",
           reco_id: 400000060,
-          task_id: 200000004
+          task_id: 200000004,
         },
         fileName: "maa.log",
         _lineNumber: 35666,
@@ -531,7 +531,7 @@ describe("buildFocusLogEntries", () => {
         message: "Node.Recognition.Succeeded",
         details: {
           focus: {
-            "Node.Recognition.Succeeded": "好友列表已满，结束任务"
+            "Node.Recognition.Succeeded": "好友列表已满，结束任务",
           },
           name: "BatchAddFriendsFriendListFullToast",
           reco_details: {
@@ -542,31 +542,31 @@ describe("buildFocusLogEntries", () => {
                 {
                   box: [526, 114, 221, 15],
                   score: 0.996005,
-                  text: "你的好友列表已满，无法再发送申请"
-                }
+                  text: "你的好友列表已满，无法再发送申请",
+                },
               ],
               best: {
                 box: [526, 114, 221, 15],
                 score: 0.996005,
-                text: "你的好友列表已满，无法再发送申请"
+                text: "你的好友列表已满，无法再发送申请",
               },
               filtered: [
                 {
                   box: [526, 114, 221, 15],
                   score: 0.996005,
-                  text: "你的好友列表已满，无法再发送申请"
-                }
-              ]
+                  text: "你的好友列表已满，无法再发送申请",
+                },
+              ],
             },
             name: "BatchAddFriendsFriendListFullToast",
-            reco_id: 400000060
+            reco_id: 400000060,
           },
           reco_id: 400000060,
-          task_id: 200000004
+          task_id: 200000004,
         },
         fileName: "maa.log",
         _lineNumber: 35671,
-      }
+      },
     ];
 
     const entries = buildFocusLogEntries(events);
@@ -589,11 +589,11 @@ describe("buildFocusLogEntries", () => {
         message: "Node.Recognition.Starting",
         details: {
           focus: {
-            "Node.Recognition.Succeeded": "助力生产和线索交流剩余次数均大于0,进入偷菜模式"
+            "Node.Recognition.Succeeded": "助力生产和线索交流剩余次数均大于0,进入偷菜模式",
           },
           name: "PriorStealGateProductionAndClueCheck",
           reco_id: 400000012,
-          task_id: 200000001
+          task_id: 200000001,
         },
         fileName: "maa.log",
         _lineNumber: 2235,
@@ -606,15 +606,15 @@ describe("buildFocusLogEntries", () => {
         message: "Node.Recognition.Failed",
         details: {
           focus: {
-            "Node.Recognition.Succeeded": "助力生产和线索交流剩余次数均大于0,进入偷菜模式"
+            "Node.Recognition.Succeeded": "助力生产和线索交流剩余次数均大于0,进入偷菜模式",
           },
           name: "PriorStealGateProductionAndClueCheck",
           reco_id: 400000012,
-          task_id: 200000001
+          task_id: 200000001,
         },
         fileName: "maa.log",
         _lineNumber: 2255,
-      }
+      },
     ];
 
     const entries = buildFocusLogEntries(events);

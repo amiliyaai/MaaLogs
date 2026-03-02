@@ -362,7 +362,7 @@ export async function applySelectedPaths(paths: string[]): Promise<{
   }
 
   const baseDir = paths.length > 0 ? paths[0] : "";
-  
+
   return { files: outFiles, errors, hasDirectory, baseDir };
 }
 

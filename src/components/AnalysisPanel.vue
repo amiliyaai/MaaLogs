@@ -486,7 +486,13 @@ function openScreenshot(filePath: string): void {
                   <div class="node-main">
                     <div class="node-name">
                       <span>{{ item.name || item.node_id }}</span>
-                      <n-icon v-if="item.error_screenshot" class="error-screenshot-badge" color="#d03050" size="18" title="有错误截图">
+                      <n-icon
+                        v-if="item.error_screenshot"
+                        class="error-screenshot-badge"
+                        color="#d03050"
+                        size="18"
+                        title="有错误截图"
+                      >
                         <PictureFilled />
                       </n-icon>
                     </div>
@@ -1026,7 +1032,9 @@ function openScreenshot(filePath: string): void {
                 <template #header>
                   <div class="collapse-header">
                     <span>识别 Focus</span>
-                    <span class="collapse-summary">{{ props.selectedNodeFocusLogs.recognition.length }}</span>
+                    <span class="collapse-summary">{{
+                      props.selectedNodeFocusLogs.recognition.length
+                    }}</span>
                   </div>
                 </template>
                 <div v-if="props.selectedNodeFocusLogs.recognition.length === 0" class="empty">
@@ -1051,7 +1059,9 @@ function openScreenshot(filePath: string): void {
                 <template #header>
                   <div class="collapse-header">
                     <span>动作 Focus</span>
-                    <span class="collapse-summary">{{ props.selectedNodeFocusLogs.action.length }}</span>
+                    <span class="collapse-summary">{{
+                      props.selectedNodeFocusLogs.action.length
+                    }}</span>
                   </div>
                 </template>
                 <div v-if="props.selectedNodeFocusLogs.action.length === 0" class="empty">

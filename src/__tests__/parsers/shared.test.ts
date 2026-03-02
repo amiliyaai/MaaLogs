@@ -21,9 +21,7 @@ import {
   type OnErrorScreenshot,
 } from "../../parsers/shared";
 import type { NodeInfo } from "../../types/logTypes";
-import {
-  M9A_LOG_SAMPLES,
-} from "../fixtures/m9a-samples";
+import { M9A_LOG_SAMPLES } from "../fixtures/m9a-samples";
 
 describe("parseBracketLine", () => {
   it("should parse node hit log line", () => {

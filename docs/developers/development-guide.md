@@ -38,19 +38,19 @@ npm run tauri:build
 
 ## 常用命令
 
-| 命令 | 说明 |
-|------|------|
-| `npm run dev` | 启动 Web 开发服务器 |
-| `npm run tauri:dev` | 启动 Tauri 开发模式 |
-| `npm run build` | 构建 Web 版本 |
-| `npm run tauri:build` | 构建 Tauri 桌面应用 |
-| `npm run lint` | 运行 ESLint 检查 |
-| `npm run lint:fix` | 自动修复 ESLint 问题 |
-| `npm run format` | 检查代码格式 |
-| `npm run format:write` | 格式化代码 |
-| `npm run typecheck` | TypeScript 类型检查 |
-| `npm run test` | 运行测试（监视模式） |
-| `npm run test:run` | 运行测试（单次） |
+| 命令                    | 说明                     |
+| ----------------------- | ------------------------ |
+| `npm run dev`           | 启动 Web 开发服务器      |
+| `npm run tauri:dev`     | 启动 Tauri 开发模式      |
+| `npm run build`         | 构建 Web 版本            |
+| `npm run tauri:build`   | 构建 Tauri 桌面应用      |
+| `npm run lint`          | 运行 ESLint 检查         |
+| `npm run lint:fix`      | 自动修复 ESLint 问题     |
+| `npm run format`        | 检查代码格式             |
+| `npm run format:write`  | 格式化代码               |
+| `npm run typecheck`     | TypeScript 类型检查      |
+| `npm run test`          | 运行测试（监视模式）     |
+| `npm run test:run`      | 运行测试（单次）         |
 | `npm run test:coverage` | 运行测试并生成覆盖率报告 |
 
 ## 项目结构
@@ -132,15 +132,15 @@ src/
 
 ### 命名规范
 
-| 类型 | 规范 | 示例 |
-|------|------|------|
-| 组件文件 | PascalCase | `AnalysisPanel.vue` |
-| Composable 文件 | camelCase，use 前缀 | `useLogParser.ts` |
-| 工具函数文件 | camelCase | `aiAnalyzer.ts` |
-| 类型文件 | camelCase | `logTypes.ts` |
-| 常量 | UPPER_SNAKE_CASE | `DEFAULT_CONFIG` |
-| 函数 | camelCase | `parseBracketLine` |
-| 接口/类型 | PascalCase | `TaskInfo`, `NodeInfo` |
+| 类型            | 规范                | 示例                   |
+| --------------- | ------------------- | ---------------------- |
+| 组件文件        | PascalCase          | `AnalysisPanel.vue`    |
+| Composable 文件 | camelCase，use 前缀 | `useLogParser.ts`      |
+| 工具函数文件    | camelCase           | `aiAnalyzer.ts`        |
+| 类型文件        | camelCase           | `logTypes.ts`          |
+| 常量            | UPPER_SNAKE_CASE    | `DEFAULT_CONFIG`       |
+| 函数            | camelCase           | `parseBracketLine`     |
+| 接口/类型       | PascalCase          | `TaskInfo`, `NodeInfo` |
 
 ### 注释规范
 
@@ -183,10 +183,7 @@ src/
 1. 在 `src/utils/aiAnalyzer.ts` 中添加服务商类型：
 
 ```typescript
-export type AIProvider = 
-  | "openai" 
-  | "claude" 
-  | "myprovider"; // 新增
+export type AIProvider = "openai" | "claude" | "myprovider"; // 新增
 
 export const PROVIDER_MODELS: Record<AIProvider, string[]> = {
   // ...
@@ -239,11 +236,11 @@ const props = withDefaults(defineProps<Props>(), {
 ```typescript
 export function useMyFeature() {
   const state = ref(0);
-  
+
   const increment = () => {
     state.value++;
   };
-  
+
   return {
     state,
     increment,
@@ -331,12 +328,14 @@ export const SAMPLE_DATA = {
 ### Q: Tauri 开发模式启动慢？
 
 首次启动需要编译 Rust 代码，后续启动会快很多。可以尝试：
+
 - 使用 `--release` 模式（但编译更慢）
 - 确保 Rust 工具链是最新的
 
 ### Q: 类型检查报错但代码能运行？
 
 可能是 TypeScript 缓存问题，尝试：
+
 ```bash
 rm -rf node_modules/.vite
 npm run typecheck

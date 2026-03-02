@@ -535,10 +535,7 @@ export function attachScreenshotsToNodes(
     });
 
     if (candidates.length > 0) {
-      candidates.sort(
-        (a, b) =>
-          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-      );
+      candidates.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
       candidates[0].error_screenshot = screenshot.filePath;
     }
   }
@@ -572,8 +569,7 @@ export function attachScreenshotsToTasks(
 
     if (nodeCandidates.length > 0) {
       nodeCandidates.sort(
-        (a, b) =>
-          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
       );
       nodeCandidates[0].error_screenshot = screenshot.filePath;
     }
