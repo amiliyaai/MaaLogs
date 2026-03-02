@@ -10,7 +10,7 @@
 - 解析进度显示
 - 当前选择文件的状态信息
 
-@emits file-change - 文件选择变更事件
+@emits select-directory - 目录选择事件
 @emits parse - 开始解析事件
 @emits drag-over - 拖拽悬停事件
 @emits drag-enter - 拖拽进入事件
@@ -48,7 +48,7 @@ defineProps<{
 }>();
 
 const emit = defineEmits<{
-  (e: "file-change", event: Event): void;
+  (e: "select-directory"): void;
   (e: "parse"): void;
   (e: "drag-over", event: DragEvent): void;
   (e: "drag-enter", event: DragEvent): void;
@@ -79,16 +79,8 @@ const emitParse = () => emit("parse");
       <h1>📊 日志解析 · 任务与节点可视化</h1>
       <p class="hero-subtitle">请选择你的日志文件以开始分析</p>
       <div class="actions">
-        <!-- 文件选择按钮（隐藏的 input） -->
-        <label class="upload">
-          <NButton size="small">📁 选择日志文件</NButton>
-          <input
-            type="file"
-            multiple
-            accept=".log,.json,.zip"
-            @change="emit('file-change', $event)"
-          />
-        </label>
+        <!-- 目录选择按钮 -->
+        <NButton size="small" @click="emit('select-directory')">📂 选择日志目录</NButton>
         <!-- 解析按钮 -->
         <NButton
           type="primary"

@@ -74,6 +74,7 @@ export interface MainLogParseResult {
   controllers: ControllerInfo[];
   identifierMap: Map<number, string>;
   detectedProject?: ProjectType;
+  _logDir?: string;
 }
 
 /**
@@ -81,6 +82,7 @@ export interface MainLogParseResult {
  */
 export interface MainLogParserConfig {
   fileName: string;
+  logDir?: string;
 }
 
 /**
@@ -142,5 +144,4 @@ export interface ProjectParser {
 export interface ProjectParserRegistration {
   parser: ProjectParser;
   enabled: boolean;
-  priority: number;
 }

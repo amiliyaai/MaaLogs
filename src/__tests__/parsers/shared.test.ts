@@ -1,12 +1,35 @@
-import { describe, it, expect } from "vitest";
+/**
+ * @fileoverview shared.ts 解析工具函数单元测试
+ *
+ * 测试覆盖：
+ * - parseBracketLine: 方括号格式日志行解析
+ * - parseAdbScreencapMethods: ADB 截图方式 bitmask 解析
+ * - parseAdbInputMethods: ADB 输入方式 bitmask 解析
+ * - parseOnErrorScreenshots: on_error 截图文件解析
+ * - attachScreenshotsToNodes: 截图与节点关联
+ *
+ * @module __tests__/parsers/shared.test
+ * @author MaaLogs Team
+ * @license MIT
+ */
+
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
   parseBracketLine,
   parseAdbScreencapMethods,
   parseAdbInputMethods,
+  parseOnErrorScreenshots,
+  attachScreenshotsToNodes,
+  type OnErrorScreenshot,
 } from "../../parsers/shared";
+import type { NodeInfo } from "../../types/logTypes";
 import {
   M9A_LOG_SAMPLES,
 } from "../fixtures/m9a-samples";
+import * as fs from "fs";
+import * as path from "path";
+import { mkdtempSync, rmSync, writeFileSync } from "fs";
+import { tmpdir } from "os";
 
 describe("parseBracketLine", () => {
   it("should parse node hit log line", () => {
@@ -114,5 +137,170 @@ describe("parseAdbInputMethods", () => {
   it("should return Unknown for empty bitmask", () => {
     const methods = parseAdbInputMethods(0);
     expect(methods).toEqual(["Unknown"]);
+  });
+});
+
+describe("parseOnErrorScreenshots", () => {
+  let tempDir: string;
+
+  beforeEach(() => {
+    tempDir = mkdtempSync(path.join(tmpdir(), "maa-test-"));
+  });
+
+  afterEach(() => {
+    rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it("should return empty array when directory does not exist", () => {
+    const result = parseOnErrorScreenshots("/nonexistent/path");
+    expect(result).toEqual([]);
+  });
+
+  it("should parse screenshots in on_error subdirectory", () => {
+    const onErrorDir = path.join(tempDir, "on_error");
+    fs.mkdirSync(onErrorDir, { recursive: true });
+    writeFileSync(
+      path.join(onErrorDir, "2026.03.02-11.02.03.318_SceneCheckTealColorFailed.png"),
+      "fake image"
+    );
+    writeFileSync(
+      path.join(onErrorDir, "2026.03.02-11.02.23.570_SceneCheckPurpleColorFailed.png"),
+      "fake image"
+    );
+
+    const result = parseOnErrorScreenshots(tempDir);
+
+    expect(result).toHaveLength(2);
+    expect(result[0].nodeName).toBe("SceneCheckTealColorFailed");
+    expect(result[0].timestamp).toBe("2026-03-02T11:02:03.318");
+    expect(result[0].timestampMs).toBe(new Date("2026-03-02T11:02:03.318").getTime());
+    expect(result[1].nodeName).toBe("SceneCheckPurpleColorFailed");
+  });
+
+  it("should recursively scan subdirectories", () => {
+    const nestedDir = path.join(tempDir, "debug", "error");
+    fs.mkdirSync(nestedDir, { recursive: true });
+    writeFileSync(
+      path.join(nestedDir, "2026.03.02-11.02.03.318_NestedNode.png"),
+      "fake image"
+    );
+
+    const result = parseOnErrorScreenshots(tempDir);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].nodeName).toBe("NestedNode");
+  });
+
+  it("should ignore files with invalid format", () => {
+    const onErrorDir = path.join(tempDir, "on_error");
+    fs.mkdirSync(onErrorDir, { recursive: true });
+    writeFileSync(path.join(onErrorDir, "invalid.png"), "fake image");
+    writeFileSync(
+      path.join(onErrorDir, "2026.03.02-11.02.03.318_SceneCheckTealColorFailed.png"),
+      "fake image"
+    );
+
+    const result = parseOnErrorScreenshots(tempDir);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].nodeName).toBe("SceneCheckTealColorFailed");
+  });
+});
+
+describe("attachScreenshotsToNodes", () => {
+  it("should attach screenshot to matching node", () => {
+    const nodes: NodeInfo[] = [
+      {
+        node_id: 1,
+        name: "SceneCheckTealColorFailed",
+        timestamp: "2026-03-02 11:02:00.010",
+        status: "failed",
+        task_id: 1,
+        next_list: [],
+        recognition_attempts: [],
+      },
+    ];
+
+    const screenshots: OnErrorScreenshot[] = [
+      {
+        filename: "2026.03.02-11.02.03.318_SceneCheckTealColorFailed.png",
+        timestamp: "2026-03-02T11:02:03.318",
+        timestampMs: new Date("2026-03-02T11:02:03.318").getTime(),
+        nodeName: "SceneCheckTealColorFailed",
+        filePath: "/path/to/on_error/2026.03.02-11.02.03.318_SceneCheckTealColorFailed.png",
+      },
+    ];
+
+    attachScreenshotsToNodes(nodes, screenshots);
+
+    expect(nodes[0].error_screenshot).toBe(
+      "/path/to/on_error/2026.03.02-11.02.03.318_SceneCheckTealColorFailed.png"
+    );
+  });
+
+  it("should not attach screenshot when node timestamp is after screenshot", () => {
+    const nodes: NodeInfo[] = [
+      {
+        node_id: 1,
+        name: "SceneCheckTealColorFailed",
+        timestamp: "2026-03-02 11:02:05.000",
+        status: "success",
+        task_id: 1,
+        next_list: [],
+        recognition_attempts: [],
+      },
+    ];
+
+    const screenshots: OnErrorScreenshot[] = [
+      {
+        filename: "2026.03.02-11.02.03.318_SceneCheckTealColorFailed.png",
+        timestamp: "2026-03-02T11:02:03.318",
+        timestampMs: new Date("2026-03-02T11:02:03.318").getTime(),
+        nodeName: "SceneCheckTealColorFailed",
+        filePath: "/path/to/error.png",
+      },
+    ];
+
+    attachScreenshotsToNodes(nodes, screenshots);
+
+    expect(nodes[0].error_screenshot).toBeUndefined();
+  });
+
+  it("should select closest node when multiple candidates exist", () => {
+    const nodes: NodeInfo[] = [
+      {
+        node_id: 1,
+        name: "SceneCheckTealColorFailed",
+        timestamp: "2026-03-02 11:01:30.000",
+        status: "failed",
+        task_id: 1,
+        next_list: [],
+        recognition_attempts: [],
+      },
+      {
+        node_id: 2,
+        name: "SceneCheckTealColorFailed",
+        timestamp: "2026-03-02 11:02:00.010",
+        status: "failed",
+        task_id: 1,
+        next_list: [],
+        recognition_attempts: [],
+      },
+    ];
+
+    const screenshots: OnErrorScreenshot[] = [
+      {
+        filename: "2026.03.02-11.02.03.318_SceneCheckTealColorFailed.png",
+        timestamp: "2026-03-02T11:02:03.318",
+        timestampMs: new Date("2026-03-02T11:02:03.318").getTime(),
+        nodeName: "SceneCheckTealColorFailed",
+        filePath: "/path/to/error.png",
+      },
+    ];
+
+    attachScreenshotsToNodes(nodes, screenshots);
+
+    expect(nodes[0].error_screenshot).toBeUndefined();
+    expect(nodes[1].error_screenshot).toBe("/path/to/error.png");
   });
 });

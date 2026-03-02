@@ -25,9 +25,8 @@ import { m9aProjectParser } from "./parsers/projects/m9a";
 import { maaEndProjectParser } from "./parsers/projects/maaend";
 
 // 注册项目解析器
-// M9A 优先级更高，因为它的检测更精确
-projectParserRegistry.register(m9aProjectParser, 100);
-projectParserRegistry.register(maaEndProjectParser, 50);
+projectParserRegistry.register(m9aProjectParser);
+projectParserRegistry.register(maaEndProjectParser);
 
 // 创建 Vue 应用实例并挂载到 #app 元素
 createApp(App).mount("#app");

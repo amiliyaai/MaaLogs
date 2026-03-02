@@ -104,6 +104,13 @@ export function getFileNameFromPath(path: string): string {
   return segments[segments.length - 1] || path;
 }
 
+export function getParentDirectory(path: string): string {
+  const segments = path.split(/[\\/]/);
+  if (segments.length <= 1) return "";
+  segments.pop();
+  return segments.join("/");
+}
+
 /**
  * 判断是否处于 Tauri 桌面应用环境
  *
@@ -246,6 +253,7 @@ export async function applySelectedPaths(paths: string[]): Promise<{
   files: File[];
   errors: string[];
   hasDirectory: boolean;
+  baseDir: string;
 }> {
   /**
    * 判断文件是否为支持的日志/配置文件
@@ -353,7 +361,9 @@ export async function applySelectedPaths(paths: string[]): Promise<{
     }
   }
 
-  return { files: outFiles, errors, hasDirectory };
+  const baseDir = paths.length > 0 ? paths[0] : "";
+  
+  return { files: outFiles, errors, hasDirectory, baseDir };
 }
 
 /**

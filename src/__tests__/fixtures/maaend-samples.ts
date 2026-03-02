@@ -1,3 +1,19 @@
+/**
+ * @fileoverview MaaEnd 项目日志样本数据
+ *
+ * 提供用于单元测试的 MaaEnd 项目日志样本数据。
+ * 包含：
+ * - Node.Recognition.Starting/Succeeded/Failed: 识别事件
+ * - Node.NextList.Starting: Next List 事件
+ * - Node.PipelineNode.Succeeded: Pipeline 节点事件
+ * - Node.Action.Starting/Succeeded: 动作事件
+ * - Task.Starting/Completed: 任务事件
+ *
+ * @module __tests__/fixtures/maaend-samples
+ * @author MaaLogs Team
+ * @license MIT
+ */
+
 export const MAAEND_LOG_SAMPLES = {
   recognitionStarting: `[2026-02-25 09:16:31.781][INF][Px334800][Tx7539][Utils/EventDispatcher.hpp][L65] !!!OnEventNotify!!! [handle=true] [msg=Node.Recognition.Starting] [details={"focus":null,"name":"ScenePrivateAnyEnterWorldSuccess","reco_id":400000006,"task_id":200000001}]`,
 

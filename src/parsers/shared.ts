@@ -17,7 +17,16 @@ import type {
   Win32ScreencapMethod,
   Win32InputMethod,
   JsonValue,
+  NodeInfo,
+  TaskInfo,
 } from "../types/logTypes";
+
+import { invoke } from "@tauri-apps/api/core";
+
+interface PngFileInfo {
+  filename: string;
+  path: string;
+}
 
 /**
  * ADB 截图方式 Bitmask 映射
@@ -449,4 +458,123 @@ export function createEventNotification(
     fileName,
     _lineNumber: lineNumber,
   };
+}
+
+export interface OnErrorScreenshot {
+  filename: string;
+  timestamp: string;
+  timestampMs: number;
+  nodeName: string;
+  filePath: string;
+}
+
+const ON_ERROR_FILENAME_REGEX = /^(\d{4}\.\d{2}\.\d{2}-\d{2}\.\d{2}\.\d{2}\.\d{3})_(.+)\.png$/;
+
+export function extractLogDirectory(lines: string[]): string | undefined {
+  for (const line of lines) {
+    const match = line.match(/Logging (.+)\/maa\.log/);
+    if (match) {
+      return match[1];
+    }
+  }
+  return undefined;
+}
+
+export async function parseOnErrorScreenshotsAsync(baseDir: string): Promise<OnErrorScreenshot[]> {
+  const screenshots: OnErrorScreenshot[] = [];
+
+  try {
+    let pngFiles = await invoke<PngFileInfo[]>("list_png_files", { dirPath: baseDir });
+
+    if (pngFiles.length === 0) {
+      const parentDir = baseDir.replace(/[/\\][^/\\]*$/, "");
+      pngFiles = await invoke<PngFileInfo[]>("list_png_files", { dirPath: parentDir });
+    }
+
+    for (const file of pngFiles) {
+      const match = file.filename.match(ON_ERROR_FILENAME_REGEX);
+      if (!match) continue;
+
+      const [, timestampStr, nodeName] = match;
+      const isoTimestamp = timestampStr.replace(
+        /^(\d{4})\.(\d{2})\.(\d{2})-(\d{2})\.(\d{2})\.(\d{2})\.(\d{3})$/,
+        "$1-$2-$3T$4:$5:$6.$7"
+      );
+
+      screenshots.push({
+        filename: file.filename,
+        timestamp: isoTimestamp,
+        timestampMs: new Date(isoTimestamp).getTime(),
+        nodeName,
+        filePath: file.path,
+      });
+    }
+  } catch {
+    // 忽略错误
+  }
+
+  return screenshots;
+}
+
+export function parseOnErrorScreenshots(_baseDir: string): OnErrorScreenshot[] {
+  return [];
+}
+
+export function attachScreenshotsToNodes(
+  nodes: NodeInfo[],
+  screenshots: OnErrorScreenshot[]
+): void {
+  for (const screenshot of screenshots) {
+    const screenshotTime = screenshot.timestampMs;
+
+    const candidates = nodes.filter((n) => {
+      if (n.name !== screenshot.nodeName) return false;
+      const nodeTime = new Date(n.timestamp).getTime();
+      return nodeTime <= screenshotTime;
+    });
+
+    if (candidates.length > 0) {
+      candidates.sort(
+        (a, b) =>
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      );
+      candidates[0].error_screenshot = screenshot.filePath;
+    }
+  }
+}
+
+export function attachScreenshotsToTasks(
+  tasks: TaskInfo[],
+  screenshots: OnErrorScreenshot[]
+): void {
+  for (const screenshot of screenshots) {
+    const screenshotTime = screenshot.timestampMs;
+
+    const taskCandidates = tasks.filter((task) => {
+      const taskStart = new Date(task.start_time).getTime();
+      return screenshotTime >= taskStart;
+    });
+
+    if (taskCandidates.length === 0) continue;
+
+    const targetTask = taskCandidates.reduce((closest, task) => {
+      const closestStart = new Date(closest.start_time).getTime();
+      const taskStart = new Date(task.start_time).getTime();
+      return taskStart > closestStart ? task : closest;
+    });
+
+    const nodeCandidates = targetTask.nodes.filter((n) => {
+      if (n.name !== screenshot.nodeName) return false;
+      const nodeTime = new Date(n.timestamp).getTime();
+      return nodeTime <= screenshotTime;
+    });
+
+    if (nodeCandidates.length > 0) {
+      nodeCandidates.sort(
+        (a, b) =>
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      );
+      nodeCandidates[0].error_screenshot = screenshot.filePath;
+    }
+  }
 }

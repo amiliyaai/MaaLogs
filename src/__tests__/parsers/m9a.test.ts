@@ -1,3 +1,16 @@
+/**
+ * @fileoverview M9A 项目解析器单元测试
+ *
+ * 测试覆盖：
+ * - 解析器元数据验证
+ * - parseMainLog: 主日志解析
+ * - parseAuxLog: Custom 日志解析
+ *
+ * @module __tests__/parsers/m9a.test
+ * @author MaaLogs Team
+ * @license MIT
+ */
+
 import { describe, it, expect } from "vitest";
 import { m9aProjectParser } from "../../parsers/projects/m9a";
 import { M9A_LOG_SAMPLES } from "../fixtures/m9a-samples";

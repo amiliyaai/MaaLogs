@@ -24,12 +24,16 @@ import type {
   RecognitionDetail,
   JsonValue,
 } from "../types/logTypes";
+import type { MainLogParseResult } from "../types/parserTypes";
 import {
   parseBracketLine,
   createEventNotification,
   parseControllerInfo,
+  extractLogDirectory,
   type BracketLineResult,
 } from "./shared";
+
+export { extractLogDirectory };
 
 /** 项目类型 */
 export type ProjectType = "m9a" | "maaend" | "unknown";
@@ -440,4 +444,28 @@ export function parseMainLogBase(
   }
 
   return context;
+}
+
+/**
+ * 解析主日志并返回完整结果
+ *
+ * 这是 parseMainLog 的标准实现，封装了日志目录提取逻辑。
+ * 项目解析器可以直接使用此函数，或在需要时覆盖。
+ *
+ * @param lines - 日志行数组
+ * @param fileName - 日志文件名
+ * @returns 完整的解析结果，包含事件、控制器、信息映射和日志目录
+ */
+export function parseMainLogWithLogDir(
+  lines: string[],
+  fileName: string
+): MainLogParseResult {
+  const context = parseMainLogBase(lines, fileName);
+  return {
+    events: context.events,
+    controllers: context.controllers,
+    identifierMap: context.identifierMap,
+    detectedProject: context.detectedProject,
+    _logDir: extractLogDirectory(lines),
+  };
 }

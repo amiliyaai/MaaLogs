@@ -229,9 +229,18 @@ function matchByTimeWindow(
   allTasks: TaskTimeRange[],
   config: CorrelationConfig
 ): CorrelationResult | null {
-  if (!config.enableTimeWindowMatch || !entry.timestampMs) return null;
-  const bestMatch = findBestTimeMatch(entry, allTasks, config.timeWindowMs);
-  if (!bestMatch || bestMatch.score <= 0.5) return null;
+  if (!config.enableTimeWindowMatch || !entry.timestampMs || allTasks.length === 0) {
+    return null;
+  }
+
+  // 使用任务持续时间作为时间窗口
+  const dynamicWindow = Math.max(...allTasks.map((t) => getDynamicTimeWindow(t)));
+  const bestMatch = findBestTimeMatch(entry, allTasks, dynamicWindow);
+
+  if (!bestMatch || bestMatch.score <= 0.1) {
+    return null;
+  }
+
   return {
     status: "matched",
     reason: "time_window_match",
@@ -251,6 +260,16 @@ function matchByTimeWindow(
  * @param {number} timeWindowMs - 时间窗口（毫秒）
  * @returns {{task: TaskInfo, score: number, driftMs: number} | null} 最佳匹配
  */
+/**
+ * 根据任务持续时间动态计算时间窗口
+ *
+ * @param {TaskTimeRange} taskInfo - 任务时间范围
+ * @returns {number} 动态计算的时间窗口
+ */
+function getDynamicTimeWindow(taskInfo: TaskTimeRange): number {
+  return taskInfo.endTime - taskInfo.startTime;
+}
+
 function findBestTimeMatch(
   entry: AuxLogEntry,
   tasks: TaskTimeRange[],

@@ -1,3 +1,17 @@
+/**
+ * @fileoverview useSearch composable 单元测试
+ *
+ * 测试覆盖：
+ * - 搜索初始化
+ * - 正则表达式搜索
+ * - 搜索结果高亮
+ * - 搜索导航
+ *
+ * @module __tests__/composables/useSearch.test
+ * @author MaaLogs Team
+ * @license MIT
+ */
+
 import { describe, it, expect, vi } from "vitest";
 import { useSearch } from "../../composables/useSearch";
 import type { RawLine, SearchResult } from "../../types/logTypes";

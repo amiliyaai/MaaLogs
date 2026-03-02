@@ -19,6 +19,7 @@ import type { ProjectParser, ProjectParserRegistration, AuxLogParserInfo } from 
  *
  * 管理所有注册的项目解析器。
  * 使用单例模式确保全局只有一个注册表实例。
+ * 项目类型通过日志内容自动检测（从 "Working" 路径识别）。
  *
  * @example
  * const registry = ProjectParserRegistry.getInstance();
@@ -45,16 +46,14 @@ class ProjectParserRegistry {
    * 注册项目解析器
    *
    * @param {ProjectParser} parser - 项目解析器实例
-   * @param {number} [priority=50] - 优先级（数值越大优先级越高）
    */
-  public register(parser: ProjectParser, priority: number = 50): void {
+  public register(parser: ProjectParser): void {
     const existing = this.parsers.findIndex((r) => r.parser.id === parser.id);
     if (existing >= 0) {
-      this.parsers[existing] = { parser, enabled: true, priority };
+      this.parsers[existing] = { parser, enabled: true };
     } else {
-      this.parsers.push({ parser, enabled: true, priority });
+      this.parsers.push({ parser, enabled: true });
     }
-    this.parsers.sort((a, b) => b.priority - a.priority);
   }
 
   /**
@@ -102,7 +101,8 @@ class ProjectParserRegistry {
   /**
    * 获取默认项目解析器
    *
-   * 返回优先级最高的启用解析器，用于 maa.log 的统一解析。
+   * 返回第一个启用的解析器，用于 maa.log 的统一解析。
+   * 项目类型通过日志内容自动检测。
    *
    * @returns {ProjectParser | null} 项目解析器实例或 null
    */
@@ -154,8 +154,8 @@ class ProjectParserRegistry {
 
 export const projectParserRegistry = ProjectParserRegistry.getInstance();
 
-export function registerProjectParser(parser: ProjectParser, priority?: number): void {
-  projectParserRegistry.register(parser, priority);
+export function registerProjectParser(parser: ProjectParser): void {
+  projectParserRegistry.register(parser);
 }
 
 export function getProjectParser(id: string): ProjectParser | null {

@@ -20,7 +20,7 @@ import type {
   AuxLogParseResult,
   AuxLogParserInfo,
 } from "../../types/parserTypes";
-import { parseMainLogBase } from "../baseParser";
+import { parseMainLogWithLogDir } from "../baseParser";
 
 function splitCustomLine(
   line: string
@@ -84,13 +84,7 @@ export const m9aProjectParser: ProjectParser = {
   description: "M9A 项目日志解析器",
 
   parseMainLog(lines: string[], config): MainLogParseResult {
-    const context = parseMainLogBase(lines, config.fileName);
-
-    return {
-      events: context.events,
-      controllers: context.controllers,
-      identifierMap: context.identifierMap,
-    };
+    return parseMainLogWithLogDir(lines, config.fileName);
   },
 
   parseAuxLog(lines: string[], config: AuxLogParserConfig): AuxLogParseResult {

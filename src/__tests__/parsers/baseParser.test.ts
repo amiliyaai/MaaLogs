@@ -1,3 +1,21 @@
+/**
+ * @fileoverview baseParser.ts 基础解析器单元测试
+ *
+ * 测试覆盖：
+ * - createMainLogContext: 解析上下文创建
+ * - detectProjectFromLine: 项目类型检测
+ * - parseOnEventNotify: 事件通知解析
+ * - parseNodeDisabled: 禁用节点解析
+ * - parseNextListEvent: Next List 事件解析
+ * - parseRecognitionNodeEvent: 嵌套识别事件解析
+ * - extractRecoDetailsFromEvent: 识别详情提取
+ * - parseMainLogBase: 主日志解析入口
+ *
+ * @module __tests__/parsers/baseParser.test
+ * @author MaaLogs Team
+ * @license MIT
+ */
+
 import { describe, it, expect } from "vitest";
 import {
   detectProjectFromLine,

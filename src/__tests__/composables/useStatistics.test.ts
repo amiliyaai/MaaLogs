@@ -1,3 +1,15 @@
+/**
+ * @fileoverview useStatistics composable 单元测试
+ *
+ * 测试覆盖：
+ * - computeNodeStatistics: 节点统计计算
+ * - 统计数据聚合与展示
+ *
+ * @module __tests__/composables/useStatistics.test
+ * @author MaaLogs Team
+ * @license MIT
+ */
+
 import { describe, it, expect, vi } from "vitest";
 import { useStatistics } from "../../composables/useStatistics";
 import type { TaskInfo, NodeInfo, NodeStat } from "../../types/logTypes";

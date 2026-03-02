@@ -2,6 +2,12 @@ import { vi } from "vitest";
 
 vi.mock("@tauri-apps/api/core", () => ({
   convertFileSrc: vi.fn((path: string) => `mocked://${path}`),
+  invoke: vi.fn((cmd: string) => {
+    if (cmd === "list_png_files") {
+      return Promise.resolve([]);
+    }
+    return Promise.resolve(null);
+  }),
 }));
 
 vi.mock("@tauri-apps/api/path", () => ({

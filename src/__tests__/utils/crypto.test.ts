@@ -1,3 +1,16 @@
+/**
+ * @fileoverview crypto.ts 加密工具函数单元测试
+ *
+ * 测试覆盖：
+ * - encrypt: 数据加密
+ * - decrypt: 数据解密
+ * - 加密数据完整性验证
+ *
+ * @module __tests__/utils/crypto.test
+ * @author MaaLogs Team
+ * @license MIT
+ */
+
 /* eslint-disable sonarjs/no-hardcoded-passwords */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { encrypt, decrypt } from "../../utils/crypto";

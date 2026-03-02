@@ -297,6 +297,7 @@ export type ActionAttempt = {
  * @property {RecognitionAttempt[]} recognition_attempts - 识别尝试历史
  * @property {RecognitionAttempt[]} [nested_recognition_in_action] - 动作中的嵌套识别
  * @property {Object} [node_details] - 节点配置详情
+ * @property {string} [error_screenshot] - on_error 截图路径 (MaaFramework >= v5.7.2)
  */
 export type NodeInfo = {
   node_id: number;
@@ -318,6 +319,7 @@ export type NodeInfo = {
     node_id: number;
     reco_id: number;
   };
+  error_screenshot?: string;
 };
 
 /**

@@ -1,3 +1,19 @@
+/**
+ * @fileoverview 真实日志集成测试
+ *
+ * 使用 docs/ 目录下的真实日志文件进行端到端测试，
+ * 验证解析器在实际场景中的表现。
+ *
+ * 测试覆盖：
+ * - maa.log (MaaFramework 原生格式) 解析
+ * - 项目类型自动检测
+ * - 事件通知解析
+ *
+ * @module __tests__/integration/real-logs.test
+ * @author MaaLogs Team
+ * @license MIT
+ */
+
 import { describe, it, expect, beforeAll } from "vitest";
 import { readFileSync, existsSync } from "fs";
 import { join } from "path";

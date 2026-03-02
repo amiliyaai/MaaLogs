@@ -1,3 +1,15 @@
+/**
+ * @fileoverview correlate.ts 日志关联模块单元测试
+ *
+ * 测试覆盖：
+ * - correlateAuxLogsWithTasks: 辅助日志与任务关联
+ * - identifier 匹配、task_id 匹配、时间窗口匹配策略
+ *
+ * @module __tests__/parsers/correlate.test
+ * @author MaaLogs Team
+ * @license MIT
+ */
+
 import { describe, it, expect } from "vitest";
 import {
   correlateAuxLogsWithTasks,

@@ -76,6 +76,7 @@ import {
   NCollapse,
   NCollapseItem,
   NCode,
+  NImage,
   NModal,
   NSelect,
   NTag,
@@ -83,6 +84,7 @@ import {
 } from "naive-ui";
 import { DynamicScroller, DynamicScrollerItem } from "vue-virtual-scroller";
 import { ref, watch, onMounted } from "vue";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { useStorage } from "../composables";
 import type {
   NodeInfo,
@@ -102,7 +104,6 @@ import AISettingsModal from "./AISettingsModal.vue";
 import AIResultCard from "./AIResultCard.vue";
 import ControllerInfoCard from "./ControllerInfoCard.vue";
 import CustomLogPanel from "./CustomLogPanel.vue";
-import NodeFlowChart from "./NodeFlowChart.vue";
 
 /**
  * AI 分析状态
@@ -115,7 +116,8 @@ onMounted(async () => {
 const aiAnalyzing = ref(false);
 const aiResults = ref<FailureAnalysis[]>([]);
 const showAISettings = ref(false);
-const showFlowChart = ref(false);
+const showScreenshot = ref(false);
+const screenshotSrc = ref("");
 const showAIConfirm = ref(false);
 const skipAIConfirm = useStorage("skipAIConfirm", false);
 const aiError = ref("");
@@ -322,6 +324,11 @@ const handleTaskSelect = (payload: { taskKey: string; nodeId: number | null }) =
 const handleNodeSelect = (nodeId: number) => {
   emit("select-node", nodeId);
 };
+
+function openScreenshot(filePath: string): void {
+  screenshotSrc.value = convertFileSrc(filePath);
+  showScreenshot.value = true;
+}
 </script>
 
 <!--
@@ -442,13 +449,6 @@ const handleNodeSelect = (nodeId: number) => {
         <div class="panel-top">
           <div class="node-header">
             <span>节点列表</span>
-            <n-button
-              v-if="selectedTaskNodes.length > 0"
-              size="small"
-              @click="showFlowChart = true"
-            >
-              展开流程图
-            </n-button>
           </div>
         </div>
         <!-- 空状态：未选择任务 -->
@@ -481,7 +481,8 @@ const handleNodeSelect = (nodeId: number) => {
                   <!-- 节点主要信息 -->
                   <div class="node-main">
                     <div class="node-name">
-                      {{ item.name || item.node_id }}
+                      <span>{{ item.name || item.node_id }}</span>
+                      <span v-if="item.error_screenshot" class="error-screenshot-badge" title="有错误截图">📷</span>
                     </div>
                     <div class="node-sub">
                       <div>时间：{{ item.timestamp }}</div>
@@ -515,6 +516,21 @@ const handleNodeSelect = (nodeId: number) => {
         <!-- 空状态：未选择任务 -->
         <div v-if="!selectedTask" class="empty">请选择左侧任务</div>
         <div v-else class="detail-content">
+          <!-- 错误截图 -->
+          <div class="error-screenshot-panel">
+            <div class="error-screenshot-header">
+              <span class="error-screenshot-label">错误截图</span>
+            </div>
+            <n-image
+              v-if="selectedNode?.error_screenshot"
+              :src="convertFileSrc(selectedNode.error_screenshot)"
+              object-fit="contain"
+              class="error-screenshot-image"
+              preview-disabled
+              @click="openScreenshot(selectedNode.error_screenshot!)"
+            />
+            <div v-else class="error-screenshot-empty">无截图</div>
+          </div>
           <!-- 控制器信息卡片 -->
           <ControllerInfoCard
             v-if="selectedTask.controllerInfo"
@@ -1026,28 +1042,16 @@ const handleNodeSelect = (nodeId: number) => {
     >
       <n-checkbox v-model:checked="skipAIConfirm"> 不再提醒 </n-checkbox>
     </n-modal>
-    <!-- 节点流程图大面板 -->
+    <!-- 错误截图查看弹窗 -->
     <n-modal
-      v-model:show="showFlowChart"
+      v-model:show="showScreenshot"
       preset="card"
-      title="节点流程图"
+      title="错误截图"
       :closable="true"
-      style="width: 90vw; max-width: 1200px; height: 80vh"
+      style="width: 80vw; max-width: 900px"
     >
-      <div style="height: 100%">
-        <NodeFlowChart
-          v-if="selectedTaskNodes.length > 0"
-          :nodes="selectedTaskNodes"
-          :selected-node-id="selectedNodeId"
-          style="height: calc(100% - 20px)"
-          @select-node="handleNodeSelect"
-        />
-        <div
-          v-else
-          style="display: flex; align-items: center; justify-content: center; height: 100%"
-        >
-          暂无节点数据
-        </div>
+      <div class="screenshot-modal-content">
+        <n-image :src="screenshotSrc" object-fit="contain" />
       </div>
     </n-modal>
   </n-card>
@@ -1212,5 +1216,68 @@ const handleNodeSelect = (nodeId: number) => {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.error-screenshot-panel {
+  border: 1px solid var(--n-border-color);
+  border-radius: 6px;
+  padding: 8px;
+  background: var(--n-color);
+}
+
+.error-screenshot-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.error-screenshot-label {
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.error-screenshot-image {
+  width: 100%;
+  max-height: 300px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.error-screenshot-image :deep(img) {
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+.error-screenshot-badge {
+  margin-left: 6px;
+  font-size: 14px;
+}
+
+.error-screenshot-empty {
+  color: var(--n-text-color-3);
+  font-size: 14px;
+  text-align: center;
+  padding: 16px;
+}
+
+.screenshot-modal-content {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  max-height: 70vh;
+  overflow: auto;
+}
+
+.screenshot-modal-content :deep(.n-image) {
+  max-width: 100%;
+  max-height: 70vh;
+}
+
+.screenshot-modal-content :deep(img) {
+  max-width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
 }
 </style>

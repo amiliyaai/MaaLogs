@@ -8,6 +8,7 @@
 src/parsers/
 ├── index.ts              # 模块入口，导出所有公共 API
 ├── project-registry.ts   # 项目解析器注册表（单例）
+├── baseParser.ts         # 基础解析器（共享 maa.log 解析逻辑）
 ├── shared.ts             # 共享解析工具函数
 ├── correlate.ts          # 日志关联模块
 └── projects/
@@ -125,6 +126,7 @@ interface NodeInfo {
   action_details?: ActionDetail;     // 动作详情
   next_list: NextListItem[];   // 下一步列表
   recognition_attempts: RecognitionAttempt[];  // 识别尝试
+  error_screenshot?: string;   // on_error 截图路径 (MaaFramework >= v5.7.2)
 }
 ```
 
@@ -152,7 +154,7 @@ interface AuxLogEntry {
 
 ### 步骤 1：创建解析器文件
 
-在 `src/domains/logs/parsers/projects/` 下创建新文件：
+在 `src/parsers/projects/` 下创建新文件：
 
 ```typescript
 // myproject.ts
@@ -227,7 +229,7 @@ export const myProjectParser: ProjectParser = {
 
 ### 步骤 2：注册解析器
 
-在 `src/domains/logs/parsers/index.ts` 中导出：
+在 `src/parsers/index.ts` 中导出：
 
 ```typescript
 export { myProjectParser } from "./projects/myproject";
@@ -235,13 +237,14 @@ export { myProjectParser } from "./projects/myproject";
 
 ### 步骤 3：在应用启动时注册
 
-在 `src/App.vue` 中导入并注册：
+在 `src/main.ts` 中导入并注册：
 
 ```typescript
-import { projectParserRegistry, myProjectParser } from "./domains/logs/parsers";
+import { registerProjectParser } from "./parsers";
+import { myProjectParser } from "./parsers/projects/myproject";
 
-// 注册解析器（优先级越高越优先）
-projectParserRegistry.register(myProjectParser, 50);
+// 注册解析器
+registerProjectParser(myProjectParser);
 ```
 
 ## 共享工具函数
@@ -277,6 +280,45 @@ const id = extractIdentifier("[identifier=abc123-def456-...] message");
 ```typescript
 const controller = parseControllerInfo(parsed, "maa.log", 100);
 // 返回 ADB 或 Win32 控制器信息
+```
+
+### extractLogDirectory
+
+从日志行中提取日志目录路径：
+
+```typescript
+const logDir = extractLogDirectory(lines);
+// 从 "Logging C:/Users/xxx/MaaEnd/debug/maa.log" 提取 "C:/Users/xxx/MaaEnd/debug"
+```
+
+### parseOnErrorScreenshots
+
+解析 on_error 目录下的截图文件，仅支持 MaaFramework >= v5.7.2 格式：
+
+```typescript
+// 格式: {时间戳}_{节点名}.png
+const screenshots = parseOnErrorScreenshots("/path/to/logs");
+// 返回:
+// [
+//   {
+//     filename: "2026.03.02-11.02.03.318_SceneCheckTealColorFailed.png",
+//     timestamp: "2026-03-02T11:02:03.318",
+//     timestampMs: 1709368923318,
+//     nodeName: "SceneCheckTealColorFailed",
+//     filePath: "/path/to/logs/on_error/2026.03.02-11.02.03.318_SceneCheckTealColorFailed.png"
+//   }
+// ]
+```
+
+### attachScreenshotsToNodes
+
+将截图关联到对应的任务节点：
+
+```typescript
+// 匹配规则：节点名相同 且 节点时间 <= 截图时间
+// 选择时间最接近的节点
+attachScreenshotsToNodes(nodes, screenshots);
+// 匹配的节点会添加 error_screenshot 字段
 ```
 
 ## 日志关联

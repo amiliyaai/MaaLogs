@@ -174,10 +174,25 @@ const searchItemHeight = 64;
 // ============================================
 
 /**
+ * 文件选择器
+ * 提供文件选择、拖拽等功能
+ */
+const fileSelector = useFileSelection((files) => {
+  setSelectedFiles(files);
+  if (files.length > 0) {
+    parseState.value = "ready";
+  } else {
+    parseState.value = "idle";
+  }
+  resetParseState();
+  searcherResetSearch();
+});
+
+/**
  * 日志解析器
  * 提供日志解析、任务构建等功能
  */
-const logParser = useLogParser();
+const logParser = useLogParser({ baseDir: () => fileSelector.baseDir.value });
 const {
   parseState,
   parseProgress,
@@ -199,25 +214,11 @@ window.__tasks__ = tasks;
 // @ts-expect-error Debug only  
 window.__tasksValue__ = () => tasks.value;
 
-/**
- * 文件选择器
- * 提供文件选择、拖拽等功能
- */
-const fileSelector = useFileSelection((files) => {
-  setSelectedFiles(files);
-  if (files.length > 0) {
-    parseState.value = "ready";
-  } else {
-    parseState.value = "idle";
-  }
-  resetParseState();
-  searcherResetSearch();
-});
 const {
   selectedFiles,
   totalSize,
   isDragging,
-  handleFileChange,
+  handleSelectDirectory,
   handleDrop,
   handleDragOver,
   handleDragLeave,
@@ -640,7 +641,7 @@ onBeforeUnmount(() => {
             :status-message="statusMessage"
             :is-dragging="isDragging"
             :format-size="formatSize"
-            @file-change="handleFileChange"
+            @select-directory="handleSelectDirectory"
             @parse="handleParse"
             @drag-over="handleDragOver"
             @drag-enter="handleDragOver"
@@ -1472,6 +1473,43 @@ body,
 
 .detail-code {
   margin-top: 6px;
+}
+
+.error-screenshot-content {
+  margin-top: 8px;
+}
+
+.error-screenshot-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  background: var(--n-color-hover);
+  border-radius: 6px;
+  margin-bottom: 12px;
+}
+
+.error-screenshot-panel {
+  padding: 12px;
+  background: var(--n-color-hover);
+  border-radius: 6px;
+  margin-bottom: 12px;
+}
+
+.error-screenshot-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.error-screenshot-label {
+  font-weight: 500;
+  color: var(--n-text-color);
+}
+
+.screenshot-label {
+  font-weight: 500;
+  color: var(--n-text-color);
 }
 
 .nested-list {

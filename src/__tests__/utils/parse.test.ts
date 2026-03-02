@@ -1,3 +1,24 @@
+/**
+ * @fileoverview parse.ts 解析工具函数单元测试
+ *
+ * 测试覆盖：
+ * - parseAdbScreencapMethods/parseAdbInputMethods: ADB 方式解析
+ * - parseWin32ScreencapMethod/parseWin32InputMethod: Win32 方式解析
+ * - StringPool: 字符串池
+ * - normalizeId: ID 标准化
+ * - parseTimestampToMs: 时间戳解析
+ * - extractIdentifierFromLine: identifier 提取
+ * - buildIdentifierRanges: identifier 范围构建
+ * - parseLine/parseEventNotification: 日志行解析
+ * - buildFocusLogEntries: 焦点日志构建
+ * - normalizeSearchLine: 搜索行标准化
+ * - computeNodeStatistics: 节点统计计算
+ *
+ * @module __tests__/utils/parse.test
+ * @author MaaLogs Team
+ * @license MIT
+ */
+
 import { describe, it, expect } from "vitest";
 import {
   parseAdbScreencapMethods,
@@ -11,9 +32,11 @@ import {
   buildIdentifierRanges,
   parseLine,
   parseEventNotification,
+  buildFocusLogEntries,
   normalizeSearchLine,
   computeNodeStatistics,
 } from "../../utils/parse";
+import type { EventNotification } from "../../types/logTypes";
 
 describe("parseAdbScreencapMethods", () => {
   it("should parse single method", () => {
@@ -341,6 +364,59 @@ describe("parseEventNotification", () => {
     const parsed = parseLine(line, 1);
     const result = parsed ? parseEventNotification(parsed, "maa.log") : null;
     expect(result).toBeNull();
+  });
+});
+
+describe("buildFocusLogEntries", () => {
+  it("should build focus log entries with template", () => {
+    const events: EventNotification[] = [
+      {
+        timestamp: "2026-03-02 12:11:42.551",
+        level: "INF",
+        processId: "Px1",
+        threadId: "Tx1",
+        message: "Node.Recognition.Starting",
+        details: {
+          task_id: 1,
+          entry: "MainTask",
+          name: "TestNode",
+          focus: {
+            "Node.Recognition.Starting": "Focus {name} #{task_id}",
+          },
+        },
+        fileName: "maa.log",
+        _lineNumber: 10,
+      },
+    ];
+
+    const entries = buildFocusLogEntries(events);
+    expect(entries).toHaveLength(1);
+    expect(entries[0].message).toBe("Focus TestNode #1");
+    expect(entries[0].level).toBe("info");
+    expect(entries[0].task_id).toBe(1);
+    expect(entries[0].entry).toBe("MainTask");
+  });
+
+  it("should skip focus logs when display excludes log", () => {
+    const events: EventNotification[] = [
+      {
+        timestamp: "2026-03-02 12:11:42.551",
+        level: "INF",
+        processId: "Px1",
+        threadId: "Tx1",
+        message: "Node.PipelineNode.Succeeded",
+        details: {
+          focus: {
+            "Node.PipelineNode.Succeeded": { content: "Skip", display: ["toast"] },
+          },
+        },
+        fileName: "maa.log",
+        _lineNumber: 12,
+      },
+    ];
+
+    const entries = buildFocusLogEntries(events);
+    expect(entries).toHaveLength(0);
   });
 });
 

@@ -18,11 +18,11 @@
  */
 
 import { ref, type Ref } from "vue";
+import { open } from "@tauri-apps/plugin-dialog";
 import type { SelectedFile } from "../types/logTypes";
 import {
   applySelectedFiles as applyFiles,
   expandSelectedFiles,
-  handleFileInputChange,
   applySelectedPaths,
   isFileDrag,
 } from "../utils/file";
@@ -53,14 +53,16 @@ const logger = createLogger("FileSelection");
 export interface FileSelectorResult {
   /** 已选择的文件列表 */
   selectedFiles: Ref<SelectedFile[]>;
+  /** 用户选择的基准目录（用于查找截图等） */
+  baseDir: Ref<string>;
   /** 文件总大小（字节） */
   totalSize: Ref<number>;
   /** 是否正在拖拽中 */
   isDragging: Ref<boolean>;
   /** 应用选择的文件 */
   applySelectedFiles: (fileList: File[]) => void;
-  /** 处理文件选择输入框变更 */
-  handleFileChange: (event: Event) => Promise<void>;
+  /** 打开目录选择对话框 */
+  handleSelectDirectory: () => Promise<void>;
   /** 处理拖拽释放事件 */
   handleDrop: (event: DragEvent) => Promise<void>;
   /** 处理拖拽悬停事件 */
@@ -103,6 +105,7 @@ export function useFileSelection(
 
   /** 已选择的文件列表 */
   const selectedFiles = ref<SelectedFile[]>([]);
+  const baseDir = ref<string>("");
   /** 文件总大小（字节） */
   const totalSize = ref(0);
   /** 是否正在拖拽中 */
@@ -141,10 +144,15 @@ export function useFileSelection(
    *
    * @param {Event} event - 文件输入框的 change 事件
    */
-  async function handleFileChange(event: Event): Promise<void> {
-    const logFiles = await handleFileInputChange(event);
-    if (logFiles.length === 0) return;
-    applySelectedFiles(logFiles);
+  async function handleSelectDirectory(): Promise<void> {
+    const selected = await open({
+      directory: true,
+      multiple: false,
+    });
+    
+    if (selected && typeof selected === "string") {
+      await handleTauriDrop([selected]);
+    }
   }
 
   /**
@@ -251,6 +259,7 @@ export function useFileSelection(
     }
 
     logger.info("拖拽路径解析成功", { fileCount: result.files.length });
+    baseDir.value = result.baseDir;
     applySelectedFiles(result.files);
   }
 
@@ -260,10 +269,11 @@ export function useFileSelection(
 
   return {
     selectedFiles,
+    baseDir,
     totalSize,
     isDragging,
     applySelectedFiles,
-    handleFileChange,
+    handleSelectDirectory,
     handleDrop,
     handleDragOver,
     handleDragLeave,

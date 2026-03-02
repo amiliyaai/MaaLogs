@@ -30,6 +30,7 @@ import type {
   RecognitionDetail,
   JsonValue,
   NestedActionNode,
+  AuxLogEntry,
 } from "../types/logTypes";
 import { createLogger } from "./logger";
 import { parseMessageAndParams } from "../parsers/shared";
@@ -648,6 +649,127 @@ export function parseEventNotification(
     processId: parsed.processId,
     threadId: parsed.threadId,
   };
+}
+
+function normalizeFocusDisplay(value: JsonValue | undefined): string[] {
+  if (typeof value === "string") return [value];
+  if (Array.isArray(value)) return value.filter((item) => typeof item === "string") as string[];
+  return [];
+}
+
+function formatFocusTemplateValue(value: JsonValue): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") {
+    return String(value);
+  }
+  if (value === null) return "null";
+  return JSON.stringify(value);
+}
+
+function resolveFocusTemplateValue(
+  details: Record<string, JsonValue>,
+  path: string
+): JsonValue | undefined {
+  const parts = path.split(".").map((part) => part.trim()).filter(Boolean);
+  let current: JsonValue = details;
+  for (const part of parts) {
+    if (typeof current !== "object" || current === null || Array.isArray(current)) {
+      return undefined;
+    }
+    const record = current as Record<string, JsonValue>;
+    if (!(part in record)) return undefined;
+    current = record[part];
+  }
+  return current;
+}
+
+function applyFocusTemplate(content: string, details: Record<string, JsonValue>): string {
+  return content.replace(/\{([^}]{0,100})\}/g, (match, key) => {
+    const trimmedKey = String(key).trim();
+    if (trimmedKey.length > 100) return match;
+    const value = resolveFocusTemplateValue(details, trimmedKey);
+    if (value === undefined) return match;
+    return formatFocusTemplateValue(value);
+  });
+}
+
+function normalizeFocusTemplate(
+  template: JsonValue
+): { content: string; display: string[] } | null {
+  if (typeof template === "string") {
+    return { content: template, display: ["log"] };
+  }
+  if (isRecordJsonValue(template)) {
+    const contentValue = template.content;
+    const displayValue = template.display;
+    let content: string;
+    if (typeof contentValue === "string") {
+      content = contentValue;
+    } else if (contentValue === undefined) {
+      content = "";
+    } else {
+      content = JSON.stringify(contentValue);
+    }
+    if (!content) return null;
+    if (displayValue === undefined) return { content, display: ["log"] };
+    const display = normalizeFocusDisplay(displayValue);
+    if (display.length === 0) return null;
+    return { content, display };
+  }
+  return null;
+}
+
+function extractEntryName(details: Record<string, JsonValue>): string | undefined {
+  if (typeof details.entry === "string") {
+    return details.entry;
+  }
+  if (typeof details.name === "string") {
+    return details.name;
+  }
+  return undefined;
+}
+
+export function buildFocusLogEntries(events: EventNotification[]): AuxLogEntry[] {
+  const entries: AuxLogEntry[] = [];
+  for (let i = 0; i < events.length; i++) {
+    const event = events[i];
+    const details = isRecordJsonValue(event.details) ? event.details : {};
+    const focus = isRecordJsonValue(details.focus) ? details.focus : undefined;
+    if (!focus) continue;
+
+    const template = focus[event.message];
+    if (!template) continue;
+
+    const normalized = normalizeFocusTemplate(template);
+    if (!normalized || !normalized.display.includes("log")) continue;
+
+    const message = applyFocusTemplate(normalized.content, details).trim();
+    if (!message) continue;
+
+    const taskId = normalizeId(details.task_id ?? details.taskId);
+    const entry = extractEntryName(details);
+    const timestampMs = parseTimestampToMs(event.timestamp) ?? undefined;
+    const identifier = typeof details.identifier === "string" ? details.identifier : undefined;
+
+    entries.push({
+      key: `focus-${event.fileName}-${event._lineNumber ?? i + 1}`,
+      source: "focus",
+      timestamp: event.timestamp,
+      timestampMs,
+      level: "info",
+      message,
+      identifier,
+      task_id: taskId,
+      entry,
+      caller: `${event.fileName}:${event._lineNumber ?? i + 1}`,
+      fileName: event.fileName,
+      lineNumber: event._lineNumber ?? i + 1,
+      details: {
+        event: event.message,
+      },
+    });
+  }
+  return entries;
 }
 
 /**

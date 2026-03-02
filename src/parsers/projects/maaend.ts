@@ -21,7 +21,7 @@ import type {
   AuxLogParserInfo,
 } from "../../types/parserTypes";
 import type { JsonValue } from "../../types/logTypes";
-import { parseMainLogBase } from "../baseParser";
+import { parseMainLogWithLogDir } from "../baseParser";
 
 interface JsonLogEntry {
   time?: string;
@@ -173,13 +173,7 @@ export const maaEndProjectParser: ProjectParser = {
   description: "MaaEnd 项目日志解析器",
 
   parseMainLog(lines: string[], config): MainLogParseResult {
-    const context = parseMainLogBase(lines, config.fileName);
-
-    return {
-      events: context.events,
-      controllers: context.controllers,
-      identifierMap: context.identifierMap,
-    };
+    return parseMainLogWithLogDir(lines, config.fileName);
   },
 
   parseAuxLog(lines: string[], config: AuxLogParserConfig): AuxLogParseResult {

@@ -7,6 +7,7 @@
 mod config;
 mod metrics;
 
+use std::fs;
 use std::time::Instant;
 
 // 问候命令 - 接收一个名字并返回问候语
@@ -36,6 +37,47 @@ fn get_app_version(app: tauri::AppHandle) -> String {
     result
 }
 
+#[derive(serde::Serialize)]
+struct PngFileInfo {
+    filename: String,
+    path: String,
+}
+
+#[tauri::command]
+fn list_png_files(dir_path: String) -> Result<Vec<PngFileInfo>, String> {
+    let start = Instant::now();
+    let mut result: Vec<PngFileInfo> = Vec::new();
+
+    fn scan_dir(dir: &std::path::Path, result: &mut Vec<PngFileInfo>) {
+        if let Ok(entries) = fs::read_dir(dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    scan_dir(&path, result);
+                } else if let Some(ext) = path.extension() {
+                    if ext.to_string_lossy().to_lowercase() == "png" {
+                        if let Some(filename) = path.file_name() {
+                            result.push(PngFileInfo {
+                                filename: filename.to_string_lossy().to_string(),
+                                path: path.to_string_lossy().to_string(),
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let path = std::path::Path::new(&dir_path);
+    if !path.exists() {
+        return Err(format!("Directory does not exist: {}", dir_path));
+    }
+
+    scan_dir(path, &mut result);
+    metrics::observe_command("list_png_files", "success", start.elapsed().as_secs_f64());
+    Ok(result)
+}
+
 // 应用程序运行入口 - 配置并启动 Tauri 应用程序
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run(context: tauri::Context<tauri::Wry>) {
@@ -48,10 +90,11 @@ pub fn run(context: tauri::Context<tauri::Wry>) {
         })
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_store::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![greet, open_devtools, get_app_version])
+        .invoke_handler(tauri::generate_handler![greet, open_devtools, get_app_version, list_png_files])
         .run(context)
         .expect("error while running tauri application");
 }

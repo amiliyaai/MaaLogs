@@ -1,3 +1,19 @@
+/**
+ * @fileoverview format.ts 格式化工具函数单元测试
+ *
+ * 测试覆盖：
+ * - formatSize: 文件大小格式化
+ * - formatDuration: 持续时间格式化
+ * - formatTaskStatus: 任务状态格式化
+ * - formatTaskTimeParts: 任务时间格式化
+ * - formatBox: 识别框格式化
+ * - formatNextName: Next 节点名称格式化
+ *
+ * @module __tests__/utils/format.test
+ * @author MaaLogs Team
+ * @license MIT
+ */
+
 import { describe, it, expect } from "vitest";
 import {
   formatSize,

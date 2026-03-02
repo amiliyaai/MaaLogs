@@ -35,6 +35,7 @@ MaaFramework 日志分析利器
 - **任务可视化**：以树形结构展示任务执行流程
 - **节点详情**：展示节点状态、识别详情、控制器和动作信息
 - **Custom 日志关联**：自动关联 Custom 日志与对应的任务
+- **截图关联**：将 `on_error` 截图与失败节点关联展示（MaaFramework版本 ≥ v5.7.2）
 
 ### 🔍 文本搜索
 
@@ -54,12 +55,13 @@ MaaFramework 日志分析利器
 - 分析任务失败原因
 - 提供修复建议
 - 支持服务商：OpenAI、Claude、Gemini、DeepSeek、智谱 AI、MiniMax、月之暗面、硅基流动等
+- **<span style="color: red">推荐使用免费模型：智谱AI（GLM-4.7-Flash）等，目前不算很强大，建议使用免费模型</span>**
 
 ## 📖 使用方法
 
 ### 日志分析
 
-1. 选择日志文件（点击按钮或拖拽文件）
+1. 选择日志根目录（支持拖拽）
 2. 点击"开始解析"
 3. 查看任务列表和节点详情
 4. 选择任务后点击"AI 分析"分析失败原因
@@ -70,6 +72,7 @@ MaaFramework 日志分析利器
 2. 输入对应服务商的 API Key
 3. 选择一个任务
 4. 点击"AI 分析"按钮
+5、节点详情中查看分析结果
 
 ## 🛠️ 技术栈
 
@@ -142,26 +145,7 @@ npm run build
 
 ## 🔧 开发指南
 
-详细开发指南请参考 [AGENTS.md](AGENTS.md) 和 [docs/developers/](docs/developers/) 目录。
-
-### 代码规范
-
-- 使用 TypeScript 进行类型安全开发
-- 遵循 Vue 3 Composition API 风格
-- 组件使用 `<script setup>` 语法
-- 文件注释遵循 JSDoc 规范
-
-### 添加新的日志解析器
-
-1. 在 `src/parsers/projects/` 目录下创建新的解析器文件
-2. 实现 `ProjectParser` 接口
-3. 在 `src/parsers/index.ts` 中导出解析器
-
-### 添加新的 AI 服务商
-
-1. 在 `src/utils/aiAnalyzer.ts` 中添加服务商类型
-2. 更新 `PROVIDER_MODELS` 和 `PROVIDER_INFO`
-3. 在 `analyzeWithAI` 函数中添加对应请求处理
+详细开发指南请参考 [AGENTS.md](AGENTS.md) 和 [项目开发指南](docs/developers/development-guide.md)。
 
 ## 📝 许可证
 

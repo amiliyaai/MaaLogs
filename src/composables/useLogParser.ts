@@ -23,14 +23,16 @@ import type {
   EventNotification,
   ControllerInfo,
 } from "../types/logTypes";
-import { projectParserRegistry, correlateAuxLogs } from "../parsers";
+import { projectParserRegistry, correlateAuxLogs, detectProject } from "../parsers";
 import { type ProjectType } from "../parsers/baseParser";
 import {
   StringPool,
   buildIdentifierRanges,
   buildTasks,
   associateControllersToTasks,
+  buildFocusLogEntries,
 } from "../utils/parse";
+import { parseOnErrorScreenshotsAsync, attachScreenshotsToTasks } from "../parsers/shared";
 import { isMainLog } from "../utils/file";
 import { createLogger, setLoggerContext } from "../utils/logger";
 
@@ -68,7 +70,30 @@ type ParseCollections = {
   auxEntries: AuxLogEntry[];
   controllerInfos: ControllerInfo[];
   eventIdentifierMap: Map<number, string>;
+  logDir?: string;
+  baseDir?: string;
 };
+
+async function attachScreenshotsToParsedTasks(tasks: TaskInfo[], logDir?: string): Promise<void> {
+  if (!logDir) return;
+  try {
+    const screenshots = await parseOnErrorScreenshotsAsync(logDir);
+    if (screenshots.length === 0) return;
+    attachScreenshotsToTasks(tasks, screenshots);
+  } catch {
+    // 忽略错误
+  }
+}
+
+function logCorrelationStats(auxLogs: AuxLogEntry[]): void {
+  const stats = {
+    total: auxLogs.length,
+    matched: auxLogs.filter((item) => item.correlation?.status === "matched").length,
+    unmatched: auxLogs.filter((item) => item.correlation?.status === "unmatched").length,
+    failed: auxLogs.filter((item) => item.correlation?.status === "failed").length,
+  };
+  logger.info("Custom日志关联完成", stats);
+}
 
 async function readSelectedFiles(
   files: SelectedFile[]
@@ -93,13 +118,16 @@ function collectRawLines(allLines: RawLine[], fileName: string, lines: string[])
 
 function mergeMainLogResult(
   collections: ParseCollections,
-  result: { events: EventNotification[]; controllers: ControllerInfo[]; identifierMap: Map<number, string> }
+  result: { events: EventNotification[]; controllers: ControllerInfo[]; identifierMap: Map<number, string>; _logDir?: string }
 ): void {
   const startIndex = collections.events.length;
   collections.events.push(...result.events);
   collections.controllerInfos.push(...result.controllers);
   for (const [idx, identifier] of result.identifierMap) {
     collections.eventIdentifierMap.set(startIndex + idx, identifier);
+  }
+  if (result._logDir) {
+    collections.logDir = result._logDir;
   }
 }
 
@@ -108,13 +136,22 @@ function parseMainLogFile(
   lines: string[],
   fileName: string
 ): ProjectType {
+  const detected = detectProject(lines);
+  
+  if (detected !== "unknown") {
+    const parser = getProjectParser(detected);
+    if (parser) {
+      const result = parser.parseMainLog(lines, { fileName });
+      mergeMainLogResult(collections, result);
+      return detected;
+    }
+  }
+  
   const projectParser = projectParserRegistry.getDefault();
   if (!projectParser) return "unknown";
   const result = projectParser.parseMainLog(lines, { fileName });
   mergeMainLogResult(collections, result);
-  return result.detectedProject && result.detectedProject !== "unknown" 
-    ? result.detectedProject 
-    : "unknown";
+  return result.detectedProject || "unknown";
 }
 
 function parseAuxLogFile(
@@ -164,6 +201,7 @@ export type ParseState = "idle" | "ready" | "parsing" | "done";
 export interface LogParserConfig {
   /** 分块解析的块大小（未实现） */
   chunkSize?: number;
+  baseDir?: () => string;
 }
 
 /**
@@ -326,6 +364,7 @@ export function useLogParser(_config: LogParserConfig = {}): LogParserResult {
         auxEntries: [],
         controllerInfos: [],
         eventIdentifierMap: new Map<number, string>(),
+        baseDir: _config.baseDir ? _config.baseDir() : undefined,
       };
       const { fileLines, totalLines } = await readSelectedFiles(selectedFiles.value);
       let processed = 0;
@@ -365,15 +404,17 @@ export function useLogParser(_config: LogParserConfig = {}): LogParserResult {
       tasks.value = buildTasks(collections.events, stringPool, identifierRanges);
       stringPool.clear();
 
+      const focusEntries = buildFocusLogEntries(collections.events);
+      if (focusEntries.length > 0) {
+        collections.auxEntries.push(...focusEntries);
+      }
+
       associateControllersToTasks(tasks.value as TaskInfo[], collections.controllerInfos);
 
+      await attachScreenshotsToParsedTasks(tasks.value, collections.baseDir || collections.logDir);
+
       auxLogs.value = correlateAuxLogs(collections.auxEntries, tasks.value);
-      logger.info("Custom日志关联完成", {
-        total: auxLogs.value.length,
-        matched: auxLogs.value.filter((item) => item.correlation?.status === "matched").length,
-        unmatched: auxLogs.value.filter((item) => item.correlation?.status === "unmatched").length,
-        failed: auxLogs.value.filter((item) => item.correlation?.status === "failed").length,
-      });
+      logCorrelationStats(auxLogs.value);
 
       parseState.value = "done";
 

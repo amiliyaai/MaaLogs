@@ -1,3 +1,16 @@
+/**
+ * @fileoverview MaaEnd 项目解析器单元测试
+ *
+ * 测试覆盖：
+ * - Node.Recognition 事件解析
+ * - Node.PipelineNode 事件解析
+ * - JSON 格式辅助日志解析
+ *
+ * @module __tests__/parsers/maaend.test
+ * @author MaaLogs Team
+ * @license MIT
+ */
+
 import { describe, it, expect } from "vitest";
 import { parseBracketLine } from "../../parsers/shared";
 import { MAAEND_LOG_SAMPLES } from "../fixtures/maaend-samples";

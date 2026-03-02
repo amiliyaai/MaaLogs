@@ -1,3 +1,19 @@
+/**
+ * @fileoverview M9A 项目日志样本数据
+ *
+ * 提供用于单元测试的 M9A 项目日志样本数据。
+ * 包含：
+ * - node hit: 节点命中日志
+ * - node disabled: 节点禁用日志
+ * - run_recognition enter/leave: 识别执行日志
+ * - nested recognition: 嵌套识别日志
+ * - ADB controller create: ADB 控制器创建日志
+ *
+ * @module __tests__/fixtures/m9a-samples
+ * @author MaaLogs Team
+ * @license MIT
+ */
+
 export const M9A_LOG_SAMPLES = {
   nodeHit: `[2025-06-14 11:37:29.601][INF][Px4224][Tx33237][TaskBase.cpp][L131] node hit [result.name=TheAlarm] [result.box=[0 x 0 from (0, 0)]]`,
 
