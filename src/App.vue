@@ -211,7 +211,7 @@ const {
 
 // @ts-expect-error Debug only
 window.__tasks__ = tasks;
-// @ts-expect-error Debug only  
+// @ts-expect-error Debug only
 window.__tasksValue__ = () => tasks.value;
 
 const {

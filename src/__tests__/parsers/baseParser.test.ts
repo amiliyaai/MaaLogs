@@ -72,29 +72,17 @@ describe("detectProjectFromLine", () => {
 
 describe("detectProject", () => {
   it("should detect M9A from multiple lines", () => {
-    const lines = [
-      "[INF] First line",
-      "[Logger] Working D:/M9A/resource",
-      "[INF] Third line",
-    ];
+    const lines = ["[INF] First line", "[Logger] Working D:/M9A/resource", "[INF] Third line"];
     expect(detectProject(lines)).toBe("m9a");
   });
 
   it("should detect MaaEnd from multiple lines", () => {
-    const lines = [
-      "[INF] First line",
-      "[Logger] Working C:/MaaEnd-win-x86_64",
-      "[INF] Third line",
-    ];
+    const lines = ["[INF] First line", "[Logger] Working C:/MaaEnd-win-x86_64", "[INF] Third line"];
     expect(detectProject(lines)).toBe("maaend");
   });
 
   it("should return unknown for no matching lines", () => {
-    const lines = [
-      "[INF] First line",
-      "[INF] Second line",
-      "[INF] Third line",
-    ];
+    const lines = ["[INF] First line", "[INF] Second line", "[INF] Third line"];
     expect(detectProject(lines)).toBe("unknown");
   });
 
@@ -127,7 +115,11 @@ describe("parseOnEventNotify", () => {
   });
 
   it("should return null for null parsed", () => {
-    const result = parseOnEventNotify(null as unknown as Parameters<typeof parseOnEventNotify>[0], "maa.log", 1);
+    const result = parseOnEventNotify(
+      null as unknown as Parameters<typeof parseOnEventNotify>[0],
+      "maa.log",
+      1
+    );
     expect(result).toBeNull();
   });
 });
@@ -140,7 +132,11 @@ describe("parseNodeDisabled", () => {
   });
 
   it("should return null for null parsed", () => {
-    const result = parseNodeDisabled(null as unknown as Parameters<typeof parseNodeDisabled>[0], "maa.log", 1);
+    const result = parseNodeDisabled(
+      null as unknown as Parameters<typeof parseNodeDisabled>[0],
+      "maa.log",
+      1
+    );
     expect(result).toBeNull();
   });
 });
@@ -153,7 +149,11 @@ describe("parseNextListEvent", () => {
   });
 
   it("should return null for null parsed", () => {
-    const result = parseNextListEvent(null as unknown as Parameters<typeof parseNextListEvent>[0], "maa.log", 1);
+    const result = parseNextListEvent(
+      null as unknown as Parameters<typeof parseNextListEvent>[0],
+      "maa.log",
+      1
+    );
     expect(result).toBeNull();
   });
 });
@@ -166,7 +166,11 @@ describe("parseRecognitionNodeEvent", () => {
   });
 
   it("should return null for null parsed", () => {
-    const result = parseRecognitionNodeEvent(null as unknown as Parameters<typeof parseRecognitionNodeEvent>[0], "maa.log", 1);
+    const result = parseRecognitionNodeEvent(
+      null as unknown as Parameters<typeof parseRecognitionNodeEvent>[0],
+      "maa.log",
+      1
+    );
     expect(result).toBeNull();
   });
 });
@@ -179,7 +183,11 @@ describe("parseNodeRecognitionEvent", () => {
   });
 
   it("should return null for null parsed", () => {
-    const result = parseNodeRecognitionEvent(null as unknown as Parameters<typeof parseNodeRecognitionEvent>[0], "maa.log", 1);
+    const result = parseNodeRecognitionEvent(
+      null as unknown as Parameters<typeof parseNodeRecognitionEvent>[0],
+      "maa.log",
+      1
+    );
     expect(result).toBeNull();
   });
 });
@@ -242,7 +250,9 @@ describe("extractRecoDetailsFromEvent", () => {
       _lineNumber: 1,
     };
 
-    const result = extractRecoDetailsFromEvent(event as unknown as Parameters<typeof extractRecoDetailsFromEvent>[0]);
+    const result = extractRecoDetailsFromEvent(
+      event as unknown as Parameters<typeof extractRecoDetailsFromEvent>[0]
+    );
     expect(result).toBeNull();
   });
 });
@@ -268,11 +278,7 @@ describe("parseMainLogBase", () => {
   });
 
   it("should skip empty lines", () => {
-    const lines = [
-      "",
-      "   ",
-      "[Logger] Working D:/M9A/resource",
-    ];
+    const lines = ["", "   ", "[Logger] Working D:/M9A/resource"];
 
     const context = parseMainLogBase(lines, "maa.log");
     expect(context.detectedProject).toBe("m9a");

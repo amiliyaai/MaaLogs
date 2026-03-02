@@ -763,7 +763,13 @@ function openScreenshot(filePath: string): void {
                     >
                       <template #header-extra>
                         <n-tag
-                          :type="attempt.status === 'success' ? 'success' : attempt.status === 'disabled' ? 'warning' : 'error'"
+                          :type="
+                            attempt.status === 'success'
+                              ? 'success'
+                              : attempt.status === 'disabled'
+                                ? 'warning'
+                                : 'error'
+                          "
                           size="tiny"
                         >
                           {{ formatResultStatus(attempt.status) }}
@@ -820,7 +826,13 @@ function openScreenshot(filePath: string): void {
                           >
                             <template #header-extra>
                               <n-tag
-                                :type="nested.status === 'success' ? 'success' : nested.status === 'disabled' ? 'warning' : 'error'"
+                                :type="
+                                  nested.status === 'success'
+                                    ? 'success'
+                                    : nested.status === 'disabled'
+                                      ? 'warning'
+                                      : 'error'
+                                "
                                 size="tiny"
                               >
                                 {{ formatResultStatus(nested.status) }}
@@ -898,7 +910,7 @@ function openScreenshot(filePath: string): void {
                       :name="`nested-action-${nestedIdx}`"
                     >
                       <template #header>
-                        <span>{{ nested.name || 'NestedAction' }}</span>
+                        <span>{{ nested.name || "NestedAction" }}</span>
                       </template>
                       <template #header-extra>
                         <n-tag

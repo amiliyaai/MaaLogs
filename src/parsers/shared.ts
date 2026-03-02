@@ -114,10 +114,7 @@ export function parseValue(value: string): JsonValue {
       return JSON.parse(value);
     } catch {
       try {
-        const normalized = value
-          .replace(/\r?\n/g, " ")
-          .replace(/\s+/g, " ")
-          .trim();
+        const normalized = value.replace(/\r?\n/g, " ").replace(/\s+/g, " ").trim();
         return JSON.parse(normalized);
       } catch {
         return value;
@@ -324,7 +321,11 @@ function stripTokens(message: string, tokens: string[]): string {
   return cleanMessage.trim();
 }
 
-function parseStatus(message: string): { message: string; status?: "enter" | "leave"; duration?: number } {
+function parseStatus(message: string): {
+  message: string;
+  status?: "enter" | "leave";
+  duration?: number;
+} {
   const statusMatch = message.match(/\|\s*(enter|leave)(?:,\s*(\d+)ms)?/);
   if (!statusMatch) return { message };
   const status = statusMatch[1] as "enter" | "leave";

@@ -255,12 +255,7 @@ export function useSearch(): SearcherResult {
 
       // 规范化显示行（可能隐藏调试信息）
       const displayLine = normalizeSearchLine(line.line, hideDebugInfo.value);
-      const match = findMatchInLine(
-        displayLine,
-        keyword,
-        regex,
-        searchCaseSensitive.value
-      );
+      const match = findMatchInLine(displayLine, keyword, regex, searchCaseSensitive.value);
 
       // 添加匹配结果
       if (match) {
