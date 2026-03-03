@@ -209,9 +209,7 @@ const searchMaxOptions = [
               <!-- 匹配行内容（高亮显示匹配部分） -->
               <div class="search-line">
                 <span>{{ splitMatch(item.line, item.matchStart, item.matchEnd).before }}</span>
-                <span class="search-hit">{{
-                  splitMatch(item.line, item.matchStart, item.matchEnd).match
-                }}</span>
+                <span class="search-hit">{{ splitMatch(item.line, item.matchStart, item.matchEnd).match }}</span>
                 <span>{{ splitMatch(item.line, item.matchStart, item.matchEnd).after }}</span>
               </div>
             </div>
@@ -332,8 +330,8 @@ const searchMaxOptions = [
 }
 
 .search-hit {
-  background: var(--n-primary-color-supply);
-  color: var(--n-primary-color);
+  background: rgba(24, 144, 255, 0.1);
+  color: #1890ff;
   padding: 1px 3px;
   border-radius: 2px;
   font-weight: 500;

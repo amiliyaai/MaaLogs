@@ -1011,8 +1011,8 @@ body,
 }
 
 .task-row.active {
-  border-color: var(--n-primary-color);
-  background: var(--n-primary-color-supply);
+  border-color: #1890ff;
+  background: rgba(24, 144, 255, 0.1);
 }
 
 .task-row.failed {
@@ -1161,8 +1161,8 @@ body,
 .node-badge {
   padding: 6px 10px;
   border-radius: 999px;
-  background: var(--n-primary-color-supply);
-  color: var(--n-primary-color);
+  background: rgba(24, 144, 255, 0.1);
+  color: #1890ff;
   font-size: 12px;
   font-weight: 600;
   max-width: 100%;
@@ -1285,8 +1285,8 @@ body,
 }
 
 .stat-row.header {
-  background: var(--n-primary-color-supply);
-  color: var(--n-primary-color);
+  background: rgba(24, 144, 255, 0.1);
+  color: #1890ff;
   font-weight: 600;
 }
 
