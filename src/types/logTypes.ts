@@ -69,6 +69,21 @@ export type SelectedFile = {
  *   params: { task_id: 1 }
  * };
  */
+/**
+ * JSON 值类型
+ *
+ * 表示可序列化为 JSON 的值类型。
+ * 用于日志参数的类型定义，支持任意嵌套的 JSON 结构。
+ *
+ * @example
+ * const params: Record<string, JsonValue> = {
+ *   name: 'TaskName',
+ *   count: 42,
+ *   enabled: true,
+ *   data: { key: 'value' },
+ *   items: [1, 2, 3]
+ * };
+ */
 export type JsonValue =
   | string
   | number
@@ -78,6 +93,40 @@ export type JsonValue =
   | JsonValue[]
   | { [key: string]: JsonValue };
 
+/**
+ * 解析后的日志行结构
+ *
+ * 表示从 maa.log 文件中解析出的单行日志数据。
+ * Maa 日志格式为方括号分隔的结构化文本，包含时间戳、级别、进程/线程信息等。
+ *
+ * @property {string} timestamp - 日志时间戳（格式：YYYY-MM-DD HH:MM:SS.mmm）
+ * @property {'DBG' | 'INF' | 'TRC' | 'WRN' | 'ERR'} level - 日志级别
+ *   - DBG: 调试信息
+ *   - INF: 普通信息
+ *   - TRC: 追踪信息
+ *   - WRN: 警告信息
+ *   - ERR: 错误信息
+ * @property {string} processId - 进程标识符
+ * @property {string} threadId - 线程标识符
+ * @property {string} [sourceFile] - 源代码文件名（可选）
+ * @property {string} [lineNumber] - 源代码行号（可选）
+ * @property {string} [functionName] - 函数名称（可选）
+ * @property {string} message - 日志消息内容
+ * @property {Record<string, JsonValue>} params - 从消息中提取的键值对参数
+ * @property {'enter' | 'leave'} [status] - 函数进入/离开状态标记
+ * @property {number} [duration] - 函数执行耗时（毫秒）
+ * @property {number} [_lineNumber] - 在源文件中的行号（内部使用）
+ *
+ * @example
+ * const logLine: LogLine = {
+ *   timestamp: '2024-01-15 10:30:45.123',
+ *   level: 'INF',
+ *   processId: 'P1234',
+ *   threadId: 'T5678',
+ *   message: 'Task started',
+ *   params: { task_id: 1 }
+ * };
+ */
 export type LogLine = {
   timestamp: string;
   level: "DBG" | "INF" | "TRC" | "WRN" | "ERR";
