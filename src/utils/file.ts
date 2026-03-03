@@ -16,6 +16,7 @@ import { unzipSync } from "fflate";
 import type { SelectedFile, PipelineCustomActionInfo } from "../types/logTypes";
 import { parsePipelineCustomActions } from "./parse";
 
+// 允许导入的日志文件格式匹配
 const LOG_FILE_PATTERN = /^(?:maa|go-service|\d{4}-\d{2}-\d{2})\.log$/i;
 const MAX_ZIP_ENTRIES = 2000;
 const MAX_ZIP_UNCOMPRESSED_BYTES = 60 * 1024 * 1024;

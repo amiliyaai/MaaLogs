@@ -141,18 +141,26 @@ export function useFileSelection(
    * 处理文件选择输入框变更
    *
    * 当用户通过文件选择器选择文件时触发。
+   * 支持选择文件夹和 ZIP 压缩包。
    *
    * @param {Event} event - 文件输入框的 change 事件
    */
   async function handleSelectDirectory(): Promise<void> {
     const selected = await open({
-      directory: true,
-      multiple: false,
+      directory: false,
+      multiple: true,
+      filters: [
+        {
+          name: "日志文件或压缩包",
+          extensions: ["log", "zip"],
+        },
+      ],
     });
 
-    if (selected && typeof selected === "string") {
-      await handleTauriDrop([selected]);
-    }
+    if (!selected) return;
+
+    const paths = Array.isArray(selected) ? selected : [selected];
+    await handleTauriDrop(paths);
   }
 
   /**

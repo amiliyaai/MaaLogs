@@ -15,6 +15,7 @@
         "title": "MaaLogs",
         "width": 1280,
         "height": 800,
+        "center": true,
         "dragDropEnabled": true
       }
     ],
