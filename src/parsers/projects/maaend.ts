@@ -131,7 +131,7 @@ function parseTextLine(line: string, lineNumber: number, fileName: string): AuxL
   const taskIdMatch = message.match(/\[task_id[=_](\d+)\]/i);
   const task_id = taskIdMatch ? parseInt(taskIdMatch[1]) : undefined;
 
-  const timestampMs = Date.parse(timestamp.replace(" ", "T"));
+  const timestampMs = Date.parse(timestamp);
 
   return {
     key: `${fileName}-${lineNumber}`,

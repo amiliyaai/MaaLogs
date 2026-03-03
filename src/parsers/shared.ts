@@ -506,15 +506,16 @@ export async function parseOnErrorScreenshotsAsync(baseDir: string): Promise<OnE
       if (!match) continue;
 
       const [, timestampStr, nodeName] = match;
-      const isoTimestamp = timestampStr.replace(
+      // 使用空格分隔格式，让 Date.parse 解析为本地时间（与日志时间戳解析方式一致）
+      const localTimestamp = timestampStr.replace(
         /^(\d{4})\.(\d{2})\.(\d{2})-(\d{2})\.(\d{2})\.(\d{2})\.(\d{1,3})$/,
-        (_, y, m, d, h, min, s, ms) => `${y}-${m}-${d}T${h}:${min}:${s}.${ms.padStart(3, '0')}`
+        (_, y, m, d, h, min, s, ms) => `${y}-${m}-${d} ${h}:${min}:${s}.${ms.padStart(3, '0')}`
       );
 
       screenshots.push({
         filename: file.filename,
-        timestamp: isoTimestamp,
-        timestampMs: new Date(isoTimestamp).getTime(),
+        timestamp: localTimestamp,
+        timestampMs: Date.parse(localTimestamp),
         nodeName,
         filePath: file.path,
       });
@@ -641,7 +642,7 @@ function processSaveOnErrorRawLine(
   const parsed = parseSaveOnErrorRawLine(rawLine);
   if (!parsed) return;
 
-  const screenshotTimeMs = new Date(parsed.timestamp.replace(" ", "T")).getTime();
+  const screenshotTimeMs = Date.parse(parsed.timestamp);
   const targetNode = findBestMatchingNode(tasks, parsed.nodeName, screenshotTimeMs);
 
   if (targetNode) {

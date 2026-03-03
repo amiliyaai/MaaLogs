@@ -149,8 +149,8 @@ describe("attachScreenshotsToNodes", () => {
     const screenshots: OnErrorScreenshot[] = [
       {
         filename: "2026.03.02-11.02.03.318_SceneCheckTealColorFailed.png",
-        timestamp: "2026-03-02T11:02:03.318",
-        timestampMs: new Date("2026-03-02T11:02:03.318").getTime(),
+        timestamp: "2026-03-02 11:02:03.318",
+        timestampMs: Date.parse("2026-03-02 11:02:03.318"),
         nodeName: "SceneCheckTealColorFailed",
         filePath: "/path/to/on_error/2026.03.02-11.02.03.318_SceneCheckTealColorFailed.png",
       },
@@ -179,8 +179,8 @@ describe("attachScreenshotsToNodes", () => {
     const screenshots: OnErrorScreenshot[] = [
       {
         filename: "2026.03.02-11.02.03.318_SceneCheckTealColorFailed.png",
-        timestamp: "2026-03-02T11:02:03.318",
-        timestampMs: new Date("2026-03-02T11:02:03.318").getTime(),
+        timestamp: "2026-03-02 11:02:03.318",
+        timestampMs: Date.parse("2026-03-02 11:02:03.318"),
         nodeName: "SceneCheckTealColorFailed",
         filePath: "/path/to/error.png",
       },
@@ -216,8 +216,8 @@ describe("attachScreenshotsToNodes", () => {
     const screenshots: OnErrorScreenshot[] = [
       {
         filename: "2026.03.02-11.02.03.318_SceneCheckTealColorFailed.png",
-        timestamp: "2026-03-02T11:02:03.318",
-        timestampMs: new Date("2026-03-02T11:02:03.318").getTime(),
+        timestamp: "2026-03-02 11:02:03.318",
+        timestampMs: Date.parse("2026-03-02 11:02:03.318"),
         nodeName: "SceneCheckTealColorFailed",
         filePath: "/path/to/error.png",
       },

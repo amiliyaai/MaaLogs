@@ -60,7 +60,7 @@ function parseM9aCustomLine(
   const entryMatch = message.match(/\[entry[=_]([^\]]+)\]/i);
   const entry = entryMatch ? entryMatch[1] : undefined;
 
-  const timestampMs = Date.parse(timestamp.replace(" ", "T"));
+  const timestampMs = Date.parse(timestamp);
 
   return {
     key: `${fileName}-${lineNumber}`,
