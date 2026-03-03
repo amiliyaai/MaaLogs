@@ -51,5 +51,5 @@ commit_parsers = [
     { body = ".*security", group = "<!-- 9 -->🔒 安全" },
     { message = "^revert", group = "<!-- 10 -->◀️ 撤销" },
 ]
-ignore_tags = "rc"
+ignore_tags = ""
 sort_commits = "oldest"
