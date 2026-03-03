@@ -971,7 +971,6 @@ function buildSingleFocusEntry(
     identifier,
     task_id: taskId,
     entry,
-    caller: `${event.fileName}:${event._lineNumber ?? index + 1}`,
     fileName: event.fileName,
     lineNumber: event._lineNumber ?? index + 1,
     details: {
