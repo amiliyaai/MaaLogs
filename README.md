@@ -34,21 +34,23 @@ MaaFramework 日志分析利器
 - **多格式支持**：支持解析 `maa.log`（MaaFramework版本 ≥ 5.3） 和 `Custom` 格式的日志文件
 - **任务可视化**：以树形结构展示任务执行流程
 - **节点详情**：展示节点状态、识别详情、控制器和动作信息
+![alt text](docs/images/node.png)
 - **Custom 日志关联**：自动关联 Custom 日志与对应的任务
+![alt text](docs/images/custom.png)
 - **截图关联**：将 `on_error` 截图与失败节点关联展示（MaaFramework版本 ≥ v5.7.2）
-
+![alt text](docs/images/error.png)
 ### 🔍 文本搜索
 
 - 全文搜索（支持正则表达式）
 - 快速定位日志内容
 - 搜索结果高亮显示
-
+![alt text](docs/images/search.png)
 ### 📈 统计分析
 
 - 节点执行次数统计
 - 耗时分布分析
 - 成功率计算
-
+![alt text](docs/images/stat.png)
 ### 🤖 AI 智能分析
 
 - 集成多服务商 AI 模型
@@ -56,7 +58,7 @@ MaaFramework 日志分析利器
 - 提供修复建议
 - 支持服务商：OpenAI、Claude、Gemini、DeepSeek、智谱 AI、MiniMax、月之暗面、硅基流动等
 - **<span style="color: red">推荐使用免费模型：智谱AI（GLM-4.7-Flash）等，目前该功能不算强大，建议使用免费模型</span>**
-
+![alt text](docs/images/ai.png)
 ## 📖 使用方法
 
 ### 日志分析
