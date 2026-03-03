@@ -88,7 +88,7 @@ let context: Required<LoggerContext> = {
 /** 日志缓冲区 */
 let buffer: LogEntry[] = [];
 /** 刷盘定时器 */
-let flushTimer: number | null = null;
+let flushTimer: ReturnType<typeof setTimeout> | null = null;
 /** 日志配置 */
 let config: LoggerConfig | null = null;
 /** 当前日志文件大小 */
