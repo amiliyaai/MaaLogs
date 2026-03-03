@@ -92,7 +92,9 @@ const emitParse = () => emit("parse");
       </div>
       <!-- 提示 -->
       <div class="drag-hint">
-        <div class="hint-line" style="font-weight: bold">💡 请选择日志根目录，以便导入 maa.log、Custom 日志、错误截图！！！</div>
+        <div class="hint-line" style="font-weight: bold">
+          💡 请选择日志根目录，以便导入 maa.log、Custom 日志、错误截图！！！
+        </div>
         <div class="hint-line">📂 支持拖拽导入（日志压缩包或日志目录）</div>
       </div>
     </div>

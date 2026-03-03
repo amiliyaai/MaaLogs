@@ -453,10 +453,7 @@ export function parseMainLogBase(lines: string[], fileName: string): MainLogPars
  * @param fileName - 日志文件名
  * @returns 完整的解析结果，包含事件、控制器、信息映射和日志目录
  */
-export function parseMainLogWithLogDir(
-  lines: string[],
-  fileName: string
-): MainLogParseResult {
+export function parseMainLogWithLogDir(lines: string[], fileName: string): MainLogParseResult {
   const context = parseMainLogBase(lines, fileName);
   return {
     events: context.events,

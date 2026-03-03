@@ -126,7 +126,7 @@ interface NodeInfo {
   action_details?: ActionDetail; // 动作详情
   next_list: NextListItem[]; // 下一步列表
   recognition_attempts: RecognitionAttempt[]; // 识别尝试
-  error_screenshot?: string;   // on_error 截图路径 (MaaFramework >= v5.7.2)
+  error_screenshot?: string; // on_error 截图路径 (MaaFramework >= v5.7.2)
 }
 ```
 
