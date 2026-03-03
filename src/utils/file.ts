@@ -19,7 +19,7 @@ import { parsePipelineCustomActions } from "./parse";
 // 允许导入的日志文件格式匹配
 const LOG_FILE_PATTERN = /^(?:maa|go-service|\d{4}-\d{2}-\d{2})\.log$/i;
 const MAX_ZIP_ENTRIES = 2000;
-const MAX_ZIP_UNCOMPRESSED_BYTES = 60 * 1024 * 1024;
+const MAX_ZIP_UNCOMPRESSED_BYTES = 256 * 1024 * 1024;
 const MAX_BROWSER_FILE_BYTES = 80 * 1024 * 1024;
 
 function isSupportedLogOrConfigFile(name: string): boolean {
@@ -39,12 +39,13 @@ function extractZipFiles(
   for (const [entryName, data] of Object.entries(zip)) {
     entryCount++;
     if (entryCount > MAX_ZIP_ENTRIES) break;
-    if (data instanceof Uint8Array) {
-      totalBytes += data.length;
-      if (totalBytes > MAX_ZIP_UNCOMPRESSED_BYTES) break;
-    }
+    if (!(data instanceof Uint8Array)) continue;
+    
+    totalBytes += data.length;
+    if (totalBytes > MAX_ZIP_UNCOMPRESSED_BYTES) break;
+    
     const entryBaseName = getFileNameFromPath(entryName);
-    if (!allowEntry(entryBaseName)) continue;
+    if (!allowEntry(entryBaseName) && !allowEntry(entryName)) continue;
 
     const text = decoder.decode(data as Uint8Array);
     files.push(new File([text], entryBaseName, { type: "text/plain" }));
