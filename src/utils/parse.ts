@@ -37,10 +37,26 @@ import { parseMessageAndParams } from "../parsers/shared";
 
 const logger = createLogger("Parse");
 
+/**
+ * 检查 JSON 值是否为对象类型（非数组）
+ *
+ * 用于类型守卫，判断一个 JsonValue 是否为 Record<string, JsonValue> 类型。
+ *
+ * @param {JsonValue | undefined} value - 待检查的 JSON 值
+ * @returns {boolean} 如果是对象且非数组则返回 true
+ */
 function isRecordJsonValue(value: JsonValue | undefined): value is Record<string, JsonValue> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/**
+ * 将 JSON 值安全转换为字符串
+ *
+ * 如果值是字符串类型则返回该值，否则返回 undefined。
+ *
+ * @param {JsonValue | undefined} value - 待转换的 JSON 值
+ * @returns {string | undefined} 字符串值或 undefined
+ */
 function asString(value: JsonValue | undefined): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
@@ -188,6 +204,16 @@ export function parseWin32InputMethod(value: number): Win32InputMethod {
   return WIN32_INPUT_METHOD_MAP[value] || "Unknown";
 }
 
+/**
+ * 从参数对象中解析数字值
+ *
+ * 安全地从参数对象中提取指定键的数字值。
+ * 支持数字类型和可解析为数字的字符串。
+ *
+ * @param {Record<string, JsonValue>} params - 参数对象
+ * @param {string} key - 键名
+ * @returns {number} 解析后的数字，解析失败返回 0
+ */
 function parseNumberParam(params: Record<string, JsonValue>, key: string): number {
   const value = params[key];
   if (typeof value === "number") return value;
@@ -195,6 +221,16 @@ function parseNumberParam(params: Record<string, JsonValue>, key: string): numbe
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+/**
+ * 从参数对象中解析 BigInt 值
+ *
+ * 安全地从参数对象中提取指定键的 BigInt 值。
+ * 支持 bigint、number 和可解析的字符串类型。
+ *
+ * @param {Record<string, JsonValue>} params - 参数对象
+ * @param {string} key - 键名
+ * @returns {bigint} 解析后的 BigInt，解析失败返回 0n
+ */
 function parseBigIntParam(params: Record<string, JsonValue>, key: string): bigint {
   const value = params[key];
   if (typeof value === "bigint") return value;
@@ -203,6 +239,20 @@ function parseBigIntParam(params: Record<string, JsonValue>, key: string): bigin
   return Number.isFinite(parsed) ? BigInt(parsed) : 0n;
 }
 
+/**
+ * 解析日志行的方括号标记
+ *
+ * 从日志行开头提取连续的方括号内容作为标记。
+ * Maa 日志格式使用方括号分隔时间戳、级别、进程ID等信息。
+ *
+ * @param {string} line - 日志行内容
+ * @param {number} maxTokens - 最大标记数量
+ * @returns {{tokens: string[], rest: string} | null} 标记数组和剩余内容，格式不匹配返回 null
+ *
+ * @example
+ * parseLineTokens('[2024-01-15][INF][P1] message', 3);
+ * // 返回 { tokens: ['2024-01-15', 'INF', 'P1'], rest: 'message' }
+ */
 function parseLineTokens(
   line: string,
   maxTokens: number
@@ -218,6 +268,21 @@ function parseLineTokens(
   return { tokens, rest: line.slice(index).trimStart() };
 }
 
+/**
+ * 解析源文件和函数名信息
+ *
+ * 从日志行的标记中解析出源文件名、行号和函数名。
+ * Maa 日志的源信息位置可能变化，此函数处理多种格式组合。
+ *
+ * @param {string} [part1] - 第一个可选部分
+ * @param {string} [part2] - 第二个可选部分
+ * @param {string} [part3] - 第三个可选部分
+ * @returns {{sourceFile?: string, lineNumber?: string, functionName?: string}} 解析结果
+ *
+ * @example
+ * resolveSourceAndFunction('TaskBase.cpp', 'L131', 'run_task');
+ * // 返回 { sourceFile: 'TaskBase.cpp', lineNumber: 'L131', functionName: 'run_task' }
+ */
 function resolveSourceAndFunction(
   part1?: string,
   part2?: string,
@@ -460,6 +525,15 @@ export function normalizeId(value: unknown): number | undefined {
   return undefined;
 }
 
+/**
+ * 将值强制转换为数字 ID
+ *
+ * 与 normalizeId 不同，此函数总是返回数字，解析失败返回 0。
+ * 用于需要确定数字值的场景。
+ *
+ * @param {unknown} value - 原始值
+ * @returns {number} 数字 ID，解析失败返回 0
+ */
 function coerceId(value: unknown): number {
   const normalized = normalizeId(value);
   if (typeof normalized === "number") return normalized;
@@ -471,6 +545,14 @@ function coerceId(value: unknown): number {
   return 0;
 }
 
+/**
+ * 将值强制转换为字符串
+ *
+ * 如果值是字符串则返回该值，否则返回空字符串。
+ *
+ * @param {unknown} value - 原始值
+ * @returns {string} 字符串值
+ */
 function coerceString(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
@@ -654,12 +736,30 @@ export function parseEventNotification(
   };
 }
 
+/**
+ * 规范化 Focus 显示配置
+ *
+ * 将 Focus 配置中的 display 字段转换为字符串数组。
+ * 支持字符串和数组两种格式。
+ *
+ * @param {JsonValue | undefined} value - display 配置值
+ * @returns {string[]} 显示配置数组
+ */
 function normalizeFocusDisplay(value: JsonValue | undefined): string[] {
   if (typeof value === "string") return [value];
   if (Array.isArray(value)) return value.filter((item) => typeof item === "string") as string[];
   return [];
 }
 
+/**
+ * 格式化 Focus 模板值
+ *
+ * 将 JSON 值转换为适合显示的字符串格式。
+ * 基本类型直接转换，对象类型序列化为 JSON。
+ *
+ * @param {JsonValue} value - JSON 值
+ * @returns {string} 格式化后的字符串
+ */
 function formatFocusTemplateValue(value: JsonValue): string {
   if (typeof value === "string") return value;
   if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") {
@@ -669,6 +769,16 @@ function formatFocusTemplateValue(value: JsonValue): string {
   return JSON.stringify(value);
 }
 
+/**
+ * 解析 Focus 模板中的路径引用
+ *
+ * 支持点号分隔的路径，如 "node.name" 或 "reco_details.best_target"。
+ * 从事件详情对象中按路径提取值。
+ *
+ * @param {Record<string, JsonValue>} details - 事件详情对象
+ * @param {string} path - 点号分隔的路径字符串
+ * @returns {JsonValue | undefined} 找到的值或 undefined
+ */
 function resolveFocusTemplateValue(
   details: Record<string, JsonValue>,
   path: string
@@ -689,6 +799,16 @@ function resolveFocusTemplateValue(
   return current;
 }
 
+/**
+ * 应用 Focus 模板变量替换
+ *
+ * 将模板中的 {path} 占位符替换为事件详情中对应的值。
+ * 路径最长支持 100 个字符。
+ *
+ * @param {string} content - 模板内容
+ * @param {Record<string, JsonValue>} details - 事件详情对象
+ * @returns {string} 替换后的内容
+ */
 function applyFocusTemplate(content: string, details: Record<string, JsonValue>): string {
   return content.replace(/\{([^}]{0,100})\}/g, (match, key) => {
     const trimmedKey = String(key).trim();
@@ -699,6 +819,15 @@ function applyFocusTemplate(content: string, details: Record<string, JsonValue>)
   });
 }
 
+/**
+ * 规范化 Focus 模板配置
+ *
+ * 将 Focus 模板配置转换为统一的 {content, display} 格式。
+ * 支持字符串模板和对象模板两种格式。
+ *
+ * @param {JsonValue} template - 模板配置
+ * @returns {{content: string, display: string[]} | null} 规范化后的模板或 null（无效模板）
+ */
 function normalizeFocusTemplate(
   template: JsonValue
 ): { content: string; display: string[] } | null {
@@ -1073,6 +1202,15 @@ export function parsePipelineCustomActions(
 
 type IdentifierRange = { identifier: string; startIndex: number; endIndex: number };
 
+/**
+ * 创建 identifier 查找函数
+ *
+ * 返回一个高效的查找函数，用于根据事件索引快速定位对应的 identifier。
+ * 使用闭包维护当前范围索引，实现 O(1) 平均查找复杂度。
+ *
+ * @param {IdentifierRange[]} ranges - identifier 范围数组
+ * @returns {(eventIndex: number) => string | undefined} 查找函数
+ */
 function createIdentifierLookup(ranges: IdentifierRange[]) {
   const sorted = ranges.slice().sort((a, b) => a.startIndex - b.startIndex);
   let rangeIndex = 0;
@@ -1088,6 +1226,14 @@ function createIdentifierLookup(ranges: IdentifierRange[]) {
   };
 }
 
+/**
+ * 更新任务的持续时间
+ *
+ * 根据任务的开始时间和结束时间计算并更新持续时间。
+ *
+ * @param {TaskInfo} task - 任务对象
+ * @param {string} endTime - 结束时间字符串
+ */
 function updateTaskDuration(task: TaskInfo, endTime: string) {
   if (!task.start_time) return;
   const start = new Date(task.start_time).getTime();
@@ -1274,7 +1420,9 @@ export function buildTasks(
   // 去重：合并相同任务（相同 entry、start_time、uuid 但不同 processId/threadId 的任务）
   const deduplicatedTasks = deduplicateTasks(tasks);
 
-  const filteredTasks = deduplicatedTasks.filter((task) => task.entry !== "MaaTaskerPostStop");
+  const filteredTasks = deduplicatedTasks.filter(
+    (task) => task.entry !== "MaaTaskerPostStop" && !task.entry.includes("post_stop")
+  );
   logger.info("任务构建完成", {
     totalTasks: tasks.length,
     filteredTasks: filteredTasks.length,
@@ -1332,6 +1480,15 @@ function deduplicateTasks(tasks: TaskInfo[]): TaskInfo[] {
   return result;
 }
 
+/**
+ * 任务节点构建上下文类型
+ *
+ * 在构建任务节点过程中维护的状态信息，包括：
+ * - 当前任务信息
+ * - 已构建的节点列表
+ * - 识别尝试和嵌套节点的临时存储
+ * - 各种 ID 到数据的映射关系
+ */
 type TaskNodeBuildContext = {
   task: TaskInfo;
   stringPool: StringPool;
@@ -1347,6 +1504,17 @@ type TaskNodeBuildContext = {
   actionNodesByTaskId: Map<number, NestedActionNode[]>;
 };
 
+/**
+ * 从事件中更新 Next List
+ *
+ * 处理 Node.NextList.Starting 和 Node.NextList.Succeeded 事件，
+ * 提取并更新当前节点的 next_list 信息。
+ *
+ * @param {TaskNodeBuildContext} context - 构建上下文
+ * @param {string} message - 事件消息
+ * @param {Record<string, JsonValue>} details - 事件详情
+ * @param {number | undefined} eventTaskId - 事件关联的任务 ID
+ */
 function updateNextListFromEvent(
   context: TaskNodeBuildContext,
   message: string,
@@ -1375,6 +1543,19 @@ function updateNextListFromEvent(
   });
 }
 
+/**
+ * 更新嵌套识别节点
+ *
+ * 处理 Node.RecognitionNode.Succeeded/Failed 事件，
+ * 将嵌套识别节点添加到上下文中。
+ * 这些节点是由 MaaContextRunRecognition API 调用产生的。
+ *
+ * @param {TaskNodeBuildContext} context - 构建上下文
+ * @param {string} message - 事件消息
+ * @param {Record<string, JsonValue>} details - 事件详情
+ * @param {number | undefined} eventTaskId - 事件关联的任务 ID
+ * @param {string} timestamp - 事件时间戳
+ */
 function updateNestedRecognitionNode(
   context: TaskNodeBuildContext,
   message: string,
@@ -1401,6 +1582,18 @@ function updateNestedRecognitionNode(
   context.recognitionsByTaskId.delete(eventTaskId);
 }
 
+/**
+ * 更新识别尝试记录
+ *
+ * 处理 Node.Recognition.Succeeded/Failed 事件，
+ * 记录识别尝试信息。支持主任务和嵌套任务的识别事件。
+ *
+ * @param {TaskNodeBuildContext} context - 构建上下文
+ * @param {string} message - 事件消息
+ * @param {Record<string, JsonValue>} details - 事件详情
+ * @param {number | undefined} eventTaskId - 事件关联的任务 ID
+ * @param {string} timestamp - 事件时间戳
+ */
 function updateRecognitionAttempts(
   context: TaskNodeBuildContext,
   message: string,
@@ -1439,6 +1632,18 @@ function updateRecognitionAttempts(
   context.recognitionsByTaskId.get(eventTaskId)!.push(attempt);
 }
 
+/**
+ * 更新动作尝试记录
+ *
+ * 处理 Node.Action.Starting/Succeeded/Failed 事件，
+ * 记录动作尝试信息。支持嵌套任务的动作事件。
+ *
+ * @param {TaskNodeBuildContext} context - 构建上下文
+ * @param {string} message - 事件消息
+ * @param {Record<string, JsonValue>} details - 事件详情
+ * @param {number | undefined} eventTaskId - 事件关联的任务 ID
+ * @param {string} timestamp - 事件时间戳
+ */
 function updateActionAttempts(
   context: TaskNodeBuildContext,
   message: string,
@@ -1473,6 +1678,18 @@ function updateActionAttempts(
   context.actionsByTaskId.get(eventTaskId)!.push(actionAttempt);
 }
 
+/**
+ * 更新动作节点
+ *
+ * 处理 Node.ActionNode.Succeeded/Failed 事件，
+ * 将嵌套动作节点添加到上下文中。
+ *
+ * @param {TaskNodeBuildContext} context - 构建上下文
+ * @param {string} message - 事件消息
+ * @param {Record<string, JsonValue>} details - 事件详情
+ * @param {number | undefined} eventTaskId - 事件关联的任务 ID
+ * @param {string} timestamp - 事件时间戳
+ */
 function updateActionNodes(
   context: TaskNodeBuildContext,
   message: string,
@@ -1505,6 +1722,19 @@ function updateActionNodes(
   }
 }
 
+/**
+ * 更新 Pipeline 节点
+ *
+ * 处理 Node.PipelineNode.Succeeded/Failed 事件，
+ * 构建完整的节点信息并添加到节点列表。
+ * 这是节点构建的最终步骤，整合所有收集的信息。
+ *
+ * @param {TaskNodeBuildContext} context - 构建上下文
+ * @param {string} message - 事件消息
+ * @param {Record<string, JsonValue>} details - 事件详情
+ * @param {number | undefined} eventTaskId - 事件关联的任务 ID
+ * @param {string} timestamp - 事件时间戳
+ */
 function updatePipelineNodes(
   context: TaskNodeBuildContext,
   message: string,
@@ -1521,10 +1751,10 @@ function updatePipelineNodes(
     context.nestedNodes.length = 0;
     return;
   }
-  const nodeName = coerceString(details.name);
+  const nodeDetails = details.node_details as NodeInfo["node_details"] | undefined;
+  const nodeName = coerceString(nodeDetails?.name ?? details.name);
   const recoDetails = details.reco_details as RecognitionDetail | undefined;
   const actionDetails = details.action_details as ActionDetail | undefined;
-  const nodeDetails = details.node_details as NodeInfo["node_details"] | undefined;
 
   const nextListFromDetails = details.next_list as NextListItem[] | undefined;
   const nextList =
@@ -1603,8 +1833,7 @@ function buildTaskNodes(
   const startIndex = task._startEventIndex ?? 0;
   const endIndex = task._endEventIndex ?? events.length - 1;
   const taskEvents = events
-    .slice(startIndex, endIndex + 1)
-    .filter((event) => event.processId === task.processId);
+    .slice(startIndex, endIndex + 1);
 
   const recognitionAttempts: RecognitionAttempt[] = [];
   const nestedNodes: RecognitionAttempt[] = [];
@@ -1658,6 +1887,12 @@ function buildTaskNodes(
  * const stats = computeNodeStatistics(tasks);
  * console.log(stats[0].avgDuration); // 平均耗时（毫秒）
  */
+
+/**
+ * 节点统计数据桶类型
+ *
+ * 用于累积单个节点名称的统计数据。
+ */
 type NodeStatsBucket = {
   count: number;
   totalDuration: number;
@@ -1667,6 +1902,17 @@ type NodeStatsBucket = {
   failCount: number;
 };
 
+/**
+ * 计算节点持续时间
+ *
+ * 根据当前节点时间戳和下一个节点/任务结束时间计算节点执行耗时。
+ * 无效值（非有限数、负数、超过 1 小时）返回 null。
+ *
+ * @param {string} currentTimestamp - 当前节点时间戳
+ * @param {string} [nextTimestamp] - 下一个节点时间戳
+ * @param {string} [taskEnd] - 任务结束时间戳
+ * @returns {number | null} 持续时间（毫秒）或 null
+ */
 function getNodeDuration(
   currentTimestamp: string,
   nextTimestamp?: string,
@@ -1685,6 +1931,16 @@ function getNodeDuration(
   return duration;
 }
 
+/**
+ * 获取或创建统计数据桶
+ *
+ * 从 Map 中获取指定名称的统计数据桶，不存在则创建新桶。
+ *
+ * @param {Map<string, NodeStatsBucket>} statsMap - 统计数据 Map
+ * @param {string} name - 节点名称
+ * @param {number} initialDuration - 初始持续时间（用于初始化 min/max）
+ * @returns {NodeStatsBucket} 统计数据桶
+ */
 function getOrCreateStats(
   statsMap: Map<string, NodeStatsBucket>,
   name: string,
@@ -1703,6 +1959,16 @@ function getOrCreateStats(
   return statsMap.get(name)!;
 }
 
+/**
+ * 更新统计数据桶
+ *
+ * 将一次执行的持续时间添加到统计数据中，
+ * 更新计数、总耗时、最小/最大耗时和成功/失败计数。
+ *
+ * @param {NodeStatsBucket} stats - 统计数据桶
+ * @param {number} duration - 本次执行持续时间
+ * @param {NodeInfo["status"]} status - 节点状态
+ */
 function updateStatsBucket(
   stats: NodeStatsBucket,
   duration: number,
@@ -1719,6 +1985,14 @@ function updateStatsBucket(
   }
 }
 
+/**
+ * 将任务节点数据添加到统计 Map
+ *
+ * 遍历任务的所有节点，计算每个节点的持续时间并更新统计。
+ *
+ * @param {Map<string, NodeStatsBucket>} statsMap - 统计数据 Map
+ * @param {TaskInfo} task - 任务对象
+ */
 function addTaskNodeStats(statsMap: Map<string, NodeStatsBucket>, task: TaskInfo): void {
   const nodes = task.nodes;
   for (let i = 0; i < nodes.length; i++) {
@@ -1731,6 +2005,14 @@ function addTaskNodeStats(statsMap: Map<string, NodeStatsBucket>, task: TaskInfo
   }
 }
 
+/**
+ * 构建统计结果数组
+ *
+ * 将统计数据 Map 转换为数组格式，计算平均耗时和成功率。
+ *
+ * @param {Map<string, NodeStatsBucket>} statsMap - 统计数据 Map
+ * @returns {Array} 统计结果数组
+ */
 function buildStatsResult(statsMap: Map<string, NodeStatsBucket>) {
   const result: {
     name: string;

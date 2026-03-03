@@ -50,6 +50,8 @@ export interface MainLogParseContext {
   lastIdentifier: string | null;
   /** 检测到的项目类型 */
   detectedProject: ProjectType;
+  /** save_on_error 相关的原始日志行 */
+  saveOnErrorRawLines: string[];
 }
 
 /** 创建主日志解析上下文 */
@@ -60,6 +62,7 @@ export function createMainLogContext(): MainLogParseContext {
     identifierMap: new Map(),
     lastIdentifier: null,
     detectedProject: "unknown",
+    saveOnErrorRawLines: [],
   };
 }
 
@@ -406,6 +409,11 @@ export function handleMainLogLine(
   if (controller) {
     context.controllers.push(controller);
   }
+
+  // 收集 save_on_error 日志，用于后续截图关联
+  if (rawLine.includes("save_on_error")) {
+    context.saveOnErrorRawLines.push(rawLine);
+  }
 }
 
 /** 从日志行中提取并更新 identifier */
@@ -461,5 +469,6 @@ export function parseMainLogWithLogDir(lines: string[], fileName: string): MainL
     identifierMap: context.identifierMap,
     detectedProject: context.detectedProject,
     _logDir: extractLogDirectory(lines),
+    saveOnErrorRawLines: context.saveOnErrorRawLines,
   };
 }

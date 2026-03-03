@@ -91,6 +91,8 @@ export interface MainLogParseResult {
   identifierMap: Map<number, string>;
   detectedProject?: ProjectType;
   _logDir?: string;
+  /** 保存包含 save_on_error 的原始日志行，用于截图关联 */
+  saveOnErrorRawLines: string[];
 }
 
 /**

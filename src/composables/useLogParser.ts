@@ -32,7 +32,7 @@ import {
   associateControllersToTasks,
   buildFocusLogEntries,
 } from "../utils/parse";
-import { parseOnErrorScreenshotsAsync, attachScreenshotsToTasks } from "../parsers/shared";
+import { parseOnErrorScreenshotsAsync, attachScreenshotsToTasks, attachScreenshotsFromSaveOnError } from "../parsers/shared";
 import { isMainLog } from "../utils/file";
 import { createLogger, setLoggerContext } from "../utils/logger";
 
@@ -72,9 +72,20 @@ type ParseCollections = {
   eventIdentifierMap: Map<number, string>;
   logDir?: string;
   baseDir?: string;
+  saveOnErrorRawLines: string[];
 };
 
-async function attachScreenshotsToParsedTasks(tasks: TaskInfo[], logDir?: string): Promise<void> {
+async function attachScreenshotsToParsedTasks(
+  tasks: TaskInfo[],
+  saveOnErrorRawLines: string[],
+  logDir?: string
+): Promise<void> {
+  try {
+    attachScreenshotsFromSaveOnError(tasks, saveOnErrorRawLines);
+  } catch {
+    // 忽略错误
+  }
+
   if (!logDir) return;
   try {
     const screenshots = await parseOnErrorScreenshotsAsync(logDir);
@@ -123,6 +134,7 @@ function mergeMainLogResult(
     controllers: ControllerInfo[];
     identifierMap: Map<number, string>;
     _logDir?: string;
+    saveOnErrorRawLines: string[];
   }
 ): void {
   const startIndex = collections.events.length;
@@ -134,6 +146,7 @@ function mergeMainLogResult(
   if (result._logDir) {
     collections.logDir = result._logDir;
   }
+  collections.saveOnErrorRawLines.push(...result.saveOnErrorRawLines);
 }
 
 function parseMainLogFile(
@@ -142,6 +155,7 @@ function parseMainLogFile(
   fileName: string
 ): ProjectType {
   const detected = detectProject(lines);
+  logger.info("检测到项目类型", { project: detected, fileName });
 
   if (detected !== "unknown") {
     const parser = getProjectParser(detected);
@@ -368,8 +382,9 @@ export function useLogParser(_config: LogParserConfig = {}): LogParserResult {
         allLines: [],
         auxEntries: [],
         controllerInfos: [],
-        eventIdentifierMap: new Map<number, string>(),
+        eventIdentifierMap: new Map(),
         baseDir: _config.baseDir ? _config.baseDir() : undefined,
+        saveOnErrorRawLines: [],
       };
       const { fileLines, totalLines } = await readSelectedFiles(selectedFiles.value);
       let processed = 0;
@@ -416,7 +431,7 @@ export function useLogParser(_config: LogParserConfig = {}): LogParserResult {
 
       associateControllersToTasks(tasks.value as TaskInfo[], collections.controllerInfos);
 
-      await attachScreenshotsToParsedTasks(tasks.value, collections.baseDir || collections.logDir);
+      await attachScreenshotsToParsedTasks(tasks.value, collections.saveOnErrorRawLines, collections.baseDir || collections.logDir);
 
       auxLogs.value = correlateAuxLogs(collections.auxEntries, tasks.value);
       logCorrelationStats(auxLogs.value);

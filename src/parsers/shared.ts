@@ -28,6 +28,14 @@ interface PngFileInfo {
   path: string;
 }
 
+export function normalizeId(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && /^-?\d+$/.test(value.trim())) {
+    return parseInt(value.trim(), 10);
+  }
+  return undefined;
+}
+
 /**
  * ADB 截图方式 Bitmask 映射
  */
@@ -469,7 +477,8 @@ export interface OnErrorScreenshot {
   filePath: string;
 }
 
-const ON_ERROR_FILENAME_REGEX = /^(\d{4}\.\d{2}\.\d{2}-\d{2}\.\d{2}\.\d{2}\.\d{3})_(.+)\.png$/;
+/** 错误截图文件名正则表达式，支持1-3位毫秒数 */
+const ON_ERROR_FILENAME_REGEX = /^(\d{4}\.\d{2}\.\d{2}-\d{2}\.\d{2}\.\d{2}\.\d{1,3})_(.+?)\.png$/;
 
 export function extractLogDirectory(lines: string[]): string | undefined {
   for (const line of lines) {
@@ -498,8 +507,8 @@ export async function parseOnErrorScreenshotsAsync(baseDir: string): Promise<OnE
 
       const [, timestampStr, nodeName] = match;
       const isoTimestamp = timestampStr.replace(
-        /^(\d{4})\.(\d{2})\.(\d{2})-(\d{2})\.(\d{2})\.(\d{2})\.(\d{3})$/,
-        "$1-$2-$3T$4:$5:$6.$7"
+        /^(\d{4})\.(\d{2})\.(\d{2})-(\d{2})\.(\d{2})\.(\d{2})\.(\d{1,3})$/,
+        (_, y, m, d, h, min, s, ms) => `${y}-${m}-${d}T${h}:${min}:${s}.${ms.padStart(3, '0')}`
       );
 
       screenshots.push({
@@ -541,37 +550,239 @@ export function attachScreenshotsToNodes(
   }
 }
 
+interface NodeInfoWithTemp extends NodeInfo {
+  _temp_error_screenshot_filename?: string;
+}
+
+/**
+ * 从 save_on_error 日志行解析截图信息
+ * @param rawLine - 原始日志行
+ * @returns 解析结果，包含时间戳、节点名和文件名
+ */
+function parseSaveOnErrorRawLine(rawLine: string): {
+  timestamp: string;
+  nodeName: string;
+  filename: string;
+} | null {
+  const timestampMatch = rawLine.match(/^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3})\]/);
+  if (!timestampMatch) return null;
+
+  const match = rawLine.match(/save_on_error to .*?(\d{4}\.\d{2}\.\d{2}-\d{2}\.\d{2}\.\d{2}\.\d{1,3})_(.+?)\.png/);
+  if (!match) return null;
+
+  const [, timePart, nodeName] = match;
+  const filename = `${timePart}_${nodeName}.png`;
+
+  return {
+    timestamp: timestampMatch[1],
+    nodeName,
+    filename,
+  };
+}
+
+/**
+ * 从任务列表中找到最佳匹配的节点
+ *
+ * 匹配逻辑：
+ * 1. 找到截图时间之前开始的所有任务
+ * 2. 选择开始时间最接近的任务
+ * 3. 在任务中找到同名节点，且节点时间 <= 截图时间
+ * 4. 选择时间最接近的节点
+ *
+ * @param tasks - 任务列表
+ * @param nodeName - 节点名称
+ * @param screenshotTimeMs - 截图时间戳（毫秒）
+ * @returns 最佳匹配的节点
+ */
+function findBestMatchingNode(
+  tasks: TaskInfo[],
+  nodeName: string,
+  screenshotTimeMs: number
+): NodeInfo | null {
+  const taskCandidates = tasks.filter((task) => {
+    const taskStart = new Date(task.start_time).getTime();
+    return screenshotTimeMs >= taskStart;
+  });
+
+  if (taskCandidates.length === 0) return null;
+
+  taskCandidates.sort(
+    (a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime()
+  );
+
+  for (const task of taskCandidates) {
+    const nodeCandidates = task.nodes.filter((n) => {
+      if (n.name !== nodeName) return false;
+      const nodeTime = new Date(n.timestamp).getTime();
+      return nodeTime <= screenshotTimeMs;
+    });
+
+    if (nodeCandidates.length === 0) continue;
+
+    nodeCandidates.sort(
+      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+
+    return nodeCandidates[0];
+  }
+
+  return null;
+}
+
+/**
+ * 处理单个 save_on_error 日志行，关联到节点
+ * @param rawLine - 原始日志行
+ * @param tasks - 任务列表
+ */
+function processSaveOnErrorRawLine(
+  rawLine: string,
+  tasks: TaskInfo[]
+): void {
+  const parsed = parseSaveOnErrorRawLine(rawLine);
+  if (!parsed) return;
+
+  const screenshotTimeMs = new Date(parsed.timestamp.replace(" ", "T")).getTime();
+  const targetNode = findBestMatchingNode(tasks, parsed.nodeName, screenshotTimeMs);
+
+  if (targetNode) {
+    (targetNode as NodeInfoWithTemp)._temp_error_screenshot_filename = parsed.filename;
+  }
+}
+
+/**
+ * 从 save_on_error 日志行关联截图到节点
+ * @param tasks - 任务列表
+ * @param saveOnErrorRawLines - save_on_error 原始日志行
+ */
+export function attachScreenshotsFromSaveOnError(
+  tasks: TaskInfo[],
+  saveOnErrorRawLines: string[]
+): void {
+  for (const rawLine of saveOnErrorRawLines) {
+    processSaveOnErrorRawLine(rawLine, tasks);
+  }
+}
+
+/**
+ * 从临时字段关联截图文件路径
+ * @param tasks - 任务列表
+ * @param screenshotMap - 截图文件映射
+ * @param processedFilenames - 已处理的文件名集合
+ */
+function attachScreenshotsFromTemp(
+  tasks: TaskInfo[],
+  screenshotMap: Map<string, OnErrorScreenshot>,
+  processedFilenames: Set<string>
+): void {
+  for (const task of tasks) {
+    for (const node of task.nodes) {
+      const tempNode = node as NodeInfoWithTemp;
+      if (!tempNode._temp_error_screenshot_filename) continue;
+
+      const screenshot = screenshotMap.get(tempNode._temp_error_screenshot_filename);
+      if (screenshot) {
+        node.error_screenshot = screenshot.filePath;
+        processedFilenames.add(screenshot.filename);
+      }
+      delete tempNode._temp_error_screenshot_filename;
+    }
+  }
+}
+
+/**
+ * 找到包含截图时间的最近任务
+ * @param tasks - 任务列表
+ * @param screenshotTime - 截图时间戳（毫秒）
+ * @returns 匹配的任务
+ */
+function findTargetTask(
+  tasks: TaskInfo[],
+  screenshotTime: number
+): TaskInfo | null {
+  const taskCandidates = tasks.filter((task) => {
+    const taskStart = new Date(task.start_time).getTime();
+    return screenshotTime >= taskStart;
+  });
+
+  if (taskCandidates.length === 0) return null;
+
+  return taskCandidates.reduce((closest, task) => {
+    const closestStart = new Date(closest.start_time).getTime();
+    const taskStart = new Date(task.start_time).getTime();
+    return taskStart > closestStart ? task : closest;
+  });
+}
+
+/**
+ * 在任务中找到最佳匹配的节点
+ * @param targetTask - 目标任务
+ * @param screenshot - 截图信息
+ * @param screenshotTime - 截图时间戳（毫秒）
+ * @returns 匹配的节点
+ */
+function findTargetNode(
+  targetTask: TaskInfo,
+  screenshot: OnErrorScreenshot,
+  screenshotTime: number
+): NodeInfo | null {
+  const nodeCandidates = targetTask.nodes.filter((n) => {
+    if (n.error_screenshot) return false;
+    if (n.name !== screenshot.nodeName) return false;
+    const nodeTime = new Date(n.timestamp).getTime();
+    return nodeTime <= screenshotTime;
+  });
+
+  if (nodeCandidates.length === 0) return null;
+
+  nodeCandidates.sort(
+    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  );
+
+  return nodeCandidates[0];
+}
+
+/**
+ * 关联单个截图到节点
+ * @param tasks - 任务列表
+ * @param screenshot - 截图信息
+ * @param processedFilenames - 已处理的文件名集合
+ */
+function attachSingleScreenshot(
+  tasks: TaskInfo[],
+  screenshot: OnErrorScreenshot,
+  processedFilenames: Set<string>
+): void {
+  if (processedFilenames.has(screenshot.filename)) return;
+
+  const screenshotTime = screenshot.timestampMs;
+  const targetTask = findTargetTask(tasks, screenshotTime);
+  if (!targetTask) return;
+
+  const targetNode = findTargetNode(targetTask, screenshot, screenshotTime);
+  if (!targetNode) return;
+
+  targetNode.error_screenshot = screenshot.filePath;
+  processedFilenames.add(screenshot.filename);
+}
+
+/**
+ * 关联截图到任务和节点
+ * @param tasks - 任务列表
+ * @param screenshots - 截图列表
+ */
 export function attachScreenshotsToTasks(
   tasks: TaskInfo[],
   screenshots: OnErrorScreenshot[]
 ): void {
+  const screenshotMap = new Map<string, OnErrorScreenshot>();
   for (const screenshot of screenshots) {
-    const screenshotTime = screenshot.timestampMs;
+    screenshotMap.set(screenshot.filename, screenshot);
+  }
 
-    const taskCandidates = tasks.filter((task) => {
-      const taskStart = new Date(task.start_time).getTime();
-      return screenshotTime >= taskStart;
-    });
+  const processedFilenames = new Set<string>();
+  attachScreenshotsFromTemp(tasks, screenshotMap, processedFilenames);
 
-    if (taskCandidates.length === 0) continue;
-
-    const targetTask = taskCandidates.reduce((closest, task) => {
-      const closestStart = new Date(closest.start_time).getTime();
-      const taskStart = new Date(task.start_time).getTime();
-      return taskStart > closestStart ? task : closest;
-    });
-
-    const nodeCandidates = targetTask.nodes.filter((n) => {
-      if (n.name !== screenshot.nodeName) return false;
-      const nodeTime = new Date(n.timestamp).getTime();
-      return nodeTime <= screenshotTime;
-    });
-
-    if (nodeCandidates.length > 0) {
-      nodeCandidates.sort(
-        (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-      );
-      nodeCandidates[0].error_screenshot = screenshot.filePath;
-    }
+  for (const screenshot of screenshots) {
+    attachSingleScreenshot(tasks, screenshot, processedFilenames);
   }
 }
