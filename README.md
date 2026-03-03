@@ -23,7 +23,7 @@
 
 <div align="center">
 
-[📖 使用文档](#-使用方法) · [🛠️ 技术栈](#-技术栈) · [🔧 开发指南](#-开发指南)
+[📥 下载安装](#-下载安装) · [📖 使用文档](#-使用方法)  · [🔧 开发指南](#-开发指南)
 
 </div>
 
@@ -50,6 +50,22 @@
 - 💡 **AI 助手**：不懂日志？AI 帮你分析原因
 - 🔧 **可扩展**：支持自定义项目解析器
 - 🖥️ **桌面应用**：本地运行，数据安全
+
+---
+
+## 📥 下载安装
+
+前往 [Releases](https://github.com/amiliyaai/MaaLogs/releases/latest) 页面下载对应平台的安装包：
+
+| 平台 | 文件 | 说明 |
+|:---|:---|:---|
+| **Windows x64** | `MaaLogs-win-x86_64-*-setup.exe` | Intel/AMD 64位处理器 |
+| **Windows ARM64** | `MaaLogs-win-aarch64-*-setup.exe` | ARM 处理器（如骁龙 X Elite） |
+| **macOS Intel** | `MaaLogs-macos-x86_64-*.dmg` | Intel 芯片 Mac |
+| **macOS Apple Silicon** | `MaaLogs-macos-aarch64-*.dmg` | M1/M2/M3 芯片 Mac |
+| **Linux x64** | `MaaLogs-linux-x86_64-*.AppImage` | 通用 Linux 安装包 |
+
+
 
 ---
 
