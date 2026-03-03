@@ -187,6 +187,54 @@ function parseAuxLogFile(
   collections.auxEntries.push(...result.entries);
 }
 
+interface FileParseProgress {
+  processed: number;
+  totalLines: number;
+  detectedProjectType: ProjectType;
+}
+
+function processFileEntries(
+  collections: ParseCollections,
+  fileLines: { file: SelectedFile; lines: string[] }[],
+  onProgress: (percentage: number) => void
+): FileParseProgress {
+  const mainLogEntries: { file: SelectedFile; lines: string[] }[] = [];
+  const auxLogEntries: { file: SelectedFile; lines: string[] }[] = [];
+
+  for (const entry of fileLines) {
+    if (isMainLog(entry.file.name)) {
+      mainLogEntries.push(entry);
+    } else {
+      auxLogEntries.push(entry);
+    }
+  }
+
+  const totalLines = fileLines.reduce((sum, e) => sum + e.lines.length, 0);
+  let processed = 0;
+  let detectedProjectType: ProjectType = "unknown";
+
+  for (const entry of mainLogEntries) {
+    const { file, lines } = entry;
+    collectRawLines(collections.allLines, file.name, lines);
+    const detected = parseMainLogFile(collections, lines, file.name);
+    if (detected !== "unknown") {
+      detectedProjectType = detected;
+    }
+    processed += lines.length;
+    onProgress(Math.round((processed / totalLines) * 100));
+  }
+
+  for (const entry of auxLogEntries) {
+    const { file, lines } = entry;
+    collectRawLines(collections.allLines, file.name, lines);
+    parseAuxLogFile(collections, lines, file.name, detectedProjectType);
+    processed += lines.length;
+    onProgress(Math.round((processed / totalLines) * 100));
+  }
+
+  return { processed, totalLines, detectedProjectType };
+}
+
 function getProjectParser(parserId: string) {
   const projectParser = projectParserRegistry.get(parserId);
   if (!projectParser) {
@@ -387,30 +435,18 @@ export function useLogParser(_config: LogParserConfig = {}): LogParserResult {
         baseDir: _config.baseDir ? _config.baseDir() : undefined,
         saveOnErrorRawLines: [],
       };
-      const { fileLines, totalLines } = await readSelectedFiles(selectedFiles.value);
-      let processed = 0;
-      let detectedProjectType: ProjectType = "unknown";
+      const { fileLines } = await readSelectedFiles(selectedFiles.value);
 
-      for (const entry of fileLines) {
-        const { file, lines } = entry;
-        collectRawLines(collections.allLines, file.name, lines);
-        if (isMainLog(file.name)) {
-          const detected = parseMainLogFile(collections, lines, file.name);
-          if (detected !== "unknown") {
-            detectedProjectType = detected;
-          }
-        } else {
-          parseAuxLogFile(collections, lines, file.name, detectedProjectType);
+      const progress = processFileEntries(
+        collections,
+        fileLines,
+        (percentage) => {
+          parseProgress.value = percentage;
+          statusMessage.value = `解析中… ${percentage}%`;
         }
+      );
 
-        processed += lines.length;
-        const percentage = totalLines > 0 ? Math.round((processed / totalLines) * 100) : 0;
-        parseProgress.value = percentage;
-        statusMessage.value = `解析中… ${percentage}%`;
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      }
-
-      detectedProject.value = detectedProjectType;
+      detectedProject.value = progress.detectedProjectType;
       rawLines.value = collections.allLines;
       const identifierRanges = buildIdentifierRanges(
         collections.eventIdentifierMap,
