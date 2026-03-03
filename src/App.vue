@@ -88,7 +88,7 @@ import {
   splitMatch,
 } from "./utils/format";
 import { extractCustomActionFromActionDetails } from "./utils/parse";
-import { isTauriEnv } from "./utils/file";
+import { isTauriEnv, clearZipExtractCache } from "./utils/file";
 import { createLogger, init, flushLogs, setLoggerContext } from "./utils/logger";
 import { appConfig } from "./config";
 import type { AuxLogEntry } from "./types/logTypes";
@@ -539,6 +539,9 @@ onMounted(() => {
         return `trace-${Date.now()}-0000000000000000`;
       })();
       setLoggerContext({ traceId });
+
+      // 清理 ZIP 解压缓存
+      await clearZipExtractCache();
 
       // 初始化日志系统
       try {

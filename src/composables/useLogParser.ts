@@ -80,19 +80,37 @@ async function attachScreenshotsToParsedTasks(
   saveOnErrorRawLines: string[],
   logDir?: string
 ): Promise<void> {
+  console.log("[LogParser] attachScreenshotsToParsedTasks 开始", {
+    logDir,
+    taskCount: tasks.length,
+    saveOnErrorRawLinesCount: saveOnErrorRawLines.length,
+  });
+
   try {
     attachScreenshotsFromSaveOnError(tasks, saveOnErrorRawLines);
   } catch {
     // 忽略错误
   }
 
-  if (!logDir) return;
+  if (!logDir) {
+    console.log("[LogParser] attachScreenshotsToParsedTasks: logDir 为空，跳过");
+    return;
+  }
   try {
+    console.log("[LogParser] 开始解析截图目录", { logDir });
     const screenshots = await parseOnErrorScreenshotsAsync(logDir);
-    if (screenshots.length === 0) return;
+    console.log("[LogParser] 解析到的截图", {
+      count: screenshots.length,
+      screenshots: screenshots.map((s) => ({ filename: s.filename, nodeName: s.nodeName, filePath: s.filePath })),
+    });
+    if (screenshots.length === 0) {
+      console.log("[LogParser] 未找到截图文件");
+      return;
+    }
     attachScreenshotsToTasks(tasks, screenshots);
-  } catch {
-    // 忽略错误
+    console.log("[LogParser] 截图关联完成", { screenshotCount: screenshots.length });
+  } catch (error) {
+    console.error("[LogParser] 截图关联失败", { error: String(error), logDir });
   }
 }
 

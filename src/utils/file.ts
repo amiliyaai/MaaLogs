@@ -10,8 +10,8 @@
  */
 
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { readDir, readTextFile, readFile } from "@tauri-apps/plugin-fs";
-import { join } from "@tauri-apps/api/path";
+import { readDir, readTextFile, readFile, writeFile, mkdir, exists, remove } from "@tauri-apps/plugin-fs";
+import { join, appCacheDir } from "@tauri-apps/api/path";
 import { unzipSync } from "fflate";
 import type { SelectedFile, PipelineCustomActionInfo } from "../types/logTypes";
 import { parsePipelineCustomActions } from "./parse";
@@ -25,6 +25,10 @@ const MAX_BROWSER_FILE_BYTES = FILE_CONFIG.maxBrowserFileBytes;
 function isSupportedLogOrConfigFile(name: string): boolean {
   const lower = name.toLowerCase();
   return lower.endsWith(".log") || lower.endsWith(".json") || lower.endsWith(".jsonc");
+}
+
+function isPngFile(name: string): boolean {
+  return name.toLowerCase().endsWith(".png");
 }
 
 function extractZipFiles(
@@ -310,20 +314,71 @@ export async function applySelectedPaths(paths: string[]): Promise<{
     }
   }
 
-  /**
-   * 处理单个文件路径
-   * @param {string} filePath - 文件路径
-   */
+  let extractedPngDir: string | null = null;
+
+  async function extractPngFilesFromZip(
+    zip: Record<string, Uint8Array>,
+    zipName: string
+  ): Promise<string | null> {
+    const pngEntries: { path: string; data: Uint8Array }[] = [];
+    for (const [entryName, data] of Object.entries(zip)) {
+      if (!(data instanceof Uint8Array)) continue;
+      const entryBaseName = getFileNameFromPath(entryName);
+      if (isPngFile(entryBaseName)) {
+        pngEntries.push({ path: entryName, data });
+      }
+    }
+
+    console.log("[File] ZIP 中找到 PNG 文件", { count: pngEntries.length, zipName });
+
+    if (pngEntries.length === 0) return null;
+
+    const cacheDir = await appCacheDir();
+    const tempDir = await join(cacheDir, ZIP_EXTRACT_DIR_NAME, zipName);
+
+    console.log("[File] 准备提取 PNG 到目录", { tempDir, cacheDir, zipName });
+
+    const dirExists = await exists(tempDir);
+    if (!dirExists) {
+      await mkdir(tempDir, { recursive: true });
+    }
+
+    for (const { path: entryPath, data } of pngEntries) {
+      const pngPath = await join(tempDir, entryPath);
+      const pngDir = getParentDirectory(pngPath);
+      const pngDirExists = await exists(pngDir);
+      if (!pngDirExists) {
+        await mkdir(pngDir, { recursive: true });
+      }
+      await writeFile(pngPath, data);
+      console.log("[File] 已写入 PNG 文件", { pngPath, size: data.length });
+    }
+
+    console.log("[File] PNG 文件提取完成", { tempDir, count: pngEntries.length });
+
+    return tempDir;
+  }
+
   async function collectZipFile(filePath: string): Promise<boolean> {
     const name = getFileNameFromPath(filePath);
     if (!name.toLowerCase().endsWith(".zip")) return false;
     try {
+      console.log("[File] 开始处理 ZIP 文件", { filePath, name });
       const buf = await readFile(filePath);
       const zip = unzipSync(buf);
       outFiles.push(...extractZipFiles(zip, allowDirectoryFile, decoder));
+
+      const zipName = name.replace(/\.zip$/i, "");
+      const pngDir = await extractPngFilesFromZip(zip, zipName);
+      if (pngDir) {
+        extractedPngDir = pngDir;
+        console.log("[File] 设置 extractedPngDir", { extractedPngDir });
+      }
+
       return true;
     } catch (error) {
       if (error) errors.push(String(error));
+      console.error("[File] 处理 ZIP 文件失败", { error: String(error), filePath });
       return true;
     }
   }
@@ -363,7 +418,14 @@ export async function applySelectedPaths(paths: string[]): Promise<{
     }
   }
 
-  const baseDir = paths.length > 0 ? paths[0] : "";
+  const baseDir = extractedPngDir || (paths.length > 0 ? paths[0] : "");
+
+  console.log("[File] applySelectedPaths 完成", {
+    baseDir,
+    extractedPngDir,
+    pathCount: paths.length,
+    fileCount: outFiles.length,
+  });
 
   return { files: outFiles, errors, hasDirectory, baseDir };
 }
@@ -555,4 +617,19 @@ export function isMainLog(fileName: string): boolean {
 export function extractDateFromTimestamp(ts: string): string | null {
   const dateMatch = ts.match(/^(\d{4}[-/]\d{2}[-/]\d{2})/);
   return dateMatch ? dateMatch[1].replace(/\//g, "-") : null;
+}
+
+const ZIP_EXTRACT_DIR_NAME = "maalogs-zip-extract";
+
+export async function clearZipExtractCache(): Promise<void> {
+  try {
+    const cacheDir = await appCacheDir();
+    const extractDir = await join(cacheDir, ZIP_EXTRACT_DIR_NAME);
+    const dirExists = await exists(extractDir);
+    if (dirExists) {
+      await remove(extractDir, { recursive: true });
+    }
+  } catch {
+    // 忽略清理错误
+  }
 }

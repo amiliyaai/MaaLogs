@@ -16,13 +16,21 @@
     "fs:allow-read-text-file",
     "fs:allow-exists",
     "fs:allow-write-text-file",
+    "fs:allow-write-file",
     "fs:allow-mkdir",
+    "fs:allow-remove",
     "fs:allow-rename",
     "fs:allow-applog-read",
     "fs:allow-applog-read-recursive",
     "fs:allow-applog-write",
     "fs:allow-applog-write-recursive",
     "fs:allow-applog-meta",
-    "fs:allow-applog-meta-recursive"
+    "fs:allow-applog-meta-recursive",
+    "fs:allow-appcache-read",
+    "fs:allow-appcache-read-recursive",
+    "fs:allow-appcache-write",
+    "fs:allow-appcache-write-recursive",
+    "fs:allow-appcache-meta",
+    "fs:allow-appcache-meta-recursive"
   ]
 }
