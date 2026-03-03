@@ -107,3 +107,7 @@ const configs: Record<AppEnvironment, AppConfig> = {
 
 /** 导出的应用配置对象，根据当前环境自动选择对应配置 */
 export const appConfig = configs[environment];
+
+export * from "./ai";
+export * from "./parser";
+export * from "./file";

@@ -15,12 +15,12 @@ import { join } from "@tauri-apps/api/path";
 import { unzipSync } from "fflate";
 import type { SelectedFile, PipelineCustomActionInfo } from "../types/logTypes";
 import { parsePipelineCustomActions } from "./parse";
+import { FILE_CONFIG } from "../config/file";
 
-// 允许导入的日志文件格式匹配
-const LOG_FILE_PATTERN = /^(?:maa|go-service|\d{4}-\d{2}-\d{2})\.log$/i;
-const MAX_ZIP_ENTRIES = 2000;
-const MAX_ZIP_UNCOMPRESSED_BYTES = 256 * 1024 * 1024;
-const MAX_BROWSER_FILE_BYTES = 80 * 1024 * 1024;
+const LOG_FILE_PATTERN = FILE_CONFIG.logFilePattern;
+const MAX_ZIP_ENTRIES = FILE_CONFIG.maxZipEntries;
+const MAX_ZIP_UNCOMPRESSED_BYTES = FILE_CONFIG.maxZipUncompressedBytes;
+const MAX_BROWSER_FILE_BYTES = FILE_CONFIG.maxBrowserFileBytes;
 
 function isSupportedLogOrConfigFile(name: string): boolean {
   const lower = name.toLowerCase();

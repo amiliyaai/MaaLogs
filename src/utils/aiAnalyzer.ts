@@ -13,36 +13,14 @@
 
 import type { TaskInfo, NodeInfo, AuxLogEntry } from "../types/logTypes";
 import { encryptSecure, decryptSecure, getStore } from "./crypto";
-
-/**
- * AI 服务商类型
- */
-export type AIProvider =
-  | "openai"
-  | "anthropic"
-  | "gemini"
-  | "xai"
-  | "deepseek"
-  | "zhipu"
-  | "minimax"
-  | "moonshot"
-  | "step"
-  | "siliconflow"
-  | "openrouter"
-  | "volcengine"
-  | "aliyun"
-  | "tencent"
-  | "custom";
-
-/**
- * AI 配置接口
- */
-export interface AIConfig {
-  provider: AIProvider;
-  apiKeys: Record<AIProvider, string>;
-  model: string;
-  baseUrl: string;
-}
+import {
+  type AIProvider,
+  type AIConfig,
+  AI_CONFIG_KEY,
+  DEFAULT_AI_CONFIG,
+  PROVIDER_INFO,
+  AI_REQUEST_CONFIG,
+} from "../config/ai";
 
 /**
  * 失败分析结果接口
@@ -56,89 +34,18 @@ export interface FailureAnalysis {
   confidence: number;
 }
 
-/**
- * localStorage 键名
- */
-export const AI_CONFIG_KEY = "maa-logs-ai-config";
-
-/**
- * 默认 AI 配置
- */
-export const DEFAULT_AI_CONFIG: AIConfig = {
-  provider: "openai",
-  apiKeys: {
-    openai: "",
-    anthropic: "",
-    gemini: "",
-    xai: "",
-    deepseek: "",
-    zhipu: "",
-    minimax: "",
-    moonshot: "",
-    step: "",
-    siliconflow: "",
-    openrouter: "",
-    volcengine: "",
-    aliyun: "",
-    tencent: "",
-    custom: "",
-  },
-  model: "gpt-4o-mini",
-  baseUrl: "",
+export type {
+  AIProvider,
+  AIConfig,
 };
 
-/**
- * 服务商模型映射表
- */
-export const PROVIDER_MODELS: Record<AIProvider, string[]> = {
-  openai: ["gpt-5.2", "gpt-5.1", "gpt-5-medium", "gpt-5-high"],
-  anthropic: ["claude-3-5-sonnet-20241022"],
-  gemini: ["gemini-3-pro", "gemini-3-flash", "gemini-2.5-pro", "gemini-2.5-flash"],
-  xai: ["grok-2-1212", "grok-2-vision-1212"],
-  deepseek: ["deepseek-chat", "deepseek-reasoner"],
-  zhipu: ["glm-5", "glm-4.7-flash"],
-  minimax: ["MiniMax-M2.5"],
-  moonshot: ["moonshot-v1-8k-vision-preview"],
-  step: ["step-1v-8k"],
-  siliconflow: [
-    "Qwen/Qwen2.5-14B-Instruct",
-    "Qwen/Qwen2.5-7B-Instruct",
-    "DeepSeek-V2-Chat",
-    "meta-llama/Llama-3.1-8B-Instruct",
-    "THUDM/glm-4-9b-chat",
-  ],
-  openrouter: [
-    "openai/gpt-4o",
-    "anthropic/claude-3.5-sonnet",
-    "google/gemini-2.0-flash",
-    "deepseek/deepseek-chat",
-  ],
-  volcengine: ["doubao-pro-32k"],
-  aliyun: ["qwen-plus", "qwen-max", "qwen-flash"],
-  tencent: ["hunyuan-pro"],
-  custom: [],
-};
-
-/**
- * 服务商信息映射表
- */
-export const PROVIDER_INFO: Record<AIProvider, { name: string; defaultBaseUrl: string }> = {
-  openai: { name: "OpenAI", defaultBaseUrl: "https://api.openai.com/v1" },
-  anthropic: { name: "Anthropic Claude", defaultBaseUrl: "https://api.anthropic.com" },
-  gemini: { name: "Google Gemini", defaultBaseUrl: "https://generativelanguage.googleapis.com/v1" },
-  xai: { name: "xAI Grok", defaultBaseUrl: "https://api.x.ai/v1" },
-  deepseek: { name: "DeepSeek", defaultBaseUrl: "https://api.deepseek.com/v1" },
-  zhipu: { name: "智谱 AI", defaultBaseUrl: "https://open.bigmodel.cn/api/paas/v4" },
-  minimax: { name: "MiniMax", defaultBaseUrl: "https://api.minimax.chat/v1" },
-  moonshot: { name: "月之暗面", defaultBaseUrl: "https://api.moonshot.cn/v1" },
-  step: { name: "阶跃星辰", defaultBaseUrl: "https://api.stepfun.com/v1" },
-  siliconflow: { name: "硅基流动", defaultBaseUrl: "https://api.siliconflow.cn/v1" },
-  openrouter: { name: "OpenRouter", defaultBaseUrl: "https://openrouter.ai/api/v1" },
-  volcengine: { name: "火山引擎", defaultBaseUrl: "https://ark.cn-beijing.volces.com/api/v3" },
-  aliyun: { name: "阿里云", defaultBaseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1" },
-  tencent: { name: "腾讯云", defaultBaseUrl: "https://hunyuan.tencentcloudapi.com" },
-  custom: { name: "自定义", defaultBaseUrl: "" },
-};
+export {
+  AI_CONFIG_KEY,
+  DEFAULT_AI_CONFIG,
+  PROVIDER_MODELS,
+  PROVIDER_INFO,
+  AI_REQUEST_CONFIG,
+} from "../config/ai";
 
 /**
  * MAA 框架知识库
@@ -500,7 +407,7 @@ function buildRequestPayload(
     headers["anthropic-version"] = "2023-06-01";
     requestBody = {
       model: config.model,
-      max_tokens: 4000,
+      max_tokens: AI_REQUEST_CONFIG.maxTokens,
       messages: [{ role: "user", content: prompt }],
     };
     endpoint = `${baseUrl}/messages`;
@@ -513,7 +420,7 @@ function buildRequestPayload(
     requestBody = {
       model: config.model,
       messages: [{ role: "user", content: prompt }],
-      temperature: 0.3,
+      temperature: AI_REQUEST_CONFIG.temperature,
     };
     endpoint = `${baseUrl}/chat/completions`;
   }

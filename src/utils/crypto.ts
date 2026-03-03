@@ -21,6 +21,7 @@
  */
 
 import type { Store } from "@tauri-apps/plugin-store";
+import { CRYPTO_CONFIG } from "../config/parser";
 
 /** 盐值长度（字节） */
 const SALT_LENGTH = 16;
@@ -58,7 +59,7 @@ async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey>
     {
       name: "PBKDF2",
       salt,
-      iterations: 100000,
+      iterations: CRYPTO_CONFIG.iterations,
       hash: "SHA-256",
     },
     keyMaterial,

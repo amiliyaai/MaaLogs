@@ -16,35 +16,11 @@
  */
 
 import type { AuxLogEntry, TaskInfo } from "../types/logTypes";
-
-/**
- * 关联配置
- *
- * 控制日志关联行为的参数。
- */
-export interface CorrelationConfig {
-  /** 时间窗口大小（毫秒），用于时间匹配 */
-  timeWindowMs: number;
-  /** 是否启用 identifier 匹配 */
-  enableIdentifierMatch: boolean;
-  /** 是否启用 task_id 匹配 */
-  enableTaskIdMatch: boolean;
-  /** 是否启用时间窗口匹配 */
-  enableTimeWindowMatch: boolean;
-  /** 是否启用关键词匹配 */
-  enableKeywordMatch: boolean;
-}
-
-/**
- * 默认关联配置
- */
-export const DEFAULT_CORRELATION_CONFIG: CorrelationConfig = {
-  timeWindowMs: 5000,
-  enableIdentifierMatch: true,
-  enableTaskIdMatch: true,
-  enableTimeWindowMatch: true,
-  enableKeywordMatch: true,
-};
+import {
+  type CorrelationConfig,
+  DEFAULT_CORRELATION_CONFIG,
+  PARSER_CONFIG,
+} from "../config/parser";
 
 /**
  * 关联结果
@@ -323,7 +299,7 @@ export async function batchCorrelate(
   entries: AuxLogEntry[],
   tasks: TaskInfo[],
   config: CorrelationConfig = DEFAULT_CORRELATION_CONFIG,
-  batchSize: number = 1000
+  batchSize: number = PARSER_CONFIG.batchSize
 ): Promise<AuxLogEntry[]> {
   const result: AuxLogEntry[] = [];
 
