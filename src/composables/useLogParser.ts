@@ -32,7 +32,11 @@ import {
   associateControllersToTasks,
   buildFocusLogEntries,
 } from "../utils/parse";
-import { parseOnErrorScreenshotsAsync, attachScreenshotsToTasks, attachScreenshotsFromSaveOnError } from "../parsers/shared";
+import {
+  parseOnErrorScreenshotsAsync,
+  attachScreenshotsToTasks,
+  attachScreenshotsFromSaveOnError,
+} from "../parsers/shared";
 import { isMainLog } from "../utils/file";
 import { createLogger, setLoggerContext } from "../utils/logger";
 
@@ -110,7 +114,10 @@ async function readSelectedFiles(
   files: SelectedFile[]
 ): Promise<{ fileLines: FileLineEntry[]; totalLines: number }> {
   const startTime = performance.now();
-  logger.info("开始读取文件", { fileCount: files.length, files: files.map(f => ({ name: f.name, size: f.size })) });
+  logger.info("开始读取文件", {
+    fileCount: files.length,
+    files: files.map((f) => ({ name: f.name, size: f.size })),
+  });
 
   const fileLines: FileLineEntry[] = [];
   let totalLines = 0;
@@ -128,12 +135,16 @@ async function readSelectedFiles(
       rawLines: rawLines.length,
       mergedLines: lines.length,
       sizeBytes: file.size,
-      durationMs: Math.round(fileDuration)
+      durationMs: Math.round(fileDuration),
     });
   }
 
   const totalDuration = performance.now() - startTime;
-  logger.info("文件读取阶段完成", { totalFiles: files.length, totalLines, durationMs: Math.round(totalDuration) });
+  logger.info("文件读取阶段完成", {
+    totalFiles: files.length,
+    totalLines,
+    durationMs: Math.round(totalDuration),
+  });
   return { fileLines, totalLines };
 }
 
@@ -229,8 +240,8 @@ function processFileEntries(
   logger.info("文件分类完成", {
     mainLogCount: mainLogEntries.length,
     auxLogCount: auxLogEntries.length,
-    mainLogFiles: mainLogEntries.map(e => e.file.name),
-    auxLogFiles: auxLogEntries.map(e => e.file.name)
+    mainLogFiles: mainLogEntries.map((e) => e.file.name),
+    auxLogFiles: auxLogEntries.map((e) => e.file.name),
   });
 
   const totalLines = fileLines.reduce((sum, e) => sum + e.lines.length, 0);
@@ -256,7 +267,7 @@ function processFileEntries(
       linesCount: lines.length,
       eventsCount: collections.events.length,
       detectedProject: detected,
-      durationMs: Math.round(fileDuration)
+      durationMs: Math.round(fileDuration),
     });
   }
 
@@ -275,7 +286,7 @@ function processFileEntries(
       fileName: file.name,
       linesCount: lines.length,
       auxEntriesCount: collections.auxEntries.length,
-      durationMs: Math.round(fileDuration)
+      durationMs: Math.round(fileDuration),
     });
   }
 
@@ -286,7 +297,7 @@ function processFileEntries(
     eventsCount: collections.events.length,
     auxEntriesCount: collections.auxEntries.length,
     detectedProjectType,
-    durationMs: Math.round(totalDuration)
+    durationMs: Math.round(totalDuration),
   });
 
   return { processed, totalLines, detectedProjectType };
@@ -483,7 +494,7 @@ export function useLogParser(_config: LogParserConfig = {}): LogParserResult {
     parseProgress.value = 0;
     logger.info("开始解析日志", {
       fileCount: selectedFiles.value.length,
-      files: selectedFiles.value.map(f => ({ name: f.name, size: f.size }))
+      files: selectedFiles.value.map((f) => ({ name: f.name, size: f.size })),
     });
 
     try {
@@ -500,21 +511,17 @@ export function useLogParser(_config: LogParserConfig = {}): LogParserResult {
       const { fileLines, totalLines } = await readSelectedFiles(selectedFiles.value);
       logger.info("文件读取完成，开始解析", { totalLines });
 
-      const progress = processFileEntries(
-        collections,
-        fileLines,
-        (percentage) => {
-          parseProgress.value = percentage;
-          statusMessage.value = `解析中… ${percentage}%`;
-        }
-      );
+      const progress = processFileEntries(collections, fileLines, (percentage) => {
+        parseProgress.value = percentage;
+        statusMessage.value = `解析中… ${percentage}%`;
+      });
 
       detectedProject.value = progress.detectedProjectType;
       rawLines.value = collections.allLines;
 
       logger.info("开始构建任务结构", {
         eventsCount: collections.events.length,
-        identifierMapSize: collections.eventIdentifierMap.size
+        identifierMapSize: collections.eventIdentifierMap.size,
       });
 
       const buildStartTime = performance.now();
@@ -534,7 +541,7 @@ export function useLogParser(_config: LogParserConfig = {}): LogParserResult {
 
       logger.info("任务构建完成", {
         tasksCount: tasks.value.length,
-        durationMs: Math.round(buildDuration)
+        durationMs: Math.round(buildDuration),
       });
 
       const focusStartTime = performance.now();
@@ -543,7 +550,7 @@ export function useLogParser(_config: LogParserConfig = {}): LogParserResult {
         collections.auxEntries.push(...focusEntries);
         logger.debug("Focus 日志条目构建完成", {
           focusEntriesCount: focusEntries.length,
-          durationMs: Math.round(performance.now() - focusStartTime)
+          durationMs: Math.round(performance.now() - focusStartTime),
         });
       }
 
@@ -551,25 +558,29 @@ export function useLogParser(_config: LogParserConfig = {}): LogParserResult {
 
       logger.info("开始关联截图", {
         saveOnErrorLines: collections.saveOnErrorRawLines.length,
-        logDir: collections.logDir || collections.baseDir || "无"
+        logDir: collections.logDir || collections.baseDir || "无",
       });
 
       const screenshotStartTime = performance.now();
-      await attachScreenshotsToParsedTasks(tasks.value, collections.saveOnErrorRawLines, collections.baseDir || collections.logDir);
+      await attachScreenshotsToParsedTasks(
+        tasks.value,
+        collections.saveOnErrorRawLines,
+        collections.baseDir || collections.logDir
+      );
       logger.debug("截图关联完成", {
-        durationMs: Math.round(performance.now() - screenshotStartTime)
+        durationMs: Math.round(performance.now() - screenshotStartTime),
       });
 
       logger.info("开始关联辅助日志", {
         auxEntriesCount: collections.auxEntries.length,
-        tasksCount: tasks.value.length
+        tasksCount: tasks.value.length,
       });
 
       const correlationStartTime = performance.now();
       auxLogs.value = correlateAuxLogs(collections.auxEntries, tasks.value);
       logCorrelationStats(auxLogs.value);
       logger.debug("辅助日志关联完成", {
-        durationMs: Math.round(performance.now() - correlationStartTime)
+        durationMs: Math.round(performance.now() - correlationStartTime),
       });
 
       parseState.value = "done";
@@ -581,7 +592,7 @@ export function useLogParser(_config: LogParserConfig = {}): LogParserResult {
         auxLogsCount: auxLogs.value.length,
         rawLinesCount: rawLines.value.length,
         detectedProject: detectedProject.value,
-        totalDurationMs: Math.round(totalDuration)
+        totalDurationMs: Math.round(totalDuration),
       });
     } catch (error) {
       parseState.value = "ready";
@@ -589,7 +600,7 @@ export function useLogParser(_config: LogParserConfig = {}): LogParserResult {
       parseProgress.value = 0;
       logger.error("解析失败", {
         error: String(error),
-        stack: error instanceof Error ? error.stack : undefined
+        stack: error instanceof Error ? error.stack : undefined,
       });
     }
   }

@@ -38,10 +38,7 @@ export interface FailureAnalysis {
   confidence: number;
 }
 
-export type {
-  AIProvider,
-  AIConfig,
-};
+export type { AIProvider, AIConfig };
 
 export {
   AI_CONFIG_KEY,
@@ -326,7 +323,7 @@ export async function getAIConfig(): Promise<AIConfig> {
             provider: decryptedConfig.provider,
             model: decryptedConfig.model,
             hasApiKey: !!decryptedConfig.apiKeys?.[decryptedConfig.provider],
-            durationMs: Math.round(duration)
+            durationMs: Math.round(duration),
           });
           return { ...DEFAULT_AI_CONFIG, ...decryptedConfig };
         } catch (error) {
@@ -341,7 +338,7 @@ export async function getAIConfig(): Promise<AIConfig> {
       logger.info("AI 配置加载完成（未加密）", {
         provider: storedConfig.provider,
         model: storedConfig.model,
-        durationMs: Math.round(duration)
+        durationMs: Math.round(duration),
       });
       return { ...DEFAULT_AI_CONFIG, ...storedConfig };
     }
@@ -362,7 +359,7 @@ export async function saveAIConfig(config: AIConfig): Promise<void> {
   logger.debug("开始保存 AI 配置", {
     provider: config.provider,
     model: config.model,
-    hasApiKey: !!config.apiKeys?.[config.provider]
+    hasApiKey: !!config.apiKeys?.[config.provider],
   });
 
   try {
@@ -384,7 +381,7 @@ export async function saveAIConfig(config: AIConfig): Promise<void> {
     logger.info("AI 配置保存完成", {
       provider: config.provider,
       model: config.model,
-      durationMs: Math.round(duration)
+      durationMs: Math.round(duration),
     });
   } catch (e) {
     logger.error("AI 配置保存失败", { error: String(e) });
@@ -424,7 +421,7 @@ export async function analyzeWithAI(
     failedNodesCount: failedNodes.length,
     auxLogsCount: auxLogs?.length || 0,
     provider: config.provider,
-    model: config.model
+    model: config.model,
   });
 
   if (failedNodes.length === 0) {
@@ -436,11 +433,11 @@ export async function analyzeWithAI(
   const prompt = buildAnalysisPrompt(tasks, failedNodes, auxLogs);
   logger.debug("分析提示词构建完成", {
     promptLength: prompt.length,
-    failedNodesDetails: failedNodes.map(n => ({
+    failedNodesDetails: failedNodes.map((n) => ({
       name: n.name,
       nodeId: n.node_id,
-      algorithm: n.reco_details?.algorithm
-    }))
+      algorithm: n.reco_details?.algorithm,
+    })),
   });
 
   const { endpoint, headers, requestBody, isClaude, isGemini } = buildRequestPayload(
@@ -453,7 +450,7 @@ export async function analyzeWithAI(
     model: config.model,
     provider: config.provider,
     isClaude,
-    isGemini
+    isGemini,
   });
 
   try {
@@ -471,7 +468,7 @@ export async function analyzeWithAI(
         status: response.status,
         statusText: response.statusText,
         errorText: errorText.slice(0, 500),
-        requestDurationMs: Math.round(requestDuration)
+        requestDurationMs: Math.round(requestDuration),
       });
       throw new Error(`API 错误: ${response.status} - ${errorText}`);
     }
@@ -480,7 +477,7 @@ export async function analyzeWithAI(
     const content = extractProviderContent(result, isClaude, isGemini);
     logger.debug("AI 响应接收完成", {
       contentLength: content?.length || 0,
-      requestDurationMs: Math.round(requestDuration)
+      requestDurationMs: Math.round(requestDuration),
     });
 
     const analysisResults = parseAIResponse(content || "", failedNodes);
@@ -490,9 +487,13 @@ export async function analyzeWithAI(
       resultsCount: analysisResults.length,
       totalDurationMs: Math.round(totalDuration),
       requestDurationMs: Math.round(requestDuration),
-      avgConfidence: analysisResults.length > 0
-        ? Math.round((analysisResults.reduce((sum, r) => sum + r.confidence, 0) / analysisResults.length) * 100) / 100
-        : 0
+      avgConfidence:
+        analysisResults.length > 0
+          ? Math.round(
+              (analysisResults.reduce((sum, r) => sum + r.confidence, 0) / analysisResults.length) *
+                100
+            ) / 100
+          : 0,
     });
 
     return analysisResults;
@@ -502,7 +503,7 @@ export async function analyzeWithAI(
       error: String(error),
       failedNodesCount: failedNodes.length,
       totalDurationMs: Math.round(totalDuration),
-      stack: error instanceof Error ? error.stack : undefined
+      stack: error instanceof Error ? error.stack : undefined,
     });
     throw error;
   }
@@ -554,7 +555,7 @@ function parseAIResponse(content: string, failedNodes: NodeInfo[]): FailureAnaly
   if (!jsonText) {
     logger.warn("AI 响应解析失败：未找到 JSON 数组", {
       contentLength: content.length,
-      contentPreview: content.slice(0, 200)
+      contentPreview: content.slice(0, 200),
     });
     return buildFallbackAnalyses(failedNodes);
   }
@@ -574,13 +575,13 @@ function parseAIResponse(content: string, failedNodes: NodeInfo[]): FailureAnaly
     }));
     logger.debug("AI 响应解析成功", {
       resultsCount: results.length,
-      sample: results.slice(0, 2)
+      sample: results.slice(0, 2),
     });
     return results;
   } catch (error) {
     logger.warn("AI 响应解析失败：JSON 解析错误", {
       error: String(error),
-      jsonTextLength: jsonText.length
+      jsonTextLength: jsonText.length,
     });
     return buildFallbackAnalyses(failedNodes);
   }

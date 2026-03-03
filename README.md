@@ -23,7 +23,7 @@
 
 <div align="center">
 
-[📥 下载安装](#-下载安装) · [📖 使用文档](#-使用方法)  · [🔧 开发指南](#-开发指南)
+[📥 下载安装](#-下载安装) · [📖 使用文档](#-使用方法) · [🔧 开发指南](#-开发指南)
 
 </div>
 
@@ -31,15 +31,15 @@
 
 ## ✨ 功能特性
 
-| 功能 | 描述 |
-|:---|:---|
-| 📊 **多项目日志解析** | 支持 MaaEnd、M9A 等多种项目的custom日志格式，统一分析 |
-| 🌲 **任务流程可视化** | 树形图展示任务执行全过程，节点状态一目了然 |
-| 🔍 **全文精准搜索** | 支持正则表达式，快速定位关键日志 |
-| 📈 **节点统计分析** | 执行次数、耗时分布、成功率一手掌握 |
-| 🤖 **AI 智能分析** | 自动诊断失败原因，提供修复建议 |
-| 📸 **错误截图关联** | 失败节点自动关联 on_error 截图，快速定位问题 |
-| 🔗 **Custom 日志关联** | 自动关联业务日志与任务，完整还原执行场景 |
+| 功能                   | 描述                                                  |
+| :--------------------- | :---------------------------------------------------- |
+| 📊 **多项目日志解析**  | 支持 MaaEnd、M9A 等多种项目的custom日志格式，统一分析 |
+| 🌲 **任务流程可视化**  | 树形图展示任务执行全过程，节点状态一目了然            |
+| 🔍 **全文精准搜索**    | 支持正则表达式，快速定位关键日志                      |
+| 📈 **节点统计分析**    | 执行次数、耗时分布、成功率一手掌握                    |
+| 🤖 **AI 智能分析**     | 自动诊断失败原因，提供修复建议                        |
+| 📸 **错误截图关联**    | 失败节点自动关联 on_error 截图，快速定位问题          |
+| 🔗 **Custom 日志关联** | 自动关联业务日志与任务，完整还原执行场景              |
 
 ---
 
@@ -57,15 +57,13 @@
 
 前往 [Releases](https://github.com/amiliyaai/MaaLogs/releases/latest) 页面下载对应平台的安装包：
 
-| 平台 | 文件 | 说明 |
-|:---|:---|:---|
-| **Windows x64** | `MaaLogs-win-x86_64-*-setup.exe` | Intel/AMD 64位处理器 |
-| **Windows ARM64** | `MaaLogs-win-aarch64-*-setup.exe` | ARM 处理器（如骁龙 X Elite） |
-| **macOS Intel** | `MaaLogs-macos-x86_64-*.dmg` | Intel 芯片 Mac |
-| **macOS Apple Silicon** | `MaaLogs-macos-aarch64-*.dmg` | M1/M2/M3 芯片 Mac |
-| **Linux x64** | `MaaLogs-linux-x86_64-*.AppImage` | 通用 Linux 安装包 |
-
-
+| 平台                    | 文件                              | 说明                         |
+| :---------------------- | :-------------------------------- | :--------------------------- |
+| **Windows x64**         | `MaaLogs-win-x86_64-*-setup.exe`  | Intel/AMD 64位处理器         |
+| **Windows ARM64**       | `MaaLogs-win-aarch64-*-setup.exe` | ARM 处理器（如骁龙 X Elite） |
+| **macOS Intel**         | `MaaLogs-macos-x86_64-*.dmg`      | Intel 芯片 Mac               |
+| **macOS Apple Silicon** | `MaaLogs-macos-aarch64-*.dmg`     | M1/M2/M3 芯片 Mac            |
+| **Linux x64**           | `MaaLogs-linux-x86_64-*.AppImage` | 通用 Linux 安装包            |
 
 ---
 
@@ -89,25 +87,25 @@
 
 ## 🖥️ 界面预览
 
-| 日志分析 | AI 智能分析 |
-|:---:|:---:|
+|             日志分析              |          AI 智能分析           |
+| :-------------------------------: | :----------------------------: |
 | ![日志分析](docs/images/node.png) | ![AI 分析](docs/images/ai.png) |
 
-| 文本搜索 | 统计分析 |
-|:---:|:---:|
+|              文本搜索               |             统计分析              |
+| :---------------------------------: | :-------------------------------: |
 | ![文本搜索](docs/images/search.png) | ![统计分析](docs/images/stat.png) |
 
 ---
 
 ## 🛠️ 技术栈
 
-| 类别 | 技术 |
-|-----|------|
-| 前端框架 | Vue 3 + TypeScript |
-| UI 组件库 | Naive UI |
-| 构建工具 | Vite |
-| 桌面应用 | Tauri 2 |
-| 测试框架 | Vitest |
+| 类别      | 技术               |
+| --------- | ------------------ |
+| 前端框架  | Vue 3 + TypeScript |
+| UI 组件库 | Naive UI           |
+| 构建工具  | Vite               |
+| 桌面应用  | Tauri 2            |
+| 测试框架  | Vitest             |
 
 ---
 
@@ -155,8 +153,9 @@ npm run tauri:build
 
 ## 🚧 未来规划
 
-- [ ]  AI 知识库增强,实现真正的RAG
-- [ ]  多语言支持
+- [ ] AI 知识库增强,实现真正的RAG
+- [ ] 多语言支持
+
 ---
 
 ## 🔧 开发指南
@@ -179,7 +178,7 @@ npm run tauri:build
 - [MaaEnd](https://github.com/MaaEnd/MaaEnd) - 《明日方舟：终末地》游戏小助手
 - [M9A](https://github.com/MAA1999/M9A) - 重返未来：1999 小助手
 - [MaaLogAnalyzer](https://github.com/MaaXYZ/MaaLogAnalyzer) - MaaFramework 应用可视化用户日志分析工具
-**UI设计参考，未使用其源代码**
+  **UI设计参考，未使用其源代码**
 
 ---
 

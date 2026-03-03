@@ -10,7 +10,15 @@
  */
 
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { readDir, readTextFile, readFile, writeFile, mkdir, exists, remove } from "@tauri-apps/plugin-fs";
+import {
+  readDir,
+  readTextFile,
+  readFile,
+  writeFile,
+  mkdir,
+  exists,
+  remove,
+} from "@tauri-apps/plugin-fs";
 import { join, appCacheDir } from "@tauri-apps/api/path";
 import { unzipSync } from "fflate";
 import type { SelectedFile, PipelineCustomActionInfo } from "../types/logTypes";
@@ -44,10 +52,10 @@ function extractZipFiles(
     entryCount++;
     if (entryCount > MAX_ZIP_ENTRIES) break;
     if (!(data instanceof Uint8Array)) continue;
-    
+
     totalBytes += data.length;
     if (totalBytes > MAX_ZIP_UNCOMPRESSED_BYTES) break;
-    
+
     const entryBaseName = getFileNameFromPath(entryName);
     if (!allowEntry(entryBaseName) && !allowEntry(entryName)) continue;
 

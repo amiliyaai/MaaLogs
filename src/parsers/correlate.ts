@@ -98,14 +98,14 @@ export function correlateAuxLogsWithTasks(
       timeWindowMs: config.timeWindowMs,
       enableIdentifierMatch: config.enableIdentifierMatch,
       enableTaskIdMatch: config.enableTaskIdMatch,
-      enableTimeWindowMatch: config.enableTimeWindowMatch
-    }
+      enableTimeWindowMatch: config.enableTimeWindowMatch,
+    },
   });
 
   if (entries.length === 0 || tasks.length === 0) {
     logger.warn("日志关联跳过：无数据", {
       entriesCount: entries.length,
-      tasksCount: tasks.length
+      tasksCount: tasks.length,
     });
     return entries;
   }
@@ -128,14 +128,20 @@ export function correlateAuxLogsWithTasks(
 
   logger.debug("任务索引构建完成", {
     identifierIndexSize: taskByIdentifier.size,
-    taskIdIndexSize: taskByTaskId.size
+    taskIdIndexSize: taskByTaskId.size,
   });
 
   let matchedCount = 0;
   let unmatchedCount = 0;
 
   const result = entries.map((entry) => {
-    const correlationResult = correlateEntry(entry, taskTimes, taskByIdentifier, taskByTaskId, config);
+    const correlationResult = correlateEntry(
+      entry,
+      taskTimes,
+      taskByIdentifier,
+      taskByTaskId,
+      config
+    );
     if (correlationResult) {
       entry.correlation = correlationResult;
       if (correlationResult.status === "matched") {
@@ -155,7 +161,7 @@ export function correlateAuxLogsWithTasks(
     matched: matchedCount,
     unmatched: unmatchedCount,
     matchRate: entries.length > 0 ? `${Math.round((matchedCount / entries.length) * 100)}%` : "0%",
-    durationMs: Math.round(duration)
+    durationMs: Math.round(duration),
   });
 
   return result;

@@ -209,7 +209,9 @@ const searchMaxOptions = [
               <!-- 匹配行内容（高亮显示匹配部分） -->
               <div class="search-line">
                 <span>{{ splitMatch(item.line, item.matchStart, item.matchEnd).before }}</span>
-                <span class="search-hit">{{ splitMatch(item.line, item.matchStart, item.matchEnd).match }}</span>
+                <span class="search-hit">{{
+                  splitMatch(item.line, item.matchStart, item.matchEnd).match
+                }}</span>
                 <span>{{ splitMatch(item.line, item.matchStart, item.matchEnd).after }}</span>
               </div>
             </div>

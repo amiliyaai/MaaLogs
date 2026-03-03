@@ -509,7 +509,7 @@ export async function parseOnErrorScreenshotsAsync(baseDir: string): Promise<OnE
       // 使用空格分隔格式，让 Date.parse 解析为本地时间（与日志时间戳解析方式一致）
       const localTimestamp = timestampStr.replace(
         /^(\d{4})\.(\d{2})\.(\d{2})-(\d{2})\.(\d{2})\.(\d{2})\.(\d{1,3})$/,
-        (_, y, m, d, h, min, s, ms) => `${y}-${m}-${d} ${h}:${min}:${s}.${ms.padStart(3, '0')}`
+        (_, y, m, d, h, min, s, ms) => `${y}-${m}-${d} ${h}:${min}:${s}.${ms.padStart(3, "0")}`
       );
 
       screenshots.push({
@@ -568,7 +568,9 @@ function parseSaveOnErrorRawLine(rawLine: string): {
   const timestampMatch = rawLine.match(/^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3})\]/);
   if (!timestampMatch) return null;
 
-  const match = rawLine.match(/save_on_error to .*?(\d{4}\.\d{2}\.\d{2}-\d{2}\.\d{2}\.\d{2}\.\d{1,3})_(.+?)\.png/);
+  const match = rawLine.match(
+    /save_on_error to .*?(\d{4}\.\d{2}\.\d{2}-\d{2}\.\d{2}\.\d{2}\.\d{1,3})_(.+?)\.png/
+  );
   if (!match) return null;
 
   const [, timePart, nodeName] = match;
@@ -635,10 +637,7 @@ function findBestMatchingNode(
  * @param rawLine - 原始日志行
  * @param tasks - 任务列表
  */
-function processSaveOnErrorRawLine(
-  rawLine: string,
-  tasks: TaskInfo[]
-): void {
+function processSaveOnErrorRawLine(rawLine: string, tasks: TaskInfo[]): void {
   const parsed = parseSaveOnErrorRawLine(rawLine);
   if (!parsed) return;
 
@@ -696,10 +695,7 @@ function attachScreenshotsFromTemp(
  * @param screenshotTime - 截图时间戳（毫秒）
  * @returns 匹配的任务
  */
-function findTargetTask(
-  tasks: TaskInfo[],
-  screenshotTime: number
-): TaskInfo | null {
+function findTargetTask(tasks: TaskInfo[], screenshotTime: number): TaskInfo | null {
   const taskCandidates = tasks.filter((task) => {
     const taskStart = new Date(task.start_time).getTime();
     return screenshotTime >= taskStart;
@@ -735,9 +731,7 @@ function findTargetNode(
 
   if (nodeCandidates.length === 0) return null;
 
-  nodeCandidates.sort(
-    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-  );
+  nodeCandidates.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
   return nodeCandidates[0];
 }

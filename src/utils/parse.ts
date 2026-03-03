@@ -625,7 +625,7 @@ export function buildIdentifierRanges(
   const startTime = performance.now();
   logger.debug("开始构建 identifier 范围", {
     mapSize: eventIdentifierMap.size,
-    totalEvents
+    totalEvents,
   });
 
   const ranges: { identifier: string; startIndex: number; endIndex: number }[] = [];
@@ -660,7 +660,7 @@ export function buildIdentifierRanges(
   const duration = performance.now() - startTime;
   logger.debug("identifier 范围构建完成", {
     rangesCount: ranges.length,
-    durationMs: Math.round(duration)
+    durationMs: Math.round(duration),
   });
 
   return ranges;
@@ -1280,7 +1280,7 @@ export function buildTasks(
   const startTime = performance.now();
   logger.debug("开始构建任务", {
     eventsCount: events.length,
-    identifierRangesCount: identifierRanges.length
+    identifierRangesCount: identifierRanges.length,
   });
 
   const tasks: TaskInfo[] = [];
@@ -1448,7 +1448,7 @@ export function buildTasks(
     deduplicatedTasks: deduplicatedTasks.length,
     filteredTasks: filteredTasks.length,
     entries: filteredTasks.slice(0, 10).map((t) => t.entry),
-    durationMs: Math.round(duration)
+    durationMs: Math.round(duration),
   });
   return filteredTasks;
 }
@@ -1854,8 +1854,7 @@ function buildTaskNodes(
   const nodeIdSet = new Set<number>();
   const startIndex = task._startEventIndex ?? 0;
   const endIndex = task._endEventIndex ?? events.length - 1;
-  const taskEvents = events
-    .slice(startIndex, endIndex + 1);
+  const taskEvents = events.slice(startIndex, endIndex + 1);
 
   const recognitionAttempts: RecognitionAttempt[] = [];
   const nestedNodes: RecognitionAttempt[] = [];

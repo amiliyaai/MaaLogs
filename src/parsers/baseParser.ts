@@ -453,7 +453,7 @@ export function parseMainLogBase(lines: string[], fileName: string): MainLogPars
     identifierMapSize: context.identifierMap.size,
     detectedProject: context.detectedProject,
     saveOnErrorLines: context.saveOnErrorRawLines.length,
-    durationMs: Math.round(duration)
+    durationMs: Math.round(duration),
   });
 
   return context;
