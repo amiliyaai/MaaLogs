@@ -155,7 +155,8 @@ function parseMainLogFile(
   fileName: string
 ): ProjectType {
   const detected = detectProject(lines);
-  logger.info("检测到项目类型", { project: detected, fileName });
+  logger.info("开始解析主日志文件", { fileName, detected });
+  console.log("检测到项目类型：" + detected);
 
   if (detected !== "unknown") {
     const parser = getProjectParser(detected);

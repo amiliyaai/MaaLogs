@@ -2,17 +2,38 @@
  * @fileoverview 解析器配置
  *
  * 本文件定义日志解析器相关的所有配置项，包括：
+ * - 项目识别模式配置
  * - 日志关联配置（时间窗口、匹配策略开关）
  * - 日志解析配置（分块大小、批处理大小）
  * - 加密配置（PBKDF2 密钥派生迭代次数）
  *
  * 使用说明：
+ * - PROJECT_PATTERNS 用于从日志中识别项目类型
  * - CorrelationConfig 用于控制 Custom 日志与主日志的关联行为
  * - PARSER_CONFIG 控制解析性能和内存使用
  * - CRYPTO_CONFIG 控制加密安全级别
  *
  * @module config/parser
  */
+
+import type { ProjectType } from "../parsers/baseParser";
+
+/**
+ * 项目识别模式配置
+ *
+ * 通过 Working 目录路径中的关键词识别项目类型
+ *
+ * @property {string} keyword - 路径中的关键词（大小写不敏感）
+ * @property {ProjectType} project - 对应的项目类型
+ *
+ * @example
+ * // 日志行: [Logger] Working F:/etc/M9A-v3.18.0
+ * // 匹配关键词 "M9A" -> 返回 "m9a"
+ */
+export const PROJECT_PATTERNS: { keyword: string; project: ProjectType }[] = [
+  { keyword: "M9A", project: "m9a" },
+  { keyword: "MaaEnd", project: "maaend" },
+];
 
 /**
  * 日志关联配置接口

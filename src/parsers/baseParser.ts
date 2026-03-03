@@ -32,6 +32,7 @@ import {
   extractLogDirectory,
   type BracketLineResult,
 } from "./shared";
+import { PROJECT_PATTERNS } from "../config/parser";
 
 export { extractLogDirectory };
 
@@ -67,18 +68,6 @@ export function createMainLogContext(): MainLogParseContext {
 }
 
 /**
- * 项目识别模式配置
- *
- * 根据 Working 目录路径匹配项目类型：
- * - M9A: 匹配 "D:/M9A/" 或 "D:\M9A\" 等路径
- * - MaaEnd: 匹配 "MaaEnd-win-x86_64" 等路径
- */
-const PROJECT_PATTERNS: { pattern: RegExp; project: ProjectType }[] = [
-  { pattern: /M9A[\\/]/i, project: "m9a" },
-  { pattern: /MaaEnd/i, project: "maaend" },
-];
-
-/**
  * 从单行日志检测项目类型
  *
  * 检查日志行是否包含 "Working" 关键字，并匹配项目路径模式。
@@ -93,8 +82,9 @@ const PROJECT_PATTERNS: { pattern: RegExp; project: ProjectType }[] = [
 export function detectProjectFromLine(line: string): ProjectType | null {
   if (!line.includes("Working")) return null;
 
-  for (const { pattern, project } of PROJECT_PATTERNS) {
-    if (pattern.test(line)) {
+  const upperLine = line.toUpperCase();
+  for (const { keyword, project } of PROJECT_PATTERNS) {
+    if (upperLine.includes(keyword.toUpperCase())) {
       return project;
     }
   }
