@@ -55,7 +55,7 @@ MaaFramework 日志分析利器
 - 分析任务失败原因
 - 提供修复建议
 - 支持服务商：OpenAI、Claude、Gemini、DeepSeek、智谱 AI、MiniMax、月之暗面、硅基流动等
-- **<span style="color: red">推荐使用免费模型：智谱AI（GLM-4.7-Flash）等，目前不算很强大，建议使用免费模型</span>**
+- **<span style="color: red">推荐使用免费模型：智谱AI（GLM-4.7-Flash）等，目前该功能不算强大，建议使用免费模型</span>**
 
 ## 📖 使用方法
 
@@ -64,7 +64,6 @@ MaaFramework 日志分析利器
 1. 选择日志根目录（支持拖拽）
 2. 点击"开始解析"
 3. 查看任务列表和节点详情
-4. 选择任务后点击"AI 分析"分析失败原因
 
 ### AI 智能分析
 
@@ -72,7 +71,7 @@ MaaFramework 日志分析利器
 2. 输入对应服务商的 API Key
 3. 选择一个任务
 4. 点击"AI 分析"按钮
-   5、节点详情中查看分析结果
+5. 在节点详情中查看分析结果
 
 ## 🛠️ 技术栈
 
@@ -120,9 +119,6 @@ npm install
 ```bash
 # 桌面应用
 npm run tauri:dev
-
-# Web 版本
-npm run dev
 ```
 
 ### 构建发布
@@ -130,22 +126,28 @@ npm run dev
 ```bash
 # Tauri 桌面应用
 npm run tauri:build
-
-# Web 版本
-npm run build
 ```
 
-## 🔗 相关链接
 
-- [MaaFramework](https://github.com/MaaXYZ/MaaFramework) - 自动化框架
-- [MaaEnd](https://github.com/MaaEnd/MaaEnd) - 《明日方舟：终末地》游戏小助手
-- [M9A](https://github.com/MAA1999/M9A) - 重返未来：1999 小助手
-- [Naive UI 文档](https://www.naiveui.com/)
-- [Tauri 文档](https://tauri.app/)
+## 🚧 未来规划
+
+### AI 知识库增强
+
+计划接入 MaaFW 以及各项目的文档，实现真正的 RAG 能力
+
 
 ## 🔧 开发指南
 
 详细开发指南请参考 [AGENTS.md](AGENTS.md) 和 [项目开发指南](docs/developers/development-guide.md)。
+
+## 🙏 致谢
+
+- [Vue](https://vuejs.org/) - 渐进式 JavaScript 框架
+- [Naive UI](https://www.naiveui.com/) - Vue 3 组件库
+- [Tauri](https://tauri.app/) - 跨平台桌面应用框架
+- [MaaFramework](https://github.com/MaaXYZ/MaaFramework) - 自动化框架
+- [MaaEnd](https://github.com/MaaEnd/MaaEnd) - 《明日方舟：终末地》游戏小助手
+- [M9A](https://github.com/MAA1999/M9A) - 重返未来：1999 小助手
 
 ## 📝 许可证
 
