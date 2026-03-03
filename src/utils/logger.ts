@@ -273,7 +273,7 @@ function flushBuffer() {
  */
 function scheduleFlush() {
   if (flushTimer !== null) return;
-  flushTimer = window.setTimeout(() => {
+  flushTimer = globalThis.setTimeout(() => {
     flushTimer = null;
     flushBuffer();
   }, FLUSH_INTERVAL_MS);
