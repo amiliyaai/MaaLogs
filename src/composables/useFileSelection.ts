@@ -147,14 +147,8 @@ export function useFileSelection(
    */
   async function handleSelectDirectory(): Promise<void> {
     const selected = await open({
-      directory: false,
-      multiple: true,
-      filters: [
-        {
-          name: "日志文件或压缩包",
-          extensions: ["log", "zip"],
-        },
-      ],
+      directory: true,
+      multiple: false,
     });
 
     if (!selected) return;
