@@ -76,7 +76,6 @@ const emitParse = () => emit("parse");
   >
     <!-- 主标题和操作区域 -->
     <div class="hero-text">
-      <h1>📊 日志解析 · 任务与节点可视化</h1>
       <div class="actions">
         <!-- 目录选择按钮 -->
         <NButton size="small" @click="emit('select-directory')">📂 选择日志目录</NButton>

@@ -72,7 +72,9 @@ const handleThemeSelect = (key: string) => {
 <template>
   <header class="topbar">
     <!-- 品牌区域 -->
-    <div class="brand" />
+    <div class="brand">
+      <span   class="brand-subtitle">日志解析 · 任务与节点可视化 · AI 智能分析</span>
+    </div>
     <!-- 操作区域 -->
     <div class="top-actions">
       <!-- 视图切换按钮组 -->
@@ -135,6 +137,18 @@ const handleThemeSelect = (key: string) => {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+.brand-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--n-text-color);
+}
+
+.brand-subtitle {
+  font-size: 14 px;
+  font-weight: bold;
+  color: var(--n-text-color-3);
 }
 
 .top-actions {

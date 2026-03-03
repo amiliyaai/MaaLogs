@@ -7,9 +7,7 @@
 
 # MaaLogs
 
-_MaaFramework 日志分析工具_
-
-支持多项目日志解析 · 可视化任务流程 · AI 智能分析
+⭐ MaaFramework 日志分析工具 - 多项目 | 流程可视 | AI 智能
 
 </div>
 
@@ -35,7 +33,7 @@ _MaaFramework 日志分析工具_
 
 | 功能 | 描述 |
 |:---|:---|
-| 📊 **多项目日志解析** | 支持 MaaEnd、M9A 等多种项目的日志格式，统一分析 |
+| 📊 **多项目日志解析** | 支持 MaaEnd、M9A 等多种项目的custom日志格式，统一分析 |
 | 🌲 **任务流程可视化** | 树形图展示任务执行全过程，节点状态一目了然 |
 | 🔍 **全文精准搜索** | 支持正则表达式，快速定位关键日志 |
 | 📈 **节点统计分析** | 执行次数、耗时分布、成功率一手掌握 |
@@ -170,7 +168,7 @@ npm run tauri:build
 - [MaaEnd](https://github.com/MaaEnd/MaaEnd) - 《明日方舟：终末地》游戏小助手
 - [M9A](https://github.com/MAA1999/M9A) - 重返未来：1999 小助手
 - [MaaLogAnalyzer](https://github.com/MaaXYZ/MaaLogAnalyzer) - MaaFramework 应用可视化用户日志分析工具
-**UI 布局参考，未使用其源代码**
+**UI设计参考，未使用其源代码**
 
 ---
 
