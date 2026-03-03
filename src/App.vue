@@ -236,7 +236,6 @@ const {
   searchText,
   searchCaseSensitive,
   searchUseRegex,
-  hideDebugInfo,
   searchMaxResults,
   searchResults,
   searchMessage,
@@ -758,7 +757,6 @@ onBeforeUnmount(() => {
               :search-text="searchText"
               :search-case-sensitive="searchCaseSensitive"
               :search-use-regex="searchUseRegex"
-              :hide-debug-info="hideDebugInfo"
               :search-max-results="searchMaxResults"
               :search-results="searchResults"
               :search-message="searchMessage"
@@ -769,7 +767,6 @@ onBeforeUnmount(() => {
               @update:search-text="searchText = $event"
               @update:search-case-sensitive="searchCaseSensitive = $event"
               @update:search-use-regex="searchUseRegex = $event"
-              @update:hide-debug-info="hideDebugInfo = $event"
               @update:search-max-results="searchMaxResults = $event"
               @perform-search="doPerformSearch"
               @clear-history="clearHistory"

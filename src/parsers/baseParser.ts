@@ -33,6 +33,9 @@ import {
   type BracketLineResult,
 } from "./shared";
 import { PROJECT_PATTERNS } from "../config/parser";
+import { createLogger } from "../utils/logger";
+
+const logger = createLogger("BaseParser");
 
 export { extractLogDirectory };
 
@@ -424,7 +427,10 @@ function updateIdentifier(context: MainLogParseContext, rawLine: string): void {
  * @returns 解析上下文，包含事件、控制器信息和检测到的项目类型
  */
 export function parseMainLogBase(lines: string[], fileName: string): MainLogParseContext {
+  const startTime = performance.now();
   const context = createMainLogContext();
+
+  logger.debug("开始解析主日志", { fileName, totalLines: lines.length });
 
   for (let i = 0; i < lines.length; i++) {
     const rawLine = lines[i].trim();
@@ -437,6 +443,18 @@ export function parseMainLogBase(lines: string[], fileName: string): MainLogPars
   if (context.detectedProject === "unknown") {
     context.detectedProject = detectProject(lines);
   }
+
+  const duration = performance.now() - startTime;
+  logger.info("主日志解析完成", {
+    fileName,
+    totalLines: lines.length,
+    eventsCount: context.events.length,
+    controllersCount: context.controllers.length,
+    identifierMapSize: context.identifierMap.size,
+    detectedProject: context.detectedProject,
+    saveOnErrorLines: context.saveOnErrorRawLines.length,
+    durationMs: Math.round(duration)
+  });
 
   return context;
 }

@@ -622,14 +622,22 @@ export function buildIdentifierRanges(
   eventIdentifierMap: Map<number, string>,
   totalEvents: number
 ): { identifier: string; startIndex: number; endIndex: number }[] {
+  const startTime = performance.now();
+  logger.debug("开始构建 identifier 范围", {
+    mapSize: eventIdentifierMap.size,
+    totalEvents
+  });
+
   const ranges: { identifier: string; startIndex: number; endIndex: number }[] = [];
   const sortedEntries = [...eventIdentifierMap.entries()].sort((a, b) => a[0] - b[0]);
-  if (sortedEntries.length === 0) return ranges;
+  if (sortedEntries.length === 0) {
+    logger.debug("identifier 范围构建完成：无数据");
+    return ranges;
+  }
 
   let currentIdentifier = sortedEntries[0][1];
   let currentStart = sortedEntries[0][0];
 
-  // 遍历所有条目，合并连续相同的 identifier
   for (let i = 1; i < sortedEntries.length; i++) {
     const [eventIndex, identifier] = sortedEntries[i];
     if (identifier !== currentIdentifier) {
@@ -643,11 +651,16 @@ export function buildIdentifierRanges(
     }
   }
 
-  // 添加最后一个范围
   ranges.push({
     identifier: currentIdentifier,
     startIndex: currentStart,
     endIndex: totalEvents - 1,
+  });
+
+  const duration = performance.now() - startTime;
+  logger.debug("identifier 范围构建完成", {
+    rangesCount: ranges.length,
+    durationMs: Math.round(duration)
   });
 
   return ranges;
@@ -1264,6 +1277,12 @@ export function buildTasks(
   stringPool: StringPool,
   identifierRanges: { identifier: string; startIndex: number; endIndex: number }[] = []
 ): TaskInfo[] {
+  const startTime = performance.now();
+  logger.debug("开始构建任务", {
+    eventsCount: events.length,
+    identifierRangesCount: identifierRanges.length
+  });
+
   const tasks: TaskInfo[] = [];
   const runningTaskMap = new Map<string, TaskInfo>();
   const taskProcessMap = new Map<number, { processId: string; threadId: string }>();
@@ -1422,10 +1441,14 @@ export function buildTasks(
   const filteredTasks = deduplicatedTasks.filter(
     (task) => task.entry !== "MaaTaskerPostStop" && !task.entry.includes("post_stop")
   );
+
+  const duration = performance.now() - startTime;
   logger.info("任务构建完成", {
     totalTasks: tasks.length,
+    deduplicatedTasks: deduplicatedTasks.length,
     filteredTasks: filteredTasks.length,
-    entries: filteredTasks.map((t) => t.entry),
+    entries: filteredTasks.slice(0, 10).map((t) => t.entry),
+    durationMs: Math.round(duration)
   });
   return filteredTasks;
 }

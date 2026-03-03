@@ -100,6 +100,14 @@ const handleThemeSelect = (key: string) => {
         >
           📈 节点统计
         </n-button>
+        <span title="功能开发中">
+          <n-button
+            size="small"
+            disabled
+          >
+            流程图
+          </n-button>
+        </span>
       </div>
       <div class="divider" />
       <!-- 主题切换 -->

@@ -22,7 +22,6 @@
 @emits update:searchText - 搜索文本更新事件
 @emits update:searchCaseSensitive - 区分大小写选项更新事件
 @emits update:searchUseRegex - 正则表达式选项更新事件
-@emits update:hideDebugInfo - 隐藏调试信息选项更新事件
 @emits update:searchMaxResults - 最大结果数更新事件
 @emits perform-search - 执行搜索事件
 @emits clear-history - 清空历史事件
@@ -32,7 +31,6 @@
   :search-text="keyword"
   :search-case-sensitive="caseSensitive"
   :search-use-regex="useRegex"
-  :hide-debug-info="hideDebug"
   :search-max-results="200"
   :search-results="results"
   :search-message="message"
@@ -43,7 +41,6 @@
   @update:search-text="handleTextChange"
   @update:search-case-sensitive="handleCaseChange"
   @update:search-use-regex="handleRegexChange"
-  @update:hide-debug-info="handleHideDebug"
   @update:search-max-results="handleMaxResults"
   @perform-search="handleSearch"
   @clear-history="handleClearHistory"
@@ -65,7 +62,6 @@ import type { SearchResult } from "../types/logTypes";
  * @property {string} searchText - 当前搜索文本
  * @property {boolean} searchCaseSensitive - 是否区分大小写
  * @property {boolean} searchUseRegex - 是否使用正则表达式
- * @property {boolean} hideDebugInfo - 是否隐藏调试信息
  * @property {number} searchMaxResults - 最大搜索结果数
  * @property {SearchResult[]} searchResults - 搜索结果列表
  * @property {string} searchMessage - 搜索状态消息
@@ -78,7 +74,6 @@ defineProps<{
   searchText: string;
   searchCaseSensitive: boolean;
   searchUseRegex: boolean;
-  hideDebugInfo: boolean;
   searchMaxResults: number;
   searchResults: SearchResult[];
   searchMessage: string;
@@ -97,7 +92,6 @@ defineProps<{
  * @event update:searchText - 更新搜索文本
  * @event update:searchCaseSensitive - 更新区分大小写选项
  * @event update:searchUseRegex - 更新正则表达式选项
- * @event update:hideDebugInfo - 更新隐藏调试信息选项
  * @event update:searchMaxResults - 更新最大结果数
  * @event perform-search - 执行搜索
  * @event clear-history - 清空搜索历史
@@ -106,7 +100,6 @@ const emit = defineEmits<{
   (e: "update:searchText", value: string): void;
   (e: "update:searchCaseSensitive", value: boolean): void;
   (e: "update:searchUseRegex", value: boolean): void;
-  (e: "update:hideDebugInfo", value: boolean): void;
   (e: "update:searchMaxResults", value: number): void;
   (e: "perform-search"): void;
   (e: "clear-history"): void;
@@ -153,10 +146,6 @@ const searchMaxOptions = [
       <!-- 正则表达式选项 -->
       <n-checkbox :checked="searchUseRegex" @update:checked="emit('update:searchUseRegex', $event)">
         正则表达式
-      </n-checkbox>
-      <!-- 隐藏调试信息选项 -->
-      <n-checkbox :checked="hideDebugInfo" @update:checked="emit('update:hideDebugInfo', $event)">
-        格式化调试信息
       </n-checkbox>
       <!-- 最大结果数选择 -->
       <n-select

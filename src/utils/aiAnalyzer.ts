@@ -13,6 +13,7 @@
 
 import type { TaskInfo, NodeInfo, AuxLogEntry } from "../types/logTypes";
 import { encryptSecure, decryptSecure, getStore } from "./crypto";
+import { createLogger } from "./logger";
 import {
   type AIProvider,
   type AIConfig,
@@ -22,6 +23,8 @@ import {
   AI_REQUEST_CONFIG,
   MAA_KNOWLEDGE,
 } from "../config";
+
+const logger = createLogger("AIAnalyzer");
 
 /**
  * 失败分析结果接口
@@ -287,6 +290,9 @@ const CONFIG_VERSION = 2;
  * @returns AI 配置对象
  */
 export async function getAIConfig(): Promise<AIConfig> {
+  const startTime = performance.now();
+  logger.debug("开始加载 AI 配置");
+
   try {
     const s = await getStore();
     const stored = (await s.get(AI_CONFIG_KEY)) as string | null;
@@ -296,10 +302,12 @@ export async function getAIConfig(): Promise<AIConfig> {
       try {
         parsed = JSON.parse(stored);
       } catch {
+        logger.warn("AI 配置解析失败：JSON 格式错误");
         return { ...DEFAULT_AI_CONFIG };
       }
 
       if (!parsed || typeof parsed !== "object") {
+        logger.debug("AI 配置为空或无效，使用默认配置");
         return { ...DEFAULT_AI_CONFIG };
       }
 
@@ -308,24 +316,39 @@ export async function getAIConfig(): Promise<AIConfig> {
         try {
           const dataStr = String(storedConfig.data).trim();
           if (!dataStr) {
+            logger.debug("AI 配置加密数据为空，使用默认配置");
             return { ...DEFAULT_AI_CONFIG };
           }
           const decrypted = await decryptSecure(dataStr);
           const decryptedConfig = JSON.parse(decrypted);
+          const duration = performance.now() - startTime;
+          logger.info("AI 配置加载完成（加密）", {
+            provider: decryptedConfig.provider,
+            model: decryptedConfig.model,
+            hasApiKey: !!decryptedConfig.apiKeys?.[decryptedConfig.provider],
+            durationMs: Math.round(duration)
+          });
           return { ...DEFAULT_AI_CONFIG, ...decryptedConfig };
         } catch (error) {
-          console.warn("Failed to decrypt AI config", error);
+          logger.error("AI 配置解密失败", { error: String(error) });
           await s.delete(AI_CONFIG_KEY);
           await s.save();
           return { ...DEFAULT_AI_CONFIG };
         }
       }
 
+      const duration = performance.now() - startTime;
+      logger.info("AI 配置加载完成（未加密）", {
+        provider: storedConfig.provider,
+        model: storedConfig.model,
+        durationMs: Math.round(duration)
+      });
       return { ...DEFAULT_AI_CONFIG, ...storedConfig };
     }
   } catch (e) {
-    console.error("Failed to load AI config", e);
+    logger.error("AI 配置加载失败", { error: String(e) });
   }
+  logger.debug("AI 配置不存在，使用默认配置");
   return { ...DEFAULT_AI_CONFIG };
 }
 
@@ -335,6 +358,13 @@ export async function getAIConfig(): Promise<AIConfig> {
  * @param config - AI 配置对象
  */
 export async function saveAIConfig(config: AIConfig): Promise<void> {
+  const startTime = performance.now();
+  logger.debug("开始保存 AI 配置", {
+    provider: config.provider,
+    model: config.model,
+    hasApiKey: !!config.apiKeys?.[config.provider]
+  });
+
   try {
     const s = await getStore();
     const configToSave = { ...config };
@@ -349,8 +379,15 @@ export async function saveAIConfig(config: AIConfig): Promise<void> {
 
     await s.set(AI_CONFIG_KEY, JSON.stringify(encryptedConfig));
     await s.save();
+
+    const duration = performance.now() - startTime;
+    logger.info("AI 配置保存完成", {
+      provider: config.provider,
+      model: config.model,
+      durationMs: Math.round(duration)
+    });
   } catch (e) {
-    console.error("Failed to save AI config", e);
+    logger.error("AI 配置保存失败", { error: String(e) });
     try {
       const s = await getStore();
       const safeConfig: AIConfig = {
@@ -359,8 +396,9 @@ export async function saveAIConfig(config: AIConfig): Promise<void> {
       };
       await s.set(AI_CONFIG_KEY, JSON.stringify(safeConfig));
       await s.save();
+      logger.warn("AI 配置保存使用降级模式（未加密）");
     } catch (e2) {
-      console.error("Failed to save AI config (fallback)", e2);
+      logger.error("AI 配置保存失败（降级模式）", { error: String(e2) });
     }
   }
 }
@@ -378,44 +416,96 @@ export async function analyzeWithAI(
   tasks: TaskInfo[],
   auxLogs?: AuxLogEntry[]
 ): Promise<FailureAnalysis[]> {
+  const startTime = performance.now();
   const failedNodes = tasks.flatMap((t) => t.nodes).filter((n) => n.status === "failed");
-  console.log(
-    `[AI分析] 开始分析，失败节点数: ${failedNodes.length}, 任务数: ${tasks.length}, 日志数: ${auxLogs?.length || 0}`
-  );
 
-  if (failedNodes.length === 0) return [];
+  logger.info("开始 AI 分析", {
+    tasksCount: tasks.length,
+    failedNodesCount: failedNodes.length,
+    auxLogsCount: auxLogs?.length || 0,
+    provider: config.provider,
+    model: config.model
+  });
+
+  if (failedNodes.length === 0) {
+    logger.info("AI 分析跳过：无失败节点");
+    return [];
+  }
 
   const currentApiKey = getApiKey(config);
   const prompt = buildAnalysisPrompt(tasks, failedNodes, auxLogs);
-  console.log(`[AI分析] Prompt 长度: ${prompt.length} 字符`);
+  logger.debug("分析提示词构建完成", {
+    promptLength: prompt.length,
+    failedNodesDetails: failedNodes.map(n => ({
+      name: n.name,
+      nodeId: n.node_id,
+      algorithm: n.reco_details?.algorithm
+    }))
+  });
 
   const { endpoint, headers, requestBody, isClaude, isGemini } = buildRequestPayload(
     config,
     prompt,
     currentApiKey
   );
-  console.log(`[AI分析] 发送请求到: ${endpoint}, 模型: ${config.model}`);
-
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(requestBody),
+  logger.debug("AI 请求准备完成", {
+    endpoint,
+    model: config.model,
+    provider: config.provider,
+    isClaude,
+    isGemini
   });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error(`[AI分析] API 错误: ${response.status} - ${errorText}`);
-    throw new Error(`API 错误: ${response.status} - ${errorText}`);
+  try {
+    const requestStartTime = performance.now();
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(requestBody),
+    });
+    const requestDuration = performance.now() - requestStartTime;
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      logger.error("AI API 请求失败", {
+        status: response.status,
+        statusText: response.statusText,
+        errorText: errorText.slice(0, 500),
+        requestDurationMs: Math.round(requestDuration)
+      });
+      throw new Error(`API 错误: ${response.status} - ${errorText}`);
+    }
+
+    const result = await response.json();
+    const content = extractProviderContent(result, isClaude, isGemini);
+    logger.debug("AI 响应接收完成", {
+      contentLength: content?.length || 0,
+      requestDurationMs: Math.round(requestDuration)
+    });
+
+    const analysisResults = parseAIResponse(content || "", failedNodes);
+    const totalDuration = performance.now() - startTime;
+
+    logger.info("AI 分析完成", {
+      resultsCount: analysisResults.length,
+      totalDurationMs: Math.round(totalDuration),
+      requestDurationMs: Math.round(requestDuration),
+      avgConfidence: analysisResults.length > 0
+        ? Math.round((analysisResults.reduce((sum, r) => sum + r.confidence, 0) / analysisResults.length) * 100) / 100
+        : 0
+    });
+
+    return analysisResults;
+  } catch (error) {
+    const totalDuration = performance.now() - startTime;
+    logger.error("AI 分析失败", {
+      error: String(error),
+      failedNodesCount: failedNodes.length,
+      totalDurationMs: Math.round(totalDuration),
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    throw error;
   }
-
-  const result = await response.json();
-  const content = extractProviderContent(result, isClaude, isGemini);
-  console.log(`[AI分析] 响应内容长度: ${content?.length || 0} 字符`);
-
-  const analysisResults = parseAIResponse(content || "", failedNodes);
-  console.log(`[AI分析] 解析出 ${analysisResults.length} 条分析结果`);
-
-  return analysisResults;
 }
 
 /**
@@ -461,11 +551,20 @@ function buildFallbackAnalyses(failedNodes: NodeInfo[]): FailureAnalysis[] {
 
 function parseAIResponse(content: string, failedNodes: NodeInfo[]): FailureAnalysis[] {
   const jsonText = extractJsonArrayText(content);
-  if (!jsonText) return buildFallbackAnalyses(failedNodes);
+  if (!jsonText) {
+    logger.warn("AI 响应解析失败：未找到 JSON 数组", {
+      contentLength: content.length,
+      contentPreview: content.slice(0, 200)
+    });
+    return buildFallbackAnalyses(failedNodes);
+  }
   try {
     const parsed = JSON.parse(jsonText);
-    if (!Array.isArray(parsed)) return buildFallbackAnalyses(failedNodes);
-    return parsed.map((item: Record<string, unknown>) => ({
+    if (!Array.isArray(parsed)) {
+      logger.warn("AI 响应解析失败：JSON 不是数组", { parsedType: typeof parsed });
+      return buildFallbackAnalyses(failedNodes);
+    }
+    const results = parsed.map((item: Record<string, unknown>) => ({
       nodeName: String(item.nodeName || ""),
       nodeId: Number(item.nodeId) || 0,
       taskName: String(item.taskName || ""),
@@ -473,8 +572,16 @@ function parseAIResponse(content: string, failedNodes: NodeInfo[]): FailureAnaly
       suggestion: String(item.suggestion || ""),
       confidence: Number(item.confidence) || 0.3,
     }));
+    logger.debug("AI 响应解析成功", {
+      resultsCount: results.length,
+      sample: results.slice(0, 2)
+    });
+    return results;
   } catch (error) {
-    console.warn("Failed to parse AI response", error);
+    logger.warn("AI 响应解析失败：JSON 解析错误", {
+      error: String(error),
+      jsonTextLength: jsonText.length
+    });
     return buildFallbackAnalyses(failedNodes);
   }
 }

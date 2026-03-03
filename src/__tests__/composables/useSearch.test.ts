@@ -46,7 +46,6 @@ describe("useSearch", () => {
     expect(searcher.searchText.value).toBe("");
     expect(searcher.searchCaseSensitive.value).toBe(false);
     expect(searcher.searchUseRegex.value).toBe(false);
-    expect(searcher.hideDebugInfo.value).toBe(true);
     expect(searcher.searchMaxResults.value).toBe(500);
     expect(searcher.searchResults.value).toEqual([]);
     expect(searcher.searchMessage.value).toBe("");

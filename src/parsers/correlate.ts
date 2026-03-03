@@ -2,7 +2,7 @@
  * @fileoverview 日志关联模块
  *
  * 本文件实现了Custom日志与主任务的关联功能。
- * 通过时间窗口、identifier、task_id 等信息，将 go-service 日志
+ * 通过时间窗口、identifier、task_id 等信息，将 custom 日志
  * 与 maa.log 中的任务进行关联，提供更完整的执行上下文。
  *
  * 关联策略：
@@ -21,6 +21,9 @@ import {
   DEFAULT_CORRELATION_CONFIG,
   PARSER_CONFIG,
 } from "../config/parser";
+import { createLogger } from "../utils/logger";
+
+const logger = createLogger("Correlate");
 
 /**
  * 关联结果
@@ -86,37 +89,76 @@ export function correlateAuxLogsWithTasks(
   tasks: TaskInfo[],
   config: CorrelationConfig = DEFAULT_CORRELATION_CONFIG
 ): AuxLogEntry[] {
+  const startTime = performance.now();
+
+  logger.debug("开始日志关联", {
+    entriesCount: entries.length,
+    tasksCount: tasks.length,
+    config: {
+      timeWindowMs: config.timeWindowMs,
+      enableIdentifierMatch: config.enableIdentifierMatch,
+      enableTaskIdMatch: config.enableTaskIdMatch,
+      enableTimeWindowMatch: config.enableTimeWindowMatch
+    }
+  });
+
   if (entries.length === 0 || tasks.length === 0) {
+    logger.warn("日志关联跳过：无数据", {
+      entriesCount: entries.length,
+      tasksCount: tasks.length
+    });
     return entries;
   }
 
   const taskTimes = buildTaskTimeRanges(tasks);
 
-  // 构建任务索引
   const taskByIdentifier = new Map<string, TaskInfo>();
   const taskByTaskId = new Map<number, TaskInfo[]>();
 
   for (const task of tasks) {
-    // 按 identifier 索引
     if (task.identifier) {
       taskByIdentifier.set(task.identifier, task);
     }
 
-    // 按 task_id 索引
     if (!taskByTaskId.has(task.task_id)) {
       taskByTaskId.set(task.task_id, []);
     }
     taskByTaskId.get(task.task_id)!.push(task);
   }
 
-  // 处理每条日志
-  return entries.map((entry) => {
-    const result = correlateEntry(entry, taskTimes, taskByIdentifier, taskByTaskId, config);
-    if (result) {
-      entry.correlation = result;
+  logger.debug("任务索引构建完成", {
+    identifierIndexSize: taskByIdentifier.size,
+    taskIdIndexSize: taskByTaskId.size
+  });
+
+  let matchedCount = 0;
+  let unmatchedCount = 0;
+
+  const result = entries.map((entry) => {
+    const correlationResult = correlateEntry(entry, taskTimes, taskByIdentifier, taskByTaskId, config);
+    if (correlationResult) {
+      entry.correlation = correlationResult;
+      if (correlationResult.status === "matched") {
+        matchedCount++;
+      } else {
+        unmatchedCount++;
+      }
+    } else {
+      unmatchedCount++;
     }
     return entry;
   });
+
+  const duration = performance.now() - startTime;
+  logger.info("日志关联完成", {
+    totalEntries: entries.length,
+    matched: matchedCount,
+    unmatched: unmatchedCount,
+    matchRate: entries.length > 0 ? `${Math.round((matchedCount / entries.length) * 100)}%` : "0%",
+    durationMs: Math.round(duration)
+  });
+
+  return result;
 }
 
 /**

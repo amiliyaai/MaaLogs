@@ -329,14 +329,10 @@ export async function applySelectedPaths(paths: string[]): Promise<{
       }
     }
 
-    console.log("[File] ZIP 中找到 PNG 文件", { count: pngEntries.length, zipName });
-
     if (pngEntries.length === 0) return null;
 
     const cacheDir = await appCacheDir();
     const tempDir = await join(cacheDir, ZIP_EXTRACT_DIR_NAME, zipName);
-
-    console.log("[File] 准备提取 PNG 到目录", { tempDir, cacheDir, zipName });
 
     const dirExists = await exists(tempDir);
     if (!dirExists) {
@@ -351,10 +347,7 @@ export async function applySelectedPaths(paths: string[]): Promise<{
         await mkdir(pngDir, { recursive: true });
       }
       await writeFile(pngPath, data);
-      console.log("[File] 已写入 PNG 文件", { pngPath, size: data.length });
     }
-
-    console.log("[File] PNG 文件提取完成", { tempDir, count: pngEntries.length });
 
     return tempDir;
   }
@@ -363,7 +356,6 @@ export async function applySelectedPaths(paths: string[]): Promise<{
     const name = getFileNameFromPath(filePath);
     if (!name.toLowerCase().endsWith(".zip")) return false;
     try {
-      console.log("[File] 开始处理 ZIP 文件", { filePath, name });
       const buf = await readFile(filePath);
       const zip = unzipSync(buf);
       outFiles.push(...extractZipFiles(zip, allowDirectoryFile, decoder));
@@ -372,13 +364,11 @@ export async function applySelectedPaths(paths: string[]): Promise<{
       const pngDir = await extractPngFilesFromZip(zip, zipName);
       if (pngDir) {
         extractedPngDir = pngDir;
-        console.log("[File] 设置 extractedPngDir", { extractedPngDir });
       }
 
       return true;
     } catch (error) {
       if (error) errors.push(String(error));
-      console.error("[File] 处理 ZIP 文件失败", { error: String(error), filePath });
       return true;
     }
   }
@@ -419,13 +409,6 @@ export async function applySelectedPaths(paths: string[]): Promise<{
   }
 
   const baseDir = extractedPngDir || (paths.length > 0 ? paths[0] : "");
-
-  console.log("[File] applySelectedPaths 完成", {
-    baseDir,
-    extractedPngDir,
-    pathCount: paths.length,
-    fileCount: outFiles.length,
-  });
 
   return { files: outFiles, errors, hasDirectory, baseDir };
 }

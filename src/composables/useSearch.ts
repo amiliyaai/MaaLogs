@@ -16,7 +16,6 @@
 
 import { ref, type Ref } from "vue";
 import type { RawLine, SearchResult } from "../types/logTypes";
-import { normalizeSearchLine } from "../utils/parse";
 import { createLogger } from "../utils/logger";
 
 /**
@@ -37,7 +36,6 @@ const SEARCH_HISTORY_MAX = 10;
  * @property {Ref<string>} searchText - 搜索文本
  * @property {Ref<boolean>} searchCaseSensitive - 是否区分大小写
  * @property {Ref<boolean>} searchUseRegex - 是否使用正则表达式
- * @property {Ref<boolean>} hideDebugInfo - 是否隐藏调试信息
  * @property {Ref<number>} searchMaxResults - 最大结果数量
  * @property {Ref<SearchResult[]>} searchResults - 搜索结果列表
  * @property {Ref<string>} searchMessage - 搜索状态消息
@@ -54,8 +52,6 @@ export interface SearcherResult {
   searchCaseSensitive: Ref<boolean>;
   /** 是否使用正则表达式 */
   searchUseRegex: Ref<boolean>;
-  /** 是否隐藏调试信息 */
-  hideDebugInfo: Ref<boolean>;
   /** 最大结果数量 */
   searchMaxResults: Ref<number>;
   /** 搜索结果列表 */
@@ -102,8 +98,6 @@ export function useSearch(): SearcherResult {
   const searchCaseSensitive = ref(false);
   /** 是否使用正则表达式 */
   const searchUseRegex = ref(false);
-  /** 是否隐藏调试信息 */
-  const hideDebugInfo = ref(true);
   /** 最大结果数量 */
   const searchMaxResults = ref(500);
   /** 搜索结果列表 */
@@ -253,9 +247,7 @@ export function useSearch(): SearcherResult {
       // 检查结果数量限制
       if (results.length >= searchMaxResults.value) break;
 
-      // 规范化显示行（可能隐藏调试信息）
-      const displayLine = normalizeSearchLine(line.line, hideDebugInfo.value);
-      const match = findMatchInLine(displayLine, keyword, regex, searchCaseSensitive.value);
+      const match = findMatchInLine(line.line, keyword, regex, searchCaseSensitive.value);
 
       // 添加匹配结果
       if (match) {
@@ -263,7 +255,7 @@ export function useSearch(): SearcherResult {
         results.push({
           fileName: line.fileName,
           lineNumber: line.lineNumber,
-          line: displayLine,
+          line: line.line,
           rawLine: line.line,
           matchStart: match.start,
           matchEnd: match.end,
@@ -286,7 +278,6 @@ export function useSearch(): SearcherResult {
     searchText,
     searchCaseSensitive,
     searchUseRegex,
-    hideDebugInfo,
     searchMaxResults,
     searchResults,
     searchMessage,
