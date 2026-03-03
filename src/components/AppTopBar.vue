@@ -73,7 +73,7 @@ const handleThemeSelect = (key: string) => {
   <header class="topbar">
     <!-- 品牌区域 -->
     <div class="brand">
-      <span   class="brand-subtitle">日志解析 · 任务与节点可视化 · AI 智能分析</span>
+      <span   class="brand-subtitle">MaaFramework 日志分析工具 - 多项目 | 流程可视 | AI 智能</span>
     </div>
     <!-- 操作区域 -->
     <div class="top-actions">

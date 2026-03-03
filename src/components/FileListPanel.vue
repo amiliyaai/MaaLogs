@@ -23,7 +23,8 @@
 -->
 
 <script setup lang="ts">
-import { NButton, NCard } from "naive-ui";
+import { NButton, NCard, NTooltip, NIcon } from "naive-ui";
+import { QuestionCircleOutlined } from "@vicons/antd";
 import type { SelectedFile } from "../types/logTypes";
 import { ref } from "vue";
 
@@ -48,6 +49,12 @@ const expanded = ref(false);
           <span class="expand-icon">{{ expanded ? "▼" : "▶" }}</span>
           <span class="header-title">📁 文件列表</span>
           <span class="header-count">{{ selectedFiles.length }} 个文件</span>
+          <n-tooltip trigger="hover">
+            <template #trigger>
+              <n-icon class="help-icon" :component="QuestionCircleOutlined" />
+            </template>
+            建议每次选择新的日志目录前清空，否则只会覆盖同名日志
+          </n-tooltip>
         </div>
         <n-button
           v-if="selectedFiles.length > 0"
@@ -113,6 +120,16 @@ const expanded = ref(false);
 .header-count {
   font-size: 12px;
   color: var(--n-text-color-3);
+}
+
+.help-icon {
+  font-size: 14px;
+  color: var(--n-text-color-3);
+  cursor: help;
+}
+
+.help-icon:hover {
+  color: var(--n-text-color-2);
 }
 
 .file-list-wrapper {
