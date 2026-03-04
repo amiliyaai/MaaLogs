@@ -6,6 +6,20 @@ defineProps<{
   results: FailureAnalysis[];
   error?: string;
 }>();
+
+function formatSuggestion(text: string): string {
+  let result = "";
+  for (let i = 0; i < text.length; i++) {
+    const isNumberStart =
+      text[i] >= "1" &&
+      text[i] <= "9" &&
+      text[i + 1] === "." &&
+      text[i + 2] === " " &&
+      (i === 0 || text[i - 1] === " ");
+    result += isNumberStart ? "\n" + text[i] : text[i];
+  }
+  return result.trim();
+}
 </script>
 
 <template>
@@ -29,8 +43,14 @@ defineProps<{
             {{ Math.round(result.confidence * 100) }}%
           </n-tag>
         </div>
-        <div class="ai-result-cause">原因: {{ result.cause }}</div>
-        <div class="ai-result-suggestion">建议: {{ result.suggestion }}</div>
+        <div class="ai-result-cause">
+          <strong>原因：</strong>
+          <div class="cause-content">{{ result.cause }}</div>
+        </div>
+        <div class="ai-result-suggestion">
+          <strong>建议：</strong>
+          <div class="suggestion-content">{{ formatSuggestion(result.suggestion) }}</div>
+        </div>
       </div>
     </div>
   </div>
@@ -67,11 +87,24 @@ defineProps<{
 .ai-result-cause {
   font-size: 13px;
   color: var(--n-text-color);
-  margin-bottom: 4px;
+  margin-bottom: 8px;
+  padding-left: 1em;
+}
+
+.cause-content {
+  margin-top: 4px;
+  padding-left: 0.5em;
 }
 
 .ai-result-suggestion {
   font-size: 13px;
   color: var(--n-text-color-2);
+  padding-left: 1em;
+}
+
+.suggestion-content {
+  white-space: pre-line;
+  margin-top: 4px;
+  padding-left: 0.5em;
 }
 </style>

@@ -21,10 +21,180 @@ import {
   DEFAULT_AI_CONFIG,
   PROVIDER_INFO,
   AI_REQUEST_CONFIG,
-  MAA_KNOWLEDGE,
 } from "@/config";
+import { prebuiltKnowledge } from "@/rag/prebuilt/knowledge";
+import type { RetrievalResult } from "@/rag/types";
 
 const logger = createLogger("AIAnalyzer");
+
+function keywordMatchScore(text: string, query: string, metadata?: { title?: string; source?: string }): number {
+  const textLower = text.toLowerCase();
+  const queryLower = query.toLowerCase();
+  const queryTerms = queryLower.split(/\s+/).filter((t) => t.length > 1);
+
+  let score = 0;
+
+  if (metadata?.title) {
+    const titleLower = metadata.title.toLowerCase();
+    if (titleLower === queryLower) {
+      score += 1.0;
+    } else if (titleLower.includes(queryLower)) {
+      score += 0.9;
+    }
+    for (const term of queryTerms) {
+      if (titleLower.includes(term)) {
+        score += 0.15;
+      }
+    }
+  }
+
+  if (textLower.includes(queryLower)) {
+    score += 0.6;
+  }
+
+  for (const term of queryTerms) {
+    if (textLower.includes(term)) {
+      score += 0.08;
+    }
+  }
+
+  if (metadata?.source === "文档" || metadata?.source === "knowledge-base") {
+    score += 0.1;
+  }
+
+  const textLength = text.length;
+  if (textLength > 500) {
+    score += 0.05;
+  }
+
+  return Math.min(score, 1);
+}
+
+function retrieveFromKnowledge(query: string, topK = 3, minScore = 0.1): RetrievalResult[] {
+  const results: RetrievalResult[] = [];
+
+  for (const chunk of prebuiltKnowledge.chunks) {
+    const score = keywordMatchScore(chunk.text, query, chunk.metadata);
+    if (score >= minScore) {
+      results.push({ chunk, score });
+    }
+  }
+
+  results.sort((a, b) => b.score - a.score);
+  return results.slice(0, topK);
+}
+
+function extractDetailKeywords(detail: Record<string, unknown>): string[] {
+  const keywords: string[] = [];
+  if (detail.best === null) keywords.push("识别结果为空 best null");
+  if (detail.filtered && Array.isArray(detail.filtered) && detail.filtered.length === 0) {
+    keywords.push("过滤后无结果 filtered empty");
+  }
+  if (detail.all && Array.isArray(detail.all)) {
+    const texts = detail.all
+      .filter((item): item is { text: string } => typeof item?.text === "string")
+      .map((item) => item.text);
+    if (texts.length > 0) {
+      keywords.push(`识别到文字: ${texts.join(", ")}`);
+    }
+  }
+  return keywords;
+}
+
+function extractAttemptKeywords(
+  attempt: { name: string; reco_details?: { algorithm?: string; detail?: unknown } },
+  nodeName?: string
+): string[] {
+  const keywords: string[] = [];
+  if (attempt.reco_details?.algorithm) {
+    keywords.push(attempt.reco_details.algorithm);
+    keywords.push(`${attempt.reco_details.algorithm} 识别失败`);
+  }
+  if (attempt.reco_details?.detail) {
+    keywords.push(...extractDetailKeywords(attempt.reco_details.detail as Record<string, unknown>));
+  }
+  if (nodeName && attempt.name) {
+    keywords.push(`${nodeName} ${attempt.name}`);
+  }
+  return keywords;
+}
+
+function extractNodeKeywords(node: NodeInfo): string[] {
+  const keywords: string[] = [];
+
+  if (node.name) {
+    keywords.push(node.name);
+  }
+
+  if (node.reco_details?.algorithm) {
+    keywords.push(node.reco_details.algorithm);
+    keywords.push(`${node.reco_details.algorithm} 识别失败`);
+  }
+  if (node.action_details?.action) {
+    keywords.push(node.action_details.action);
+  }
+  if (node.reco_details?.detail) {
+    keywords.push(...extractDetailKeywords(node.reco_details.detail as Record<string, unknown>));
+  }
+  if (node.recognition_attempts) {
+    keywords.push(
+      ...node.recognition_attempts.flatMap((a) => extractAttemptKeywords(a, node.name))
+    );
+  }
+
+  return keywords;
+}
+
+function buildRAGContext(failedNodes: NodeInfo[]): string {
+  const queries = failedNodes.flatMap(extractNodeKeywords);
+  const uniqueQueries = [...new Set(queries)].filter((q) => q.length > 2);
+  logger.debug("RAG 检索关键词", { queries: uniqueQueries });
+
+  const allResults: RetrievalResult[] = [];
+
+  for (const query of uniqueQueries.slice(0, 10)) {
+    const results = retrieveFromKnowledge(query, 5, 0.15);
+    logger.debug("RAG 检索结果", {
+      query,
+      resultsCount: results.length,
+      topScore: results[0]?.score || 0,
+    });
+    allResults.push(...results);
+  }
+
+  const seen = new Set<string>();
+  const uniqueResults = allResults
+    .filter((r) => {
+      if (seen.has(r.chunk.id)) return false;
+      seen.add(r.chunk.id);
+      return true;
+    })
+    .sort((a, b) => b.score - a.score);
+
+  logger.info("RAG 检索完成", {
+    关键词数量: uniqueQueries.length,
+    检索结果: allResults.length,
+    去重后: uniqueResults.length,
+    最终采用: Math.min(uniqueResults.length, 12),
+    分数分布: uniqueResults.slice(0, 12).map((r) => ({
+      标题: r.chunk.metadata.title || r.chunk.metadata.source,
+      分数: r.score.toFixed(2),
+    })),
+  });
+
+  if (uniqueResults.length === 0) return "";
+
+  const sections: string[] = ["## 相关文档参考"];
+  for (const result of uniqueResults.slice(0, 12)) {
+    sections.push(`\n### ${result.chunk.metadata.title || result.chunk.metadata.source}`);
+    sections.push(`来源: ${result.chunk.metadata.source}`);
+    sections.push(`相关性: ${(result.score * 100).toFixed(0)}%`);
+    const preview = result.chunk.text.slice(0, 300);
+    sections.push(`内容: ${preview}${preview.length >= 300 ? "..." : ""}`);
+  }
+
+  return sections.join("\n");
+}
 
 /**
  * 失败分析结果接口
@@ -60,63 +230,10 @@ function getFrameworkPrompt(): string {
 MAA 是一个基于图像识别技术的游戏自动化框架，使用 C++20 编写。
 核心概念：Pipeline（流水线）、Node（节点）、Task（任务）、Controller（控制器）
 
-## 识别算法类型
-${Object.entries(MAA_KNOWLEDGE.recognition)
-  .map(([name, info]) => `- ${name}: ${info.desc}`)
-  .join("\n")}
-
-## 动作类型
-${Object.entries(MAA_KNOWLEDGE.actions)
-  .map(([name, info]) => `- ${name}: ${info.desc}`)
-  .join("\n")}
-
-## 控制器类型
-${Object.entries(MAA_KNOWLEDGE.controllers)
-  .map(([name, info]) => `- ${name}: ${info.desc}`)
-  .join("\n")}
-
 ## 日志字段含义
 - reco_details: 识别结果详情（algorithm, box, detail, name）
 - action_details: 动作执行详情（action, box, detail, success）
 - next_list: 后续节点列表（name, anchor, jump_back）`;
-}
-
-/**
- * 构建 AI 分析提示词
- *
- * @param tasks - 任务列表
- * @param failedNodes - 失败节点列表
- * @param auxLogs - 附加日志（可选）
- * @returns 构建好的提示词
- */
-function buildKnowledgeSection(failedNodes: NodeInfo[]): string {
-  const sections: string[] = ["## 本次分析相关的知识"];
-  const uniqueAlgorithms = [
-    ...new Set(failedNodes.map((n) => n.reco_details?.algorithm).filter(Boolean)),
-  ];
-  const uniqueActions = [
-    ...new Set(failedNodes.map((n) => n.action_details?.action).filter(Boolean)),
-  ];
-
-  for (const algo of uniqueAlgorithms) {
-    const info = MAA_KNOWLEDGE.recognition[algo as keyof typeof MAA_KNOWLEDGE.recognition];
-    if (!info) continue;
-    sections.push(`\n### ${algo} 识别`);
-    sections.push(`描述: ${info.desc}`);
-    if (info.failures?.length) sections.push(`常见失败: ${info.failures.join("; ")}`);
-    if (info.suggestions?.length) sections.push(`建议: ${info.suggestions.join("; ")}`);
-  }
-
-  for (const action of uniqueActions) {
-    const info = MAA_KNOWLEDGE.actions[action as keyof typeof MAA_KNOWLEDGE.actions];
-    if (!info) continue;
-    sections.push(`\n### ${action} 动作`);
-    sections.push(`描述: ${info.desc}`);
-    if (info.failures?.length) sections.push(`常见失败: ${info.failures.join("; ")}`);
-    if (info.suggestions?.length) sections.push(`建议: ${info.suggestions.join("; ")}`);
-  }
-
-  return sections.join("\n");
 }
 
 function buildFailedNodesSection(tasks: TaskInfo[], failedNodes: NodeInfo[]): string {
@@ -144,16 +261,43 @@ function buildNodeFailureSection(tasks: TaskInfo[], node: NodeInfo): string[] {
 
 function buildRecognitionAttemptsSection(attempts?: NodeInfo["recognition_attempts"]): string[] {
   if (!attempts || attempts.length === 0) return [];
-  const lines: string[] = [];
-  lines.push(`- 识别尝试次数: ${attempts.length}`);
-  lines.push("  识别尝试详情:");
+
+  const uniqueResults = new Map<string, { count: number; first: (typeof attempts)[0] }>();
   for (const attempt of attempts) {
-    const attemptStatus = attempt.status === "success" ? "成功" : "失败";
-    lines.push(`    - ${attempt.name}: ${attemptStatus}`);
-    if (attempt.reco_details) {
-      lines.push(`      算法: ${attempt.reco_details.algorithm || "N/A"}`);
-      lines.push(`      结果: ${JSON.stringify(attempt.reco_details.detail || {})}`);
+    const key = JSON.stringify({
+      name: attempt.name,
+      status: attempt.status,
+      algorithm: attempt.reco_details?.algorithm,
+      detail: attempt.reco_details?.detail,
+    });
+    const existing = uniqueResults.get(key);
+    if (existing) existing.count++;
+    else uniqueResults.set(key, { count: 1, first: attempt });
+  }
+
+  const lines: string[] = [`- 识别尝试次数: ${attempts.length}`];
+
+  if (uniqueResults.size === 1) {
+    const [entry] = uniqueResults.values();
+    lines.push(`  所有尝试结果相同 (${entry.count}次):`);
+    lines.push(...formatAttempt(entry.first));
+  } else {
+    lines.push("  识别尝试详情 (去重后):");
+    for (const entry of uniqueResults.values()) {
+      const countStr = entry.count > 1 ? ` (×${entry.count})` : "";
+      lines.push(...formatAttempt(entry.first, countStr));
     }
+  }
+
+  return lines;
+}
+
+function formatAttempt(attempt: { name: string; status: string; reco_details?: { algorithm?: string; detail?: unknown } }, suffix = ""): string[] {
+  const status = attempt.status === "success" ? "成功" : "失败";
+  const lines: string[] = [`    - ${attempt.name}: ${status}${suffix}`];
+  if (attempt.reco_details) {
+    lines.push(`      算法: ${attempt.reco_details.algorithm || "N/A"}`);
+    lines.push(`      结果: ${JSON.stringify(attempt.reco_details.detail || {})}`);
   }
   return lines;
 }
@@ -179,6 +323,18 @@ function buildOutputSection(): string {
     "## 输出要求",
     "请按以下 JSON 数组格式输出分析结果（只输出 JSON，不要其他内容）：",
     '[{"nodeName":"节点名","nodeId":1,"taskName":"任务名","cause":"失败原因","suggestion":"建议","confidence":0.8}]',
+    "",
+    "**分析步骤**：",
+    "1. 根据识别算法类型，参考相关文档中的常见失败原因",
+    "2. 分析识别结果中的 `best`、`filtered`、`all` 字段",
+    "3. 结合识别尝试次数和结果变化判断问题类型",
+    "4. 给出针对性的解决方案",
+    "",
+    "**格式要求**：",
+    "- `cause`: 简洁描述失败原因（1-2句话），需包含算法类型和具体失败表现",
+    "- `suggestion`: 使用分点格式，每条建议换行，用数字编号，需针对具体问题",
+    "- 示例：`\"cause\": \"OCR识别失败，best为null，filtered为空\"`",
+    "- 示例：`\"suggestion\": \"1. 检查expected参数是否正确\\n2. 确认ROI区域覆盖目标\"`",
   ].join("\n");
 }
 
@@ -205,7 +361,7 @@ export function buildAnalysisPrompt(
 ): string {
   const sections = [
     getFrameworkPrompt(),
-    buildKnowledgeSection(failedNodes),
+    buildRAGContext(failedNodes),
     buildFailedNodesSection(tasks, failedNodes),
     buildOutputSection(),
   ];
@@ -439,6 +595,7 @@ export async function analyzeWithAI(
       algorithm: n.reco_details?.algorithm,
     })),
   });
+  logger.info("完整 AI 提示词", { prompt });
 
   const { endpoint, headers, requestBody, isClaude, isGemini } = buildRequestPayload(
     config,

@@ -13,6 +13,7 @@ export default [
       "node_modules/**",
       "vscode/out/**",
       "commitlint.config.cjs",
+      "src/rag/prebuilt/knowledge.ts",
     ],
   },
   js.configs.recommended,

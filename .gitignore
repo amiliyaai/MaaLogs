@@ -35,4 +35,10 @@ coverage/
 src-tauri/keys
 src-tauri/keys.pub
 
+# Environment variables
+.env
+.env.local
+.env.*.local
 
+
+src/rag/prebuilt/.cache.json
