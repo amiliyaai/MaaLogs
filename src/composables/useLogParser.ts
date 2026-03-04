@@ -197,7 +197,7 @@ async function parseMainLogFile(
       let result;
       if (useStream) {
         // 使用流式解析
-        const content = lines.join('\n');
+        const content = lines.join("\n");
         const lineGenerator = createLineGenerator(content);
         result = await parseMainLogStream(lineGenerator, fileName);
       } else {
@@ -211,11 +211,11 @@ async function parseMainLogFile(
 
   const projectParser = projectParserRegistry.getDefault();
   if (!projectParser) return "unknown";
-  
+
   let result;
   if (useStream) {
     // 使用流式解析
-    const content = lines.join('\n');
+    const content = lines.join("\n");
     const lineGenerator = createLineGenerator(content);
     result = await parseMainLogStream(lineGenerator, fileName);
   } else {

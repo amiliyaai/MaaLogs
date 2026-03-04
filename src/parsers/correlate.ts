@@ -16,11 +16,7 @@
  */
 
 import type { AuxLogEntry, TaskInfo } from "@/types/logTypes";
-import {
-  type CorrelationConfig,
-  DEFAULT_CORRELATION_CONFIG,
-  PARSER_CONFIG,
-} from "@/config/parser";
+import { type CorrelationConfig, DEFAULT_CORRELATION_CONFIG, PARSER_CONFIG } from "@/config/parser";
 import { createLogger } from "@/utils/logger";
 
 const logger = createLogger("Correlate");
