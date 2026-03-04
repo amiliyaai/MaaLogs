@@ -11,7 +11,7 @@
  * @license MIT
  */
 
-import type { TaskInfo, NodeInfo, AuxLogEntry } from "../types/logTypes";
+import type { TaskInfo, NodeInfo, AuxLogEntry } from "@/types/logTypes";
 import { encryptSecure, decryptSecure, getStore } from "./crypto";
 import { createLogger } from "./logger";
 import {
@@ -22,7 +22,7 @@ import {
   PROVIDER_INFO,
   AI_REQUEST_CONFIG,
   MAA_KNOWLEDGE,
-} from "../config";
+} from "@/config";
 
 const logger = createLogger("AIAnalyzer");
 
@@ -46,7 +46,7 @@ export {
   PROVIDER_MODELS,
   PROVIDER_INFO,
   AI_REQUEST_CONFIG,
-} from "../config/ai";
+} from "@/config/ai";
 
 /**
  * 获取 MAA 框架系统提示词

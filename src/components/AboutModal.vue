@@ -12,8 +12,8 @@ import {
 } from "naive-ui";
 import { ref, onMounted } from "vue";
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
-import { checkForUpdate, getCurrentVersion } from "../utils/updater";
-import { getLogPath } from "../utils/logger";
+import { checkForUpdate, getCurrentVersion } from "@/utils/updater";
+import { getLogPath } from "@/utils/logger";
 
 const props = defineProps<{
   show: boolean;

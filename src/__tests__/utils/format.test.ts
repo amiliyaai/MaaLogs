@@ -22,8 +22,8 @@ import {
   formatTaskTimeParts,
   formatBox,
   formatNextName,
-} from "../../utils/format";
-import type { NextListItem } from "../../types/logTypes";
+} from "@/utils/format";
+import type { NextListItem } from "@/types/logTypes";
 
 describe("formatSize", () => {
   it("should format bytes", () => {

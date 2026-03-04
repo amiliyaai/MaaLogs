@@ -19,8 +19,8 @@ import type {
   AuxLogParserConfig,
   AuxLogParseResult,
   AuxLogParserInfo,
-} from "../../types/parserTypes";
-import { parseMainLogWithLogDir } from "../baseParser";
+} from "@/types/parserTypes";
+import { parseMainLogWithLogDir } from "@/parsers/baseParser";
 
 function splitCustomLine(
   line: string

@@ -16,7 +16,7 @@
  * @module config/parser
  */
 
-import type { ProjectType } from "../parsers/baseParser";
+import type { ProjectType } from "@/parsers/baseParser";
 
 /**
  * 项目识别模式配置

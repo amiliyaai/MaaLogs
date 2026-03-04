@@ -19,7 +19,7 @@ import type {
   JsonValue,
   NodeInfo,
   TaskInfo,
-} from "../types/logTypes";
+} from "@/types/logTypes";
 
 import { invoke } from "@tauri-apps/api/core";
 

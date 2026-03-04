@@ -7,7 +7,7 @@ import {
   type AIConfig,
   type AIProvider,
   DEFAULT_AI_CONFIG,
-} from "../utils/aiAnalyzer";
+} from "@/utils/aiAnalyzer";
 
 const props = defineProps<{
   show: boolean;

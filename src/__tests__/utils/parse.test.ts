@@ -35,8 +35,8 @@ import {
   buildFocusLogEntries,
   normalizeSearchLine,
   computeNodeStatistics,
-} from "../../utils/parse";
-import type { EventNotification } from "../../types/logTypes";
+} from "@/utils/parse";
+import type { EventNotification } from "@/types/logTypes";
 
 describe("parseAdbScreencapMethods", () => {
   it("should parse single method", () => {

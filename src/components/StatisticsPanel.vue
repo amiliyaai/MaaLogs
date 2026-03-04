@@ -40,7 +40,7 @@
  */
 import { NCard, NDivider, NInput, NSelect } from "naive-ui";
 import { DynamicScroller, DynamicScrollerItem } from "vue-virtual-scroller";
-import type { NodeStat } from "../types/logTypes";
+import type { NodeStat } from "@/types/logTypes";
 
 /**
  * 组件属性定义

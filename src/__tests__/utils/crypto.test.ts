@@ -13,7 +13,7 @@
 
 /* eslint-disable sonarjs/no-hardcoded-passwords */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { encrypt, decrypt } from "../../utils/crypto";
+import { encrypt, decrypt } from "@/utils/crypto";
 
 vi.mock("@tauri-apps/plugin-store", () => ({
   Store: {

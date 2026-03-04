@@ -11,8 +11,8 @@ import {
   NInput,
 } from "naive-ui";
 import { DynamicScroller, DynamicScrollerItem } from "vue-virtual-scroller";
-import { useStorage } from "../composables";
-import type { AuxLogEntry, PipelineCustomActionInfo } from "../types/logTypes";
+import { useStorage } from "@/composables";
+import type { AuxLogEntry, PipelineCustomActionInfo } from "@/types/logTypes";
 
 const props = defineProps<{
   auxLogs: AuxLogEntry[];

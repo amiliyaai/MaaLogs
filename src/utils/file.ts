@@ -21,9 +21,9 @@ import {
 } from "@tauri-apps/plugin-fs";
 import { join, appCacheDir } from "@tauri-apps/api/path";
 import { unzipSync } from "fflate";
-import type { SelectedFile, PipelineCustomActionInfo } from "../types/logTypes";
+import type { SelectedFile, PipelineCustomActionInfo } from "@/types/logTypes";
 import { parsePipelineCustomActions } from "./parse";
-import { FILE_CONFIG } from "../config/file";
+import { FILE_CONFIG } from "@/config/file";
 
 const LOG_FILE_PATTERN = FILE_CONFIG.logFilePattern;
 const MAX_ZIP_ENTRIES = FILE_CONFIG.maxZipEntries;

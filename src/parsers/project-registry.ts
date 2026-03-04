@@ -16,7 +16,7 @@ import type {
   ProjectParser,
   ProjectParserRegistration,
   AuxLogParserInfo,
-} from "../types/parserTypes";
+} from "@/types/parserTypes";
 
 /**
  * 项目解析器注册表类

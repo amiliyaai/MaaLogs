@@ -87,21 +87,21 @@ import { PictureFilled } from "@vicons/antd";
 import { DynamicScroller, DynamicScrollerItem } from "vue-virtual-scroller";
 import { ref, watch, onMounted } from "vue";
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { useStorage } from "../composables";
+import { useStorage } from "@/composables";
 import type {
   NodeInfo,
   NextListItem,
   TaskInfo,
   PipelineCustomActionInfo,
   AuxLogEntry,
-} from "../types/logTypes";
+} from "@/types/logTypes";
 import {
   analyzeWithAI,
   getAIConfig,
   saveAIConfig,
   type AIConfig,
   type FailureAnalysis,
-} from "../utils/aiAnalyzer";
+} from "@/utils/aiAnalyzer";
 import AISettingsModal from "./AISettingsModal.vue";
 import AIResultCard from "./AIResultCard.vue";
 import ControllerInfoCard from "./ControllerInfoCard.vue";

@@ -8,6 +8,12 @@ const host = process.env.TAURI_DEV_HOST;
 export default defineConfig(async () => ({
   plugins: [vue()],
 
+  resolve: {
+    alias: {
+      "@": "/src",
+    },
+  },
+
   test: {
     include: ["src/**/*.{test,spec}.{js,ts}"],
     exclude: ["node_modules", "src-tauri", "vscode"],

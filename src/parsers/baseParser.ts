@@ -23,8 +23,8 @@ import type {
   NextListItem,
   RecognitionDetail,
   JsonValue,
-} from "../types/logTypes";
-import type { MainLogParseResult } from "../types/parserTypes";
+} from "@/types/logTypes";
+import type { MainLogParseResult } from "@/types/parserTypes";
 import {
   parseBracketLine,
   createEventNotification,
@@ -32,8 +32,8 @@ import {
   extractLogDirectory,
   type BracketLineResult,
 } from "./shared";
-import { PROJECT_PATTERNS } from "../config/parser";
-import { createLogger } from "../utils/logger";
+import { PROJECT_PATTERNS } from "@/config/parser";
+import { createLogger } from "@/utils/logger";
 
 const logger = createLogger("BaseParser");
 

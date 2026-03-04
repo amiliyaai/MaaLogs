@@ -13,8 +13,8 @@
  */
 
 import { ref, computed, type Ref, type ComputedRef } from "vue";
-import type { TaskInfo, NodeStat } from "../types/logTypes";
-import { computeNodeStatistics } from "../utils/parse";
+import type { TaskInfo, NodeStat } from "@/types/logTypes";
+import { computeNodeStatistics } from "@/utils/parse";
 
 /**
  * 统计排序类型

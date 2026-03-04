@@ -31,9 +31,9 @@ import type {
   JsonValue,
   NestedActionNode,
   AuxLogEntry,
-} from "../types/logTypes";
+} from "@/types/logTypes";
 import { createLogger } from "./logger";
-import { parseMessageAndParams } from "../parsers/shared";
+import { parseMessageAndParams } from "@/parsers/shared";
 
 const logger = createLogger("Parse");
 

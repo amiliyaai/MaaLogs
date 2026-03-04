@@ -21,7 +21,7 @@
  */
 
 import type { Store } from "@tauri-apps/plugin-store";
-import { CRYPTO_CONFIG } from "../config/parser";
+import { CRYPTO_CONFIG } from "@/config/parser";
 
 /** 盐值长度（字节） */
 const SALT_LENGTH = 16;

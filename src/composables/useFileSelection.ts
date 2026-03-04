@@ -19,14 +19,14 @@
 
 import { ref, type Ref } from "vue";
 import { open } from "@tauri-apps/plugin-dialog";
-import type { SelectedFile } from "../types/logTypes";
+import type { SelectedFile } from "@/types/logTypes";
 import {
   applySelectedFiles as applyFiles,
   expandSelectedFiles,
   applySelectedPaths,
   isFileDrag,
-} from "../utils/file";
-import { createLogger } from "../utils/logger";
+} from "@/utils/file";
+import { createLogger } from "@/utils/logger";
 
 /**
  * 应用日志记录器

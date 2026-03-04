@@ -22,23 +22,23 @@ import type {
   SelectedFile,
   EventNotification,
   ControllerInfo,
-} from "../types/logTypes";
-import { projectParserRegistry, correlateAuxLogs, detectProject } from "../parsers";
-import { type ProjectType, parseMainLogStream, createLineGenerator } from "../parsers/baseParser";
+} from "@/types/logTypes";
+import { projectParserRegistry, correlateAuxLogs, detectProject } from "@/parsers";
+import { type ProjectType, parseMainLogStream, createLineGenerator } from "@/parsers/baseParser";
 import {
   StringPool,
   buildIdentifierRanges,
   buildTasks,
   associateControllersToTasks,
   buildFocusLogEntries,
-} from "../utils/parse";
+} from "@/utils/parse";
 import {
   parseOnErrorScreenshotsAsync,
   attachScreenshotsToTasks,
   attachScreenshotsFromSaveOnError,
-} from "../parsers/shared";
-import { isMainLog } from "../utils/file";
-import { createLogger, setLoggerContext } from "../utils/logger";
+} from "@/parsers/shared";
+import { isMainLog } from "@/utils/file";
+import { createLogger, setLoggerContext } from "@/utils/logger";
 
 const logger = createLogger("LogParser");
 

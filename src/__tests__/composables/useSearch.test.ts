@@ -13,10 +13,10 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
-import { useSearch } from "../../composables/useSearch";
-import type { RawLine, SearchResult } from "../../types/logTypes";
+import { useSearch } from "@/composables/useSearch";
+import type { RawLine, SearchResult } from "@/types/logTypes";
 
-vi.mock("../../utils/logger", () => ({
+vi.mock("@/utils/logger", () => ({
   createLogger: () => ({
     debug: vi.fn(),
     info: vi.fn(),

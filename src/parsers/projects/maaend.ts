@@ -19,9 +19,9 @@ import type {
   AuxLogParserConfig,
   AuxLogParseResult,
   AuxLogParserInfo,
-} from "../../types/parserTypes";
-import type { JsonValue } from "../../types/logTypes";
-import { parseMainLogWithLogDir } from "../baseParser";
+} from "@/types/parserTypes";
+import type { JsonValue } from "@/types/logTypes";
+import { parseMainLogWithLogDir } from "@/parsers/baseParser";
 
 interface JsonLogEntry {
   time?: string;

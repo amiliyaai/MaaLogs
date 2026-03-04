@@ -15,8 +15,8 @@
  */
 
 import { ref, type Ref } from "vue";
-import type { RawLine, SearchResult } from "../types/logTypes";
-import { createLogger } from "../utils/logger";
+import type { RawLine, SearchResult } from "@/types/logTypes";
+import { createLogger } from "@/utils/logger";
 
 /**
  * 应用日志记录器

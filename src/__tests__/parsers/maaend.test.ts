@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { parseBracketLine } from "../../parsers/shared";
+import { parseBracketLine } from "@/parsers/shared";
 import { MAAEND_LOG_SAMPLES } from "../fixtures/maaend-samples";
 
 describe("MaaEnd Event Notification Parsing", () => {

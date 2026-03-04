@@ -9,7 +9,7 @@
  * @license MIT
  */
 
-import type { TaskInfo, NodeInfo, NextListItem } from "../types/logTypes";
+import type { TaskInfo, NodeInfo, NextListItem } from "@/types/logTypes";
 
 /**
  * 将字节数转换为易读的文件大小字符串

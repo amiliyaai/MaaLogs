@@ -28,8 +28,8 @@ import {
   parseNodeRecognitionEvent,
   extractRecoDetailsFromEvent,
   parseMainLogBase,
-} from "../../parsers/baseParser";
-import { parseBracketLine } from "../../parsers/shared";
+} from "@/parsers/baseParser";
+import { parseBracketLine } from "@/parsers/shared";
 import { M9A_LOG_SAMPLES } from "../fixtures/m9a-samples";
 
 describe("createMainLogContext", () => {

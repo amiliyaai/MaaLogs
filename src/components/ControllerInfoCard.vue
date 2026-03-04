@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { NTag } from "naive-ui";
-import type { TaskInfo } from "../types/logTypes";
+import type { TaskInfo } from "@/types/logTypes";
 
 defineProps<{
   controllerInfo: NonNullable<TaskInfo["controllerInfo"]>;

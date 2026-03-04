@@ -18,7 +18,7 @@ import type {
   NextListItem,
   RecognitionAttempt,
 } from "./logTypes";
-import type { ProjectType } from "../parsers/baseParser";
+import type { ProjectType } from "@/parsers/baseParser";
 
 export type {
   AuxLogEntry,

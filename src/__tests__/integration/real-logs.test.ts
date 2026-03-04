@@ -17,8 +17,8 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { readFileSync, existsSync } from "fs";
 import { join } from "path";
-import { parseBracketLine } from "../../parsers/shared";
-import { parseMainLogBase, detectProject } from "../../parsers/baseParser";
+import { parseBracketLine } from "@/parsers/shared";
+import { parseMainLogBase, detectProject } from "@/parsers/baseParser";
 
 const docsDir = join(process.cwd(), "docs");
 

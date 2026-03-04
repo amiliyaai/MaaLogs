@@ -12,12 +12,12 @@
  */
 
 import { createApp } from "vue";
-import App from "./App.vue";
+import App from "@/App.vue";
 
 // 导入项目解析器注册相关模块
-import { projectParserRegistry } from "./parsers/project-registry";
-import { m9aProjectParser } from "./parsers/projects/m9a";
-import { maaEndProjectParser } from "./parsers/projects/maaend";
+import { projectParserRegistry } from "@/parsers/project-registry";
+import { m9aProjectParser } from "@/parsers/projects/m9a";
+import { maaEndProjectParser } from "@/parsers/projects/maaend";
 
 // 注册项目解析器
 projectParserRegistry.register(m9aProjectParser);

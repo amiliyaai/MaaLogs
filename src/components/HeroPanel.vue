@@ -33,7 +33,7 @@
 
 <script setup lang="ts">
 import { NButton, NCard, NProgress } from "naive-ui";
-import type { SelectedFile } from "../types/logTypes";
+import type { SelectedFile } from "@/types/logTypes";
 
 type ParseState = "idle" | "ready" | "parsing" | "done";
 

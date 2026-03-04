@@ -25,7 +25,7 @@
 <script setup lang="ts">
 import { NButton, NCard, NTooltip, NIcon } from "naive-ui";
 import { QuestionCircleOutlined } from "@vicons/antd";
-import type { SelectedFile } from "../types/logTypes";
+import type { SelectedFile } from "@/types/logTypes";
 import { ref } from "vue";
 
 defineProps<{

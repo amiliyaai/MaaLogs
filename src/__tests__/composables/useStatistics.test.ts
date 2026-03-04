@@ -11,10 +11,10 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
-import { useStatistics } from "../../composables/useStatistics";
-import type { TaskInfo, NodeInfo, NodeStat } from "../../types/logTypes";
+import { useStatistics } from "@/composables/useStatistics";
+import type { TaskInfo, NodeInfo, NodeStat } from "@/types/logTypes";
 
-vi.mock("../../utils/logger", () => ({
+vi.mock("@/utils/logger", () => ({
   createLogger: () => ({
     debug: vi.fn(),
     info: vi.fn(),

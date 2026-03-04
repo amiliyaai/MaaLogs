@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { m9aProjectParser } from "../../parsers/projects/m9a";
+import { m9aProjectParser } from "@/parsers/projects/m9a";
 import { M9A_LOG_SAMPLES } from "../fixtures/m9a-samples";
 
 describe("M9A Project Parser", () => {

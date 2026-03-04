@@ -55,7 +55,7 @@
  */
 import { NButton, NCard, NCheckbox, NInput, NSelect } from "naive-ui";
 import { DynamicScroller, DynamicScrollerItem } from "vue-virtual-scroller";
-import type { SearchResult } from "../types/logTypes";
+import type { SearchResult } from "@/types/logTypes";
 
 /**
  * 组件属性定义

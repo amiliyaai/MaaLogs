@@ -11,9 +11,9 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { correlateAuxLogsWithTasks } from "../../parsers/correlate";
-import { DEFAULT_CORRELATION_CONFIG } from "../../config/parser";
-import type { AuxLogEntry, TaskInfo } from "../../types/logTypes";
+import { correlateAuxLogsWithTasks } from "@/parsers/correlate";
+import { DEFAULT_CORRELATION_CONFIG } from "@/config/parser";
+import type { AuxLogEntry, TaskInfo } from "@/types/logTypes";
 
 function createMockTask(overrides: Partial<TaskInfo> = {}): TaskInfo {
   return {
