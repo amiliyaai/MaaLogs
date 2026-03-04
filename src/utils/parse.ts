@@ -1517,6 +1517,7 @@ type TaskNodeBuildContext = {
   nodes: NodeInfo[];
   nodeIdSet: Set<number>;
   recognitionAttempts: RecognitionAttempt[];
+  recognitionIdSet: Set<number>; // 用于识别尝试去重
   nestedNodes: RecognitionAttempt[];
   nestedActionNodes: NestedActionNode[];
   currentNextList: NextListItem[];
@@ -1624,11 +1625,19 @@ function updateRecognitionAttempts(
   timestamp: string
 ) {
   if (message !== "Node.Recognition.Succeeded" && message !== "Node.Recognition.Failed") return;
+
+  const recoId = coerceId(details.reco_id);
+  if (recoId === undefined) return;
+
+  // 去重：跳过已处理的识别 ID
+  if (context.recognitionIdSet.has(recoId)) return;
+  context.recognitionIdSet.add(recoId);
+
   if (eventTaskId === context.task.task_id) {
     const recoDetails = details.reco_details as RecognitionDetail | undefined;
     const recoName = coerceString(details.name) || coerceString(details.node_name);
     context.recognitionAttempts.push({
-      reco_id: coerceId(details.reco_id),
+      reco_id: recoId,
       name: context.stringPool.intern(recoName),
       timestamp: context.stringPool.intern(timestamp),
       status: message === "Node.Recognition.Succeeded" ? "success" : "failed",
@@ -1642,7 +1651,7 @@ function updateRecognitionAttempts(
   const recoDetails = details.reco_details as RecognitionDetail | undefined;
   const recoName = coerceString(details.name) || coerceString(details.node_name);
   const attempt: RecognitionAttempt = {
-    reco_id: coerceId(details.reco_id),
+    reco_id: recoId,
     name: context.stringPool.intern(recoName),
     timestamp: context.stringPool.intern(timestamp),
     status: message === "Node.Recognition.Succeeded" ? "success" : "failed",
@@ -1857,6 +1866,7 @@ function buildTaskNodes(
   const taskEvents = events.slice(startIndex, endIndex + 1);
 
   const recognitionAttempts: RecognitionAttempt[] = [];
+  const recognitionIdSet = new Set<number>(); // 用于识别尝试去重
   const nestedNodes: RecognitionAttempt[] = [];
   const nestedActionNodes: NestedActionNode[] = [];
   const recognitionsByTaskId = new Map<number, RecognitionAttempt[]>();
@@ -1869,6 +1879,7 @@ function buildTaskNodes(
     nodes,
     nodeIdSet,
     recognitionAttempts,
+    recognitionIdSet,
     nestedNodes,
     nestedActionNodes,
     currentNextList: [],
