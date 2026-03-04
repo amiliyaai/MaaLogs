@@ -480,3 +480,85 @@ export function parseMainLogWithLogDir(lines: string[], fileName: string): MainL
     saveOnErrorRawLines: context.saveOnErrorRawLines,
   };
 }
+
+/**
+ * 流式解析主日志（适用于大文件）
+ *
+ * 逐行读取和解析日志文件，避免一次性加载全部内容到内存。
+ * 适用于大型日志文件（10MB+）的解析。
+ *
+ * @param lineGenerator - 日志行生成器，每次调用 next() 返回一行日志
+ * @param fileName - 日志文件名
+ * @returns 完整的解析结果，包含事件、控制器、信息映射和日志目录
+ */
+export async function parseMainLogStream(
+  lineGenerator: AsyncGenerator<string>,
+  fileName: string
+): Promise<MainLogParseResult> {
+  const startTime = performance.now();
+  const context = createMainLogContext();
+  let lineNumber = 1;
+  const linesForDir: string[] = [];
+
+  logger.debug("开始流式解析主日志", { fileName });
+
+  try {
+    for await (const line of lineGenerator) {
+      const rawLine = line.trim();
+      if (!rawLine) continue;
+
+      // 收集前 100 行用于提取日志目录
+      if (linesForDir.length < 100) {
+        linesForDir.push(rawLine);
+      }
+
+      const parsed = parseBracketLine(rawLine);
+      handleMainLogLine(context, rawLine, parsed, fileName, lineNumber);
+      lineNumber++;
+    }
+
+    if (context.detectedProject === "unknown") {
+      context.detectedProject = detectProject(linesForDir);
+    }
+
+    const duration = performance.now() - startTime;
+    logger.info("主日志流式解析完成", {
+      fileName,
+      totalLines: lineNumber - 1,
+      eventsCount: context.events.length,
+      controllersCount: context.controllers.length,
+      identifierMapSize: context.identifierMap.size,
+      detectedProject: context.detectedProject,
+      saveOnErrorLines: context.saveOnErrorRawLines.length,
+      durationMs: Math.round(duration),
+    });
+
+    return {
+      events: context.events,
+      controllers: context.controllers,
+      identifierMap: context.identifierMap,
+      detectedProject: context.detectedProject,
+      _logDir: extractLogDirectory(linesForDir),
+      saveOnErrorRawLines: context.saveOnErrorRawLines,
+    };
+  } catch (error) {
+    logger.error("流式解析主日志失败", { fileName, error });
+    throw error;
+  }
+}
+
+/**
+ * 从字符串创建行生成器
+ *
+ * 将字符串按换行符分割，生成逐行的异步生成器。
+ * 适用于从内存中的字符串创建流式解析的输入。
+ *
+ * @param content - 日志内容字符串
+ * @returns 异步行生成器
+ */
+export async function* createLineGenerator(content: string): AsyncGenerator<string> {
+  const lines = content.split(/\r?\n/);
+  for (const line of lines) {
+    yield line;
+  }
+}
