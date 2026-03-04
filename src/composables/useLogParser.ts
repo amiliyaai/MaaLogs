@@ -24,7 +24,7 @@ import type {
   ControllerInfo,
 } from "../types/logTypes";
 import { projectParserRegistry, correlateAuxLogs, detectProject } from "../parsers";
-import { type ProjectType } from "../parsers/baseParser";
+import { type ProjectType, parseMainLogStream, createLineGenerator } from "../parsers/baseParser";
 import {
   StringPool,
   buildIdentifierRanges,
@@ -66,7 +66,7 @@ function mergeMultilineLogs(lines: string[]): string[] {
   return merged;
 }
 
-type FileLineEntry = { file: SelectedFile; lines: string[] };
+type FileLineEntry = { file: SelectedFile; lines: string[]; size: number };
 
 type ParseCollections = {
   events: EventNotification[];
@@ -126,7 +126,7 @@ async function readSelectedFiles(
     const text = await file.file.text();
     const rawLines = text.split(/\r?\n/);
     const lines = mergeMultilineLogs(rawLines);
-    fileLines.push({ file, lines });
+    fileLines.push({ file, lines, size: file.size });
     totalLines += lines.length;
 
     const fileDuration = performance.now() - fileStartTime;
@@ -176,19 +176,34 @@ function mergeMainLogResult(
   collections.saveOnErrorRawLines.push(...result.saveOnErrorRawLines);
 }
 
-function parseMainLogFile(
+async function parseMainLogFile(
   collections: ParseCollections,
   lines: string[],
-  fileName: string
-): ProjectType {
+  fileName: string,
+  fileSize: number
+): Promise<ProjectType> {
   const detected = detectProject(lines);
   logger.info("开始解析主日志文件", { fileName, detected });
   console.log("检测到项目类型：" + detected);
 
+  // 大文件（超过 5MB）使用流式解析
+  const STREAM_THRESHOLD_BYTES = 5 * 1024 * 1024; // 5MB
+  const useStream = fileSize > STREAM_THRESHOLD_BYTES;
+  logger.info(useStream ? "使用流式解析" : "使用传统解析", { fileSize, linesCount: lines.length });
+
   if (detected !== "unknown") {
     const parser = getProjectParser(detected);
     if (parser) {
-      const result = parser.parseMainLog(lines, { fileName });
+      let result;
+      if (useStream) {
+        // 使用流式解析
+        const content = lines.join('\n');
+        const lineGenerator = createLineGenerator(content);
+        result = await parseMainLogStream(lineGenerator, fileName);
+      } else {
+        // 使用传统解析
+        result = parser.parseMainLog(lines, { fileName });
+      }
       mergeMainLogResult(collections, result);
       return detected;
     }
@@ -196,7 +211,17 @@ function parseMainLogFile(
 
   const projectParser = projectParserRegistry.getDefault();
   if (!projectParser) return "unknown";
-  const result = projectParser.parseMainLog(lines, { fileName });
+  
+  let result;
+  if (useStream) {
+    // 使用流式解析
+    const content = lines.join('\n');
+    const lineGenerator = createLineGenerator(content);
+    result = await parseMainLogStream(lineGenerator, fileName);
+  } else {
+    // 使用传统解析
+    result = projectParser.parseMainLog(lines, { fileName });
+  }
   mergeMainLogResult(collections, result);
   return result.detectedProject || "unknown";
 }
@@ -220,14 +245,14 @@ interface FileParseProgress {
   detectedProjectType: ProjectType;
 }
 
-function processFileEntries(
+async function processFileEntries(
   collections: ParseCollections,
-  fileLines: { file: SelectedFile; lines: string[] }[],
+  fileLines: FileLineEntry[],
   onProgress: (percentage: number) => void
-): FileParseProgress {
+): Promise<FileParseProgress> {
   const startTime = performance.now();
-  const mainLogEntries: { file: SelectedFile; lines: string[] }[] = [];
-  const auxLogEntries: { file: SelectedFile; lines: string[] }[] = [];
+  const mainLogEntries: FileLineEntry[] = [];
+  const auxLogEntries: FileLineEntry[] = [];
 
   for (const entry of fileLines) {
     if (isMainLog(entry.file.name)) {
@@ -251,10 +276,10 @@ function processFileEntries(
   logger.info("开始解析主日志文件", { count: mainLogEntries.length });
 
   for (const entry of mainLogEntries) {
-    const { file, lines } = entry;
+    const { file, lines, size } = entry;
     const fileStartTime = performance.now();
     collectRawLines(collections.allLines, file.name, lines);
-    const detected = parseMainLogFile(collections, lines, file.name);
+    const detected = await parseMainLogFile(collections, lines, file.name, size);
     if (detected !== "unknown") {
       detectedProjectType = detected;
     }
@@ -511,7 +536,7 @@ export function useLogParser(_config: LogParserConfig = {}): LogParserResult {
       const { fileLines, totalLines } = await readSelectedFiles(selectedFiles.value);
       logger.info("文件读取完成，开始解析", { totalLines });
 
-      const progress = processFileEntries(collections, fileLines, (percentage) => {
+      const progress = await processFileEntries(collections, fileLines, (percentage) => {
         parseProgress.value = percentage;
         statusMessage.value = `解析中… ${percentage}%`;
       });
