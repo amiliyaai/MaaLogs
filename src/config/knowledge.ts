@@ -1,8 +1,8 @@
 /**
- * @fileoverview MAA 框架知识库配置
+ * @fileoverview MAA 框架知识库
  *
  * 包含识别算法、动作类型、控制器等相关知识
- * 用于 AI 分析时的检索增强
+ * 用于 AI 分析时的参考
  *
  * @module config/knowledge
  */
@@ -79,12 +79,14 @@ export const MAA_KNOWLEDGE: MAAKnowledgeBase = {
         "文字模糊不清晰",
         "字体不支持或语言包缺失",
         "expected 参数设置错误",
+        "best 为 null，filtered 为空数组",
       ],
       suggestions: [
         "检查文字是否存在",
         "提高截图质量/分辨率",
         "尝试其他 OCR 参数",
         "确认 expected 文字是否正确",
+        "检查 ROI 区域是否正确",
       ],
     },
     NeuralNetworkClassify: {

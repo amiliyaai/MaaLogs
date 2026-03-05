@@ -22,178 +22,47 @@ import {
   PROVIDER_INFO,
   AI_REQUEST_CONFIG,
 } from "@/config";
-import { prebuiltKnowledge } from "@/rag/prebuilt/knowledge";
-import type { RetrievalResult } from "@/rag/types";
+import { MAA_KNOWLEDGE } from "@/config/knowledge";
 
 const logger = createLogger("AIAnalyzer");
 
-function keywordMatchScore(text: string, query: string, metadata?: { title?: string; source?: string }): number {
-  const textLower = text.toLowerCase();
-  const queryLower = query.toLowerCase();
-  const queryTerms = queryLower.split(/\s+/).filter((t) => t.length > 1);
-
-  let score = 0;
-
-  if (metadata?.title) {
-    const titleLower = metadata.title.toLowerCase();
-    if (titleLower === queryLower) {
-      score += 1.0;
-    } else if (titleLower.includes(queryLower)) {
-      score += 0.9;
-    }
-    for (const term of queryTerms) {
-      if (titleLower.includes(term)) {
-        score += 0.15;
-      }
-    }
-  }
-
-  if (textLower.includes(queryLower)) {
-    score += 0.6;
-  }
-
-  for (const term of queryTerms) {
-    if (textLower.includes(term)) {
-      score += 0.08;
-    }
-  }
-
-  if (metadata?.source === "文档" || metadata?.source === "knowledge-base") {
-    score += 0.1;
-  }
-
-  const textLength = text.length;
-  if (textLength > 500) {
-    score += 0.05;
-  }
-
-  return Math.min(score, 1);
-}
-
-function retrieveFromKnowledge(query: string, topK = 3, minScore = 0.1): RetrievalResult[] {
-  const results: RetrievalResult[] = [];
-
-  for (const chunk of prebuiltKnowledge.chunks) {
-    const score = keywordMatchScore(chunk.text, query, chunk.metadata);
-    if (score >= minScore) {
-      results.push({ chunk, score });
-    }
-  }
-
-  results.sort((a, b) => b.score - a.score);
-  return results.slice(0, topK);
-}
-
-function extractDetailKeywords(detail: Record<string, unknown>): string[] {
-  const keywords: string[] = [];
-  if (detail.best === null) keywords.push("识别结果为空 best null");
-  if (detail.filtered && Array.isArray(detail.filtered) && detail.filtered.length === 0) {
-    keywords.push("过滤后无结果 filtered empty");
-  }
-  if (detail.all && Array.isArray(detail.all)) {
-    const texts = detail.all
-      .filter((item): item is { text: string } => typeof item?.text === "string")
-      .map((item) => item.text);
-    if (texts.length > 0) {
-      keywords.push(`识别到文字: ${texts.join(", ")}`);
-    }
-  }
-  return keywords;
-}
-
-function extractAttemptKeywords(
-  attempt: { name: string; reco_details?: { algorithm?: string; detail?: unknown } },
-  nodeName?: string
+function formatKnowledgeItem(
+  type: "recognition" | "action",
+  name: string,
+  knowledge: { desc: string; failures?: string[]; suggestions?: string[] }
 ): string[] {
-  const keywords: string[] = [];
-  if (attempt.reco_details?.algorithm) {
-    keywords.push(attempt.reco_details.algorithm);
-    keywords.push(`${attempt.reco_details.algorithm} 识别失败`);
+  const sections: string[] = [];
+  sections.push(`### ${name} ${type === "recognition" ? "识别" : "动作"}`);
+  sections.push(knowledge.desc);
+  if (knowledge.failures?.length) {
+    sections.push(`**常见失败原因**: ${knowledge.failures.join(", ")}`);
   }
-  if (attempt.reco_details?.detail) {
-    keywords.push(...extractDetailKeywords(attempt.reco_details.detail as Record<string, unknown>));
+  if (knowledge.suggestions?.length) {
+    sections.push(`**建议**: ${knowledge.suggestions.join(", ")}`);
   }
-  if (nodeName && attempt.name) {
-    keywords.push(`${nodeName} ${attempt.name}`);
-  }
-  return keywords;
+  return sections;
 }
 
-function extractNodeKeywords(node: NodeInfo): string[] {
-  const keywords: string[] = [];
+function buildKnowledgeContext(failedNodes: NodeInfo[]): string {
+  const sections: string[] = [];
 
-  if (node.name) {
-    keywords.push(node.name);
+  for (const node of failedNodes) {
+    const algorithm = node.reco_details?.algorithm;
+    const action = node.action_details?.action;
+
+    if (algorithm && MAA_KNOWLEDGE.recognition[algorithm]) {
+      sections.push(...formatKnowledgeItem("recognition", algorithm, MAA_KNOWLEDGE.recognition[algorithm]));
+      sections.push("");
+    }
+
+    if (action && MAA_KNOWLEDGE.actions[action]) {
+      sections.push(...formatKnowledgeItem("action", action, MAA_KNOWLEDGE.actions[action]));
+      sections.push("");
+    }
   }
 
-  if (node.reco_details?.algorithm) {
-    keywords.push(node.reco_details.algorithm);
-    keywords.push(`${node.reco_details.algorithm} 识别失败`);
-  }
-  if (node.action_details?.action) {
-    keywords.push(node.action_details.action);
-  }
-  if (node.reco_details?.detail) {
-    keywords.push(...extractDetailKeywords(node.reco_details.detail as Record<string, unknown>));
-  }
-  if (node.recognition_attempts) {
-    keywords.push(
-      ...node.recognition_attempts.flatMap((a) => extractAttemptKeywords(a, node.name))
-    );
-  }
-
-  return keywords;
-}
-
-function buildRAGContext(failedNodes: NodeInfo[]): string {
-  const queries = failedNodes.flatMap(extractNodeKeywords);
-  const uniqueQueries = [...new Set(queries)].filter((q) => q.length > 2);
-  logger.debug("RAG 检索关键词", { queries: uniqueQueries });
-
-  const allResults: RetrievalResult[] = [];
-
-  for (const query of uniqueQueries.slice(0, 10)) {
-    const results = retrieveFromKnowledge(query, 5, 0.15);
-    logger.debug("RAG 检索结果", {
-      query,
-      resultsCount: results.length,
-      topScore: results[0]?.score || 0,
-    });
-    allResults.push(...results);
-  }
-
-  const seen = new Set<string>();
-  const uniqueResults = allResults
-    .filter((r) => {
-      if (seen.has(r.chunk.id)) return false;
-      seen.add(r.chunk.id);
-      return true;
-    })
-    .sort((a, b) => b.score - a.score);
-
-  logger.info("RAG 检索完成", {
-    关键词数量: uniqueQueries.length,
-    检索结果: allResults.length,
-    去重后: uniqueResults.length,
-    最终采用: Math.min(uniqueResults.length, 12),
-    分数分布: uniqueResults.slice(0, 12).map((r) => ({
-      标题: r.chunk.metadata.title || r.chunk.metadata.source,
-      分数: r.score.toFixed(2),
-    })),
-  });
-
-  if (uniqueResults.length === 0) return "";
-
-  const sections: string[] = ["## 相关文档参考"];
-  for (const result of uniqueResults.slice(0, 12)) {
-    sections.push(`\n### ${result.chunk.metadata.title || result.chunk.metadata.source}`);
-    sections.push(`来源: ${result.chunk.metadata.source}`);
-    sections.push(`相关性: ${(result.score * 100).toFixed(0)}%`);
-    const preview = result.chunk.text.slice(0, 300);
-    sections.push(`内容: ${preview}${preview.length >= 300 ? "..." : ""}`);
-  }
-
-  return sections.join("\n");
+  if (sections.length === 0) return "";
+  return "## 相关知识参考\n\n" + sections.join("\n");
 }
 
 /**
@@ -361,7 +230,7 @@ export function buildAnalysisPrompt(
 ): string {
   const sections = [
     getFrameworkPrompt(),
-    buildRAGContext(failedNodes),
+    buildKnowledgeContext(failedNodes),
     buildFailedNodesSection(tasks, failedNodes),
     buildOutputSection(),
   ];
@@ -587,14 +456,14 @@ export async function analyzeWithAI(
 
   const currentApiKey = getApiKey(config);
   const prompt = buildAnalysisPrompt(tasks, failedNodes, auxLogs);
-  logger.debug("分析提示词构建完成", {
+
+  logger.info("AI 分析准备", {
     promptLength: prompt.length,
-    failedNodesDetails: failedNodes.map((n) => ({
-      name: n.name,
-      nodeId: n.node_id,
-      algorithm: n.reco_details?.algorithm,
-    })),
+    failedNodesCount: failedNodes.length,
+    provider: config.provider,
+    model: config.model,
   });
+
   logger.info("完整 AI 提示词", { prompt });
 
   const { endpoint, headers, requestBody, isClaude, isGemini } = buildRequestPayload(
