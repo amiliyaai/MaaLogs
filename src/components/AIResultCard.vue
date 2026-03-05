@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { NTag } from "naive-ui";
-import type { FailureAnalysis } from "@/utils/aiAnalyzer";
+import type { FailureAnalysis, AIAnalysisStats } from "@/utils/aiAnalyzer";
 
 defineProps<{
   results: FailureAnalysis[];
   error?: string;
+  stats?: AIAnalysisStats;
 }>();
 
 function formatSuggestion(text: string): string {
@@ -26,6 +27,9 @@ function formatSuggestion(text: string): string {
   <div v-if="results.length > 0 || error" class="detail-section-card">
     <div class="detail-section-header">
       <div class="detail-section-title">AI 分析结果</div>
+      <n-tag v-if="stats" size="tiny" type="info">
+        {{ stats.totalTokens }} tokens
+      </n-tag>
     </div>
     <div v-if="error" class="ai-error">
       {{ error }}
@@ -40,7 +44,7 @@ function formatSuggestion(text: string): string {
               result.confidence > 0.7 ? 'success' : result.confidence > 0.4 ? 'warning' : 'error'
             "
           >
-            {{ Math.round(result.confidence * 100) }}%
+            置信度：{{ Math.round(result.confidence * 100) }}%
           </n-tag>
         </div>
         <div class="ai-result-cause">
@@ -94,6 +98,7 @@ function formatSuggestion(text: string): string {
 .cause-content {
   margin-top: 4px;
   padding-left: 0.5em;
+  white-space: pre-line;
 }
 
 .ai-result-suggestion {

@@ -43,22 +43,103 @@ function formatKnowledgeItem(
   return sections;
 }
 
-function buildKnowledgeContext(failedNodes: NodeInfo[]): string {
+function getRecognitionKnowledge(algorithm: string, addedKnowledge: Set<string>): string[] {
+  if (!MAA_KNOWLEDGE.recognition[algorithm] || addedKnowledge.has(algorithm)) return [];
+  addedKnowledge.add(algorithm);
+  return formatKnowledgeItem("recognition", algorithm, MAA_KNOWLEDGE.recognition[algorithm]);
+}
+
+function extractExpectedParam(node: NodeInfo): string | null {
+  const detail = node.reco_details?.detail;
+  if (!detail || typeof detail !== "object") return null;
+  const d = detail as Record<string, unknown>;
+  if (typeof d.expected === "string") return d.expected;
+  if (Array.isArray(d.expected) && d.expected.length > 0) return d.expected[0];
+  return null;
+}
+
+function getExpectedKnowledge(
+  failedNodes: NodeInfo[],
+  addedKnowledge: Set<string>,
+  expectedParams?: Map<string, string[]>
+): string[] {
+  if (addedKnowledge.has("expected")) return [];
+
+  const expectedValues: string[] = [];
+
+  for (const node of failedNodes) {
+    const nodeName = node.name || node.reco_details?.name;
+    if (!nodeName || !expectedParams) continue;
+
+    const cachedExpected = expectedParams.get(nodeName);
+    if (cachedExpected && cachedExpected.length > 0) {
+      expectedValues.push(...cachedExpected);
+    }
+  }
+
+  const fromDetail = failedNodes
+    .map((n) => extractExpectedParam(n))
+    .filter((v): v is string => v !== null);
+  expectedValues.push(...fromDetail);
+
+  if (expectedValues.length === 0) return [];
+  addedKnowledge.add("expected");
+  const uniqueExpected = [...new Set(expectedValues)];
+  const sections = ["### 🔤 OCR expected 参数"];
+  sections.push(`**预期文字**: \`${uniqueExpected.join(" | ")}\``);
+  sections.push("> 💡 提示: 检查 expected 参数是否与实际界面文字完全匹配，注意大小写和空格");
+  return sections;
+}
+
+function getActionKnowledge(action: string, addedKnowledge: Set<string>): string[] {
+  if (!MAA_KNOWLEDGE.actions[action] || addedKnowledge.has(action)) return [];
+  addedKnowledge.add(action);
+  return formatKnowledgeItem("action", action, MAA_KNOWLEDGE.actions[action]);
+}
+
+function hasConnectionIssue(failedNodes: NodeInfo[]): boolean {
+  return failedNodes.some(
+    (n) => n.reco_details?.detail && JSON.stringify(n.reco_details.detail).includes("connection")
+  );
+}
+
+function getConnectionKnowledge(failedNodes: NodeInfo[], addedKnowledge: Set<string>): string[] {
+  const common = MAA_KNOWLEDGE.common?.connection;
+  if (!common || addedKnowledge.has("connection") || !hasConnectionIssue(failedNodes)) return [];
+  addedKnowledge.add("connection");
+  const sections = ["### 连接问题"];
+  if (common.failures?.length) sections.push(`**常见原因**: ${common.failures.join(", ")}`);
+  if (common.suggestions?.length) sections.push(`**建议**: ${common.suggestions.join(", ")}`);
+  return sections;
+}
+
+function buildKnowledgeContext(failedNodes: NodeInfo[], expectedParams?: Map<string, string[]>): string {
   const sections: string[] = [];
+  const addedKnowledge = new Set<string>();
 
   for (const node of failedNodes) {
     const algorithm = node.reco_details?.algorithm;
     const action = node.action_details?.action;
 
-    if (algorithm && MAA_KNOWLEDGE.recognition[algorithm]) {
-      sections.push(...formatKnowledgeItem("recognition", algorithm, MAA_KNOWLEDGE.recognition[algorithm]));
-      sections.push("");
+    const recoSections = getRecognitionKnowledge(algorithm || "", addedKnowledge);
+    if (recoSections.length) {
+      sections.push(...recoSections, "");
     }
 
-    if (action && MAA_KNOWLEDGE.actions[action]) {
-      sections.push(...formatKnowledgeItem("action", action, MAA_KNOWLEDGE.actions[action]));
-      sections.push("");
+    const actionSections = getActionKnowledge(action || "", addedKnowledge);
+    if (actionSections.length) {
+      sections.push(...actionSections, "");
     }
+  }
+
+  const connSections = getConnectionKnowledge(failedNodes, addedKnowledge);
+  if (connSections.length) {
+    sections.push(...connSections, "");
+  }
+
+  const expectedSections = getExpectedKnowledge(failedNodes, addedKnowledge, expectedParams);
+  if (expectedSections.length) {
+    sections.push(...expectedSections, "");
   }
 
   if (sections.length === 0) return "";
@@ -75,6 +156,12 @@ export interface FailureAnalysis {
   cause: string;
   suggestion: string;
   confidence: number;
+}
+
+export interface AIAnalysisStats {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
 }
 
 export type { AIProvider, AIConfig };
@@ -117,6 +204,12 @@ function buildNodeFailureSection(tasks: TaskInfo[], node: NodeInfo): string[] {
   const task = tasks.find((t) => t.task_id === node.task_id);
   const lines: string[] = [];
   lines.push(`\n### 节点: ${node.name} (ID: ${node.node_id})`);
+
+  const prevNodes = getPrevNodes(task, node);
+  if (prevNodes.length > 0) {
+    lines.push(`- 前置节点: ${formatPrevNodes(prevNodes)}`);
+  }
+
   lines.push(`- 任务: ${task?.entry || "Unknown"}`);
   lines.push(`- 识别算法: ${node.reco_details?.algorithm || "N/A"}`);
   lines.push(`- 识别结果: ${JSON.stringify(node.reco_details?.detail || {})}`);
@@ -126,6 +219,17 @@ function buildNodeFailureSection(tasks: TaskInfo[], node: NodeInfo): string[] {
   lines.push(...buildRecognitionAttemptsSection(node.recognition_attempts));
   lines.push(...buildNestedRecognitionSection(node.nested_recognition_in_action));
   return lines;
+}
+
+function getPrevNodes(task: TaskInfo | undefined, node: NodeInfo): NodeInfo[] {
+  if (!task?.nodes) return [];
+  const nodeIndex = task.nodes.findIndex((n) => n.node_id === node.node_id);
+  if (nodeIndex <= 0) return [];
+  return task.nodes.slice(Math.max(0, nodeIndex - 3), nodeIndex);
+}
+
+function formatPrevNodes(prevNodes: NodeInfo[]): string {
+  return prevNodes.map((n) => `${n.name}(${n.status})`).join(" -> ");
 }
 
 function buildRecognitionAttemptsSection(attempts?: NodeInfo["recognition_attempts"]): string[] {
@@ -196,14 +300,16 @@ function buildOutputSection(): string {
     "**分析步骤**：",
     "1. 根据识别算法类型，参考相关文档中的常见失败原因",
     "2. 分析识别结果中的 `best`、`filtered`、`all` 字段",
-    "3. 结合识别尝试次数和结果变化判断问题类型",
-    "4. 给出针对性的解决方案",
+    "3. 如果有 expected 参数，必须在原因中单独一行说明",
+    "4. 结合识别尝试次数和结果变化判断问题类型",
+    "5. 给出针对性的解决方案",
     "",
-    "**格式要求**：",
-    "- `cause`: 简洁描述失败原因（1-2句话），需包含算法类型和具体失败表现",
-    "- `suggestion`: 使用分点格式，每条建议换行，用数字编号，需针对具体问题",
-    "- 示例：`\"cause\": \"OCR识别失败，best为null，filtered为空\"`",
-    "- 示例：`\"suggestion\": \"1. 检查expected参数是否正确\\n2. 确认ROI区域覆盖目标\"`",
+    "**格式要求（必须严格遵守）**：",
+    "- `cause` 使用分点格式，每条换行，用数字或 - 开头",
+    "- `cause` 中如果有 expected，必须单独一点（格式：expected = 'xxx'）",
+    "- `cause` 示例：`\"cause\": \"1. OCR识别失败\\n2. expected = “确认”\\n3. best为null，filtered为空\"`",
+    "- `suggestion`: 使用分点格式，每条建议换行，用数字编号",
+    "- `suggestion` 示例：`\"suggestion\": \"1. 检查expected参数是否正确\\n2. 确认ROI区域覆盖目标\"`",
   ].join("\n");
 }
 
@@ -226,17 +332,36 @@ function buildAuxLogsSection(failedNodes: NodeInfo[], auxLogs?: AuxLogEntry[]): 
 export function buildAnalysisPrompt(
   tasks: TaskInfo[],
   failedNodes: NodeInfo[],
-  auxLogs?: AuxLogEntry[]
+  auxLogs?: AuxLogEntry[],
+  expectedParams?: Map<string, string[]>
 ): string {
   const sections = [
     getFrameworkPrompt(),
-    buildKnowledgeContext(failedNodes),
+    buildExpectedContextSection(failedNodes, expectedParams),
+    buildKnowledgeContext(failedNodes, expectedParams),
     buildFailedNodesSection(tasks, failedNodes),
     buildOutputSection(),
   ];
   const auxLogsSection = buildAuxLogsSection(failedNodes, auxLogs);
   if (auxLogsSection) sections.push(auxLogsSection);
   return sections.join("\n\n") + "\n";
+}
+
+function buildExpectedContextSection(failedNodes: NodeInfo[], expectedParams?: Map<string, string[]>): string {
+  const allExpected: string[] = [];
+
+  for (const node of failedNodes) {
+    const nodeName = node.name || node.reco_details?.name;
+    if (!nodeName || !expectedParams) continue;
+
+    const cachedExpected = expectedParams.get(nodeName);
+    if (cachedExpected && cachedExpected.length > 0) {
+      allExpected.push(`- **${nodeName}** → \`${cachedExpected.join(" | ")}\``);
+    }
+  }
+
+  if (allExpected.length === 0) return "";
+  return `## 🎯 Expected 参数\n\n${allExpected.join("\n")}\n\n> ⚠️ 请重点检查 expected 参数是否与实际界面文字完全匹配`;
 }
 
 function getProviderFlags(provider: AIProvider): { isClaude: boolean; isGemini: boolean } {
@@ -431,13 +556,15 @@ export async function saveAIConfig(config: AIConfig): Promise<void> {
  * @param config - AI 配置
  * @param tasks - 任务列表
  * @param auxLogs - 附加日志（可选）
+ * @param expectedParams - OCR expected 参数缓存
  * @returns 失败分析结果列表
  */
 export async function analyzeWithAI(
   config: AIConfig,
   tasks: TaskInfo[],
-  auxLogs?: AuxLogEntry[]
-): Promise<FailureAnalysis[]> {
+  auxLogs?: AuxLogEntry[],
+  expectedParams?: Map<string, string[]>
+): Promise<{ results: FailureAnalysis[]; stats: AIAnalysisStats }> {
   const startTime = performance.now();
   const failedNodes = tasks.flatMap((t) => t.nodes).filter((n) => n.status === "failed");
 
@@ -455,7 +582,7 @@ export async function analyzeWithAI(
   }
 
   const currentApiKey = getApiKey(config);
-  const prompt = buildAnalysisPrompt(tasks, failedNodes, auxLogs);
+  const prompt = buildAnalysisPrompt(tasks, failedNodes, auxLogs, expectedParams);
 
   logger.info("AI 分析准备", {
     promptLength: prompt.length,
@@ -501,13 +628,21 @@ export async function analyzeWithAI(
 
     const result = await response.json();
     const content = extractProviderContent(result, isClaude, isGemini);
+    const tokenUsage = extractTokenUsage(result, isClaude, isGemini);
+
     logger.debug("AI 响应接收完成", {
       contentLength: content?.length || 0,
       requestDurationMs: Math.round(requestDuration),
+      ...tokenUsage,
     });
 
     const analysisResults = parseAIResponse(content || "", failedNodes);
     const totalDuration = performance.now() - startTime;
+    const stats: AIAnalysisStats = {
+      promptTokens: tokenUsage.promptTokens || 0,
+      completionTokens: tokenUsage.completionTokens || 0,
+      totalTokens: tokenUsage.totalTokens || 0,
+    };
 
     logger.info("AI 分析完成", {
       resultsCount: analysisResults.length,
@@ -522,7 +657,7 @@ export async function analyzeWithAI(
           : 0,
     });
 
-    return analysisResults;
+    return { results: analysisResults, stats };
   } catch (error) {
     const totalDuration = performance.now() - startTime;
     logger.error("AI 分析失败", {
@@ -556,6 +691,35 @@ function extractProviderContent(
   }
   return (result as { choices?: { message?: { content?: string } }[] }).choices?.[0]?.message
     ?.content;
+}
+
+function extractTokenUsage(
+  result: Record<string, unknown>,
+  isClaude: boolean,
+  isGemini: boolean
+): { promptTokens?: number; completionTokens?: number; totalTokens?: number } {
+  if (isClaude) {
+    const usage = result as { usage?: { input_tokens?: number; output_tokens?: number } };
+    return {
+      promptTokens: usage.usage?.input_tokens,
+      completionTokens: usage.usage?.output_tokens,
+      totalTokens: (usage.usage?.input_tokens || 0) + (usage.usage?.output_tokens || 0),
+    };
+  }
+  if (isGemini) {
+    const usage = result as { usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number } };
+    return {
+      promptTokens: usage.usageMetadata?.promptTokenCount,
+      completionTokens: usage.usageMetadata?.candidatesTokenCount,
+      totalTokens: usage.usageMetadata?.totalTokenCount,
+    };
+  }
+  const usage = result as { usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } };
+  return {
+    promptTokens: usage.usage?.prompt_tokens,
+    completionTokens: usage.usage?.completion_tokens,
+    totalTokens: usage.usage?.total_tokens,
+  };
 }
 
 function extractJsonArrayText(content: string): string | null {

@@ -77,6 +77,7 @@ type ParseCollections = {
   logDir?: string;
   baseDir?: string;
   saveOnErrorRawLines: string[];
+  expectedParams: Map<string, string[]>;
 };
 
 async function attachScreenshotsToParsedTasks(
@@ -162,6 +163,7 @@ function mergeMainLogResult(
     identifierMap: Map<number, string>;
     _logDir?: string;
     saveOnErrorRawLines: string[];
+    expectedParams: Map<string, string[]>;
   }
 ): void {
   const startIndex = collections.events.length;
@@ -174,6 +176,11 @@ function mergeMainLogResult(
     collections.logDir = result._logDir;
   }
   collections.saveOnErrorRawLines.push(...result.saveOnErrorRawLines);
+  for (const [nodeName, expected] of result.expectedParams) {
+    if (!collections.expectedParams.has(nodeName)) {
+      collections.expectedParams.set(nodeName, expected);
+    }
+  }
 }
 
 async function parseMainLogFile(
@@ -398,6 +405,7 @@ export interface LogParserResult {
   processOptions: ComputedRef<{ label: string; value: string }[]>;
   threadOptions: ComputedRef<{ label: string; value: string }[]>;
   filteredTasks: ComputedRef<TaskInfo[]>;
+  expectedParams: Map<string, string[]>;
   handleParse: () => Promise<void>;
   resetParseState: () => void;
 }
@@ -432,6 +440,7 @@ export function useLogParser(_config: LogParserConfig = {}): LogParserResult {
   const detectedProject = ref<ProjectType>("unknown");
   const selectedProcessId = ref("all");
   const selectedThreadId = ref("all");
+  const expectedParams = new Map<string, string[]>();
 
   // ============================================
   // 计算属性
@@ -531,6 +540,7 @@ export function useLogParser(_config: LogParserConfig = {}): LogParserResult {
         eventIdentifierMap: new Map(),
         baseDir: _config.baseDir ? _config.baseDir() : undefined,
         saveOnErrorRawLines: [],
+        expectedParams: new Map(),
       };
 
       const { fileLines, totalLines } = await readSelectedFiles(selectedFiles.value);
@@ -608,6 +618,11 @@ export function useLogParser(_config: LogParserConfig = {}): LogParserResult {
         durationMs: Math.round(performance.now() - correlationStartTime),
       });
 
+      expectedParams.clear();
+      for (const [nodeName, expected] of collections.expectedParams) {
+        expectedParams.set(nodeName, expected);
+      }
+
       parseState.value = "done";
 
       const totalDuration = performance.now() - totalStartTime;
@@ -643,6 +658,7 @@ export function useLogParser(_config: LogParserConfig = {}): LogParserResult {
     processOptions,
     threadOptions,
     filteredTasks,
+    expectedParams,
     handleParse,
     resetParseState,
   };
