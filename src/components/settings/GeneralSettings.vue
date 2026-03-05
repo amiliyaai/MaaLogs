@@ -47,34 +47,38 @@ const themeOptions = [
 .general-settings {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 24px;
 }
 
 .setting-item {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 0;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: var(--n-color-fill-weak);
+  border-radius: 8px;
 }
 
 .setting-label {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .label-text {
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 15px;
+  font-weight: 600;
   color: var(--n-text-color-1);
 }
 
 .label-desc {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--n-text-color-3);
+  line-height: 1.5;
 }
 
 .setting-control {
-  flex-shrink: 0;
+  display: flex;
+  justify-content: flex-start;
 }
 </style>

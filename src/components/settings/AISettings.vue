@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed } from "vue";
-import { NForm, NFormItem, NSelect, NInput, NButton, NAlert } from "naive-ui";
+import { computed, watch } from "vue";
+import { NForm, NFormItem, NSelect, NInput, NAlert } from "naive-ui";
 import {
   PROVIDER_INFO,
   PROVIDER_MODELS,
@@ -31,11 +31,15 @@ const modelOptions = computed(() => {
 
 const isCustomProvider = computed(() => currentConfig.value.provider === "custom");
 
-function handleSave() {
-  if (props.config) {
-    emit("save", props.config);
-  }
-}
+watch(
+  () => props.config,
+  (newConfig) => {
+    if (newConfig) {
+      emit("save", newConfig);
+    }
+  },
+  { deep: true }
+);
 
 function updateConfig<K extends keyof AIConfig>(key: K, value: AIConfig[K]) {
   if (!props.config) return;
@@ -112,10 +116,6 @@ function updateApiKey(value: string) {
           @update:value="updateConfig('baseUrl', $event)"
         />
       </n-form-item>
-
-      <n-form-item :show-label="false">
-        <n-button type="primary" :disabled="!config" @click="handleSave"> 保存设置 </n-button>
-      </n-form-item>
     </n-form>
   </div>
 </template>
@@ -124,5 +124,21 @@ function updateApiKey(value: string) {
 .ai-settings {
   display: flex;
   flex-direction: column;
+  gap: 16px;
+  text-align: left;
+}
+
+.ai-settings :deep(.n-form) {
+  text-align: left;
+}
+
+.ai-settings :deep(.n-form-item) {
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.ai-settings :deep(.n-form-item-label) {
+  font-weight: 500;
+  text-align: left;
 }
 </style>

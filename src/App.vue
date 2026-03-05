@@ -532,6 +532,7 @@ async function loadAIConfig() {
  * 保存 AI 配置
  */
 async function handleSaveAIConfig(config: AIConfig) {
+  console.log("Saving AI config in App:", config);
   await saveAIConfig(config);
   aiConfig.value = config;
 }

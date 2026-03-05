@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from "vue";
+import { ref, onMounted, nextTick, watch } from "vue";
 import { NModal } from "naive-ui";
 import GeneralSettings from "./settings/GeneralSettings.vue";
 import AISettings from "./settings/AISettings.vue";
@@ -27,6 +27,20 @@ const sections = [
   { id: "general", label: "通用设置", icon: "⚙️" },
   { id: "ai", label: "AI 设置", icon: "🤖" },
 ];
+
+watch(
+  () => props.show,
+  (newVal) => {
+    if (newVal) {
+      activeSection.value = "general";
+      nextTick(() => {
+        if (contentRef.value) {
+          contentRef.value.scrollTop = 0;
+        }
+      });
+    }
+  }
+);
 
 function scrollToSection(sectionId: string) {
   const element = contentRef.value?.querySelector(`#${sectionId}`);
@@ -80,8 +94,9 @@ onMounted(() => {
     :show="props.show"
     preset="card"
     title="设置"
-    style="width: 680px; max-width: 90vw; height: 480px; max-height: 80vh"
+    style="width: 720px; max-width: 90vw"
     :bordered="false"
+    :content-style="{ padding: 0, height: '560px' }"
     @update:show="emit('update:show', $event)"
   >
     <div class="settings-container">
@@ -120,22 +135,22 @@ onMounted(() => {
 .settings-container {
   display: flex;
   height: 100%;
-  margin: -12px -20px;
 }
 
 .settings-nav {
   width: 160px;
   flex-shrink: 0;
-  padding: 8px 0;
+  padding: 12px 0;
   border-right: 1px solid var(--n-border-color);
   background: var(--n-color-modal);
+  overflow-y: auto;
 }
 
 .nav-item {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 16px;
+  padding: 12px 16px;
   cursor: pointer;
   color: var(--n-text-color-2);
   transition: all 0.2s ease;
@@ -148,9 +163,10 @@ onMounted(() => {
 }
 
 .nav-item.active {
-  background: var(--n-color-hover);
-  color: var(--n-primary-color);
-  border-right: 2px solid var(--n-primary-color);
+  background: #18a05820;
+  color: #18a058;
+  font-weight: 600;
+  border-right: 3px solid #18a058;
 }
 
 .nav-icon {
@@ -164,16 +180,18 @@ onMounted(() => {
 .settings-content {
   flex: 1;
   overflow-y: auto;
-  padding: 16px 24px;
+  padding: 16px 20px;
   scroll-behavior: smooth;
+  text-align: left;
 }
 
 .settings-section {
-  padding-bottom: 32px;
-  margin-bottom: 16px;
+  padding-bottom: 20px;
+  text-align: left;
 }
 
 .settings-section:not(:last-child) {
+  margin-bottom: 16px;
   border-bottom: 1px solid var(--n-border-color);
 }
 
@@ -183,5 +201,8 @@ onMounted(() => {
   color: var(--n-text-color-1);
   margin: 0 0 16px 0;
   padding-bottom: 8px;
+  border-bottom: 2px solid var(--n-primary-color);
+  display: inline-block;
+  text-align: left;
 }
 </style>
