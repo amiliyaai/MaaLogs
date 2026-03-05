@@ -578,7 +578,7 @@ export async function analyzeWithAI(
 
   if (failedNodes.length === 0) {
     logger.info("AI 分析跳过：无失败节点");
-    return [];
+    return { results: [], stats: { promptTokens: 0, completionTokens: 0, totalTokens: 0 } };
   }
 
   const currentApiKey = getApiKey(config);
