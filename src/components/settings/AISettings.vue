@@ -80,7 +80,7 @@ function updateApiKey(value: string) {
         <div class="setting-item">
           <div class="setting-item-label">服务商</div>
           <n-select
-            :value="config.provider"
+            :value="currentConfig.provider"
             :options="providerOptions"
             @update:value="updateConfig('provider', $event)"
           />
@@ -89,7 +89,7 @@ function updateApiKey(value: string) {
         <div class="setting-item">
           <div class="setting-item-label">API Key</div>
           <n-input
-            :value="config.apiKeys[config.provider]"
+            :value="currentConfig.apiKeys[currentConfig.provider]"
             type="password"
             placeholder="输入 API Key"
             show-password-on="click"
@@ -101,13 +101,13 @@ function updateApiKey(value: string) {
           <div class="setting-item-label">模型</div>
           <n-select
             v-if="!isCustomProvider"
-            :value="config.model"
+            :value="currentConfig.model"
             :options="modelOptions"
             @update:value="updateConfig('model', $event)"
           />
           <n-input
             v-else
-            :value="config.model"
+            :value="currentConfig.model"
             placeholder="输入模型名称"
             @update:value="updateConfig('model', $event)"
           />
@@ -116,7 +116,7 @@ function updateApiKey(value: string) {
         <div class="setting-item">
           <div class="setting-item-label">Base URL</div>
           <n-input
-            :value="config.baseUrl"
+            :value="currentConfig.baseUrl"
             placeholder="留空使用默认地址"
             @update:value="updateConfig('baseUrl', $event)"
           />
