@@ -3,6 +3,7 @@ import { ref, onMounted, nextTick, watch } from "vue";
 import { NModal } from "naive-ui";
 import GeneralSettings from "./settings/GeneralSettings.vue";
 import AISettings from "./settings/AISettings.vue";
+import AboutSettings from "./settings/AboutSettings.vue";
 import type { AIConfig } from "@/config/ai";
 
 type ThemeMode = "light" | "dark" | "auto";
@@ -24,8 +25,9 @@ const contentRef = ref<HTMLElement | null>(null);
 const activeSection = ref("general");
 
 const sections = [
-  { id: "general", label: "通用设置", icon: "⚙️" },
+  { id: "general", label: "通用", icon: "⚙️" },
   { id: "ai", label: "AI 设置", icon: "🤖" },
+  { id: "about", label: "关于", icon: "ℹ️" },
 ];
 
 watch(
@@ -58,10 +60,10 @@ function handleScroll() {
 
   for (const section of sectionElements) {
     const htmlSection = section as HTMLElement;
-    const offsetTop = htmlSection.offsetTop - 20;
+    const offsetTop = htmlSection.offsetTop;
     const height = htmlSection.offsetHeight;
 
-    if (scrollTop >= offsetTop && scrollTop < offsetTop + height) {
+    if (scrollTop >= offsetTop - 100 && scrollTop < offsetTop + height - 100) {
       activeSection.value = htmlSection.id;
       break;
     }
@@ -126,6 +128,11 @@ onMounted(() => {
             @save="handleAIConfigSave"
           />
         </section>
+
+        <section id="about" class="settings-section">
+          <h3 class="section-title">关于</h3>
+          <AboutSettings />
+        </section>
       </div>
     </div>
   </n-modal>
@@ -144,6 +151,7 @@ onMounted(() => {
   border-right: 1px solid var(--n-border-color);
   background: var(--n-color-modal);
   overflow-y: auto;
+  max-height: 560px;
 }
 
 .nav-item {
@@ -183,6 +191,7 @@ onMounted(() => {
   padding: 16px 20px;
   scroll-behavior: smooth;
   text-align: left;
+  max-height: 560px;
 }
 
 .settings-section {

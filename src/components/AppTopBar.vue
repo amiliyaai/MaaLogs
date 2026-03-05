@@ -28,8 +28,7 @@
 
 <script setup lang="ts">
 import { NButton } from "naive-ui";
-import AboutModal from "./AboutModal.vue";
-import { ref } from "vue";
+
 
 type ViewMode = "analysis" | "search" | "statistics";
 type ThemeMode = "light" | "dark" | "auto";
@@ -50,8 +49,6 @@ const emit = defineEmits<{
 const emitView = (value: ViewMode) => {
   emit("change-view", value);
 };
-
-const showAbout = ref(false);
 </script>
 
 <template>
@@ -92,17 +89,12 @@ const showAbout = ref(false);
       <div class="divider" />
       <!-- 设置按钮 -->
       <n-button size="small" quaternary @click="emit('open-settings')"> ⚙️ 设置 </n-button>
-      <!-- 关于按钮 -->
-      <n-button size="small" quaternary @click="showAbout = true"> 关于 </n-button>
       <!-- 开发者工具按钮（仅 Tauri 环境） -->
       <n-button v-if="isTauri" size="small" quaternary @click="emit('open-devtools')">
         开发者工具
       </n-button>
     </div>
   </header>
-
-  <!-- 关于弹窗 -->
-  <AboutModal v-model:show="showAbout" />
 </template>
 
 <style scoped>

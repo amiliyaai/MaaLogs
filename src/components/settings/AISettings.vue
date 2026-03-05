@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, watch } from "vue";
-import { NForm, NFormItem, NSelect, NInput, NAlert } from "naive-ui";
+import { NSelect, NInput, NAlert } from "naive-ui";
 import {
   PROVIDER_INFO,
   PROVIDER_MODELS,
@@ -71,52 +71,58 @@ function updateApiKey(value: string) {
 
 <template>
   <div class="ai-settings">
-    <n-alert type="info" style="margin-bottom: 16px">
-      目前 AI 分析仅供参考，推荐使用免费模型，如智谱 AI：glm-4.7-flash
-    </n-alert>
+    <div class="setting-card">
+      <div class="ai-content">
+        <n-alert type="info" style="margin-bottom: 16px">
+          目前 AI 分析仅供参考，推荐使用免费模型，如智谱 AI：glm-4.7-flash
+        </n-alert>
 
-    <n-form v-if="config" label-placement="left" label-width="100">
-      <n-form-item label="服务商">
-        <n-select
-          :value="config.provider"
-          :options="providerOptions"
-          @update:value="updateConfig('provider', $event)"
-        />
-      </n-form-item>
+        <div class="setting-item">
+          <div class="setting-item-label">服务商</div>
+          <n-select
+            :value="config.provider"
+            :options="providerOptions"
+            @update:value="updateConfig('provider', $event)"
+          />
+        </div>
 
-      <n-form-item label="API Key">
-        <n-input
-          :value="config.apiKeys[config.provider]"
-          type="password"
-          placeholder="输入 API Key"
-          show-password-on="click"
-          @update:value="updateApiKey($event)"
-        />
-      </n-form-item>
+        <div class="setting-item">
+          <div class="setting-item-label">API Key</div>
+          <n-input
+            :value="config.apiKeys[config.provider]"
+            type="password"
+            placeholder="输入 API Key"
+            show-password-on="click"
+            @update:value="updateApiKey($event)"
+          />
+        </div>
 
-      <n-form-item label="模型">
-        <n-select
-          v-if="!isCustomProvider"
-          :value="config.model"
-          :options="modelOptions"
-          @update:value="updateConfig('model', $event)"
-        />
-        <n-input
-          v-else
-          :value="config.model"
-          placeholder="输入模型名称"
-          @update:value="updateConfig('model', $event)"
-        />
-      </n-form-item>
+        <div class="setting-item">
+          <div class="setting-item-label">模型</div>
+          <n-select
+            v-if="!isCustomProvider"
+            :value="config.model"
+            :options="modelOptions"
+            @update:value="updateConfig('model', $event)"
+          />
+          <n-input
+            v-else
+            :value="config.model"
+            placeholder="输入模型名称"
+            @update:value="updateConfig('model', $event)"
+          />
+        </div>
 
-      <n-form-item label="Base URL">
-        <n-input
-          :value="config.baseUrl"
-          placeholder="留空使用默认地址"
-          @update:value="updateConfig('baseUrl', $event)"
-        />
-      </n-form-item>
-    </n-form>
+        <div class="setting-item">
+          <div class="setting-item-label">Base URL</div>
+          <n-input
+            :value="config.baseUrl"
+            placeholder="留空使用默认地址"
+            @update:value="updateConfig('baseUrl', $event)"
+          />
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -125,7 +131,33 @@ function updateApiKey(value: string) {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  text-align: left;
+}
+
+.setting-card {
+  background: var(--n-color-fill-weak);
+  border-radius: 16px;
+  padding: 20px;
+}
+
+.ai-content {
+  margin-top: 0;
+}
+
+.setting-item {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: var(--n-color-fill-weak);
+  border-radius: 8px;
+  border: 1px solid var(--n-border-color);
+  margin-bottom: 12px;
+}
+
+.setting-item-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--n-text-color-2);
 }
 
 .ai-settings :deep(.n-form) {
