@@ -27,9 +27,7 @@ function formatSuggestion(text: string): string {
   <div v-if="results.length > 0 || error" class="detail-section-card">
     <div class="detail-section-header">
       <div class="detail-section-title">AI 分析结果</div>
-      <n-tag v-if="stats" size="tiny" type="info">
-        {{ stats.totalTokens }} tokens
-      </n-tag>
+      <n-tag v-if="stats" size="tiny" type="info"> {{ stats.totalTokens }} tokens </n-tag>
     </div>
     <div v-if="error" class="ai-error">
       {{ error }}

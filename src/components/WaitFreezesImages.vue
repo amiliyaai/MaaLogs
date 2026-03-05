@@ -63,7 +63,10 @@ async function loadImages() {
   }
 }
 
-watch([() => props.nodeName, () => props.startTime, () => props.endTime, () => props.visionDir], loadImages);
+watch(
+  [() => props.nodeName, () => props.startTime, () => props.endTime, () => props.visionDir],
+  loadImages
+);
 
 onMounted(loadImages);
 </script>

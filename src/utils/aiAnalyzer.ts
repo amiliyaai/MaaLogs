@@ -113,7 +113,10 @@ function getConnectionKnowledge(failedNodes: NodeInfo[], addedKnowledge: Set<str
   return sections;
 }
 
-function buildKnowledgeContext(failedNodes: NodeInfo[], expectedParams?: Map<string, string[]>): string {
+function buildKnowledgeContext(
+  failedNodes: NodeInfo[],
+  expectedParams?: Map<string, string[]>
+): string {
   const sections: string[] = [];
   const addedKnowledge = new Set<string>();
 
@@ -265,7 +268,14 @@ function buildRecognitionAttemptsSection(attempts?: NodeInfo["recognition_attemp
   return lines;
 }
 
-function formatAttempt(attempt: { name: string; status: string; reco_details?: { algorithm?: string; detail?: unknown } }, suffix = ""): string[] {
+function formatAttempt(
+  attempt: {
+    name: string;
+    status: string;
+    reco_details?: { algorithm?: string; detail?: unknown };
+  },
+  suffix = ""
+): string[] {
   const status = attempt.status === "success" ? "成功" : "失败";
   const lines: string[] = [`    - ${attempt.name}: ${status}${suffix}`];
   if (attempt.reco_details) {
@@ -307,9 +317,9 @@ function buildOutputSection(): string {
     "**格式要求（必须严格遵守）**：",
     "- `cause` 使用分点格式，每条换行，用数字或 - 开头",
     "- `cause` 中如果有 expected，必须单独一点（格式：expected = 'xxx'）",
-    "- `cause` 示例：`\"cause\": \"1. OCR识别失败\\n2. expected = “确认”\\n3. best为null，filtered为空\"`",
+    '- `cause` 示例：`"cause": "1. OCR识别失败\\n2. expected = “确认”\\n3. best为null，filtered为空"`',
     "- `suggestion`: 使用分点格式，每条建议换行，用数字编号",
-    "- `suggestion` 示例：`\"suggestion\": \"1. 检查expected参数是否正确\\n2. 确认ROI区域覆盖目标\"`",
+    '- `suggestion` 示例：`"suggestion": "1. 检查expected参数是否正确\\n2. 确认ROI区域覆盖目标"`',
   ].join("\n");
 }
 
@@ -347,7 +357,10 @@ export function buildAnalysisPrompt(
   return sections.join("\n\n") + "\n";
 }
 
-function buildExpectedContextSection(failedNodes: NodeInfo[], expectedParams?: Map<string, string[]>): string {
+function buildExpectedContextSection(
+  failedNodes: NodeInfo[],
+  expectedParams?: Map<string, string[]>
+): string {
   const allExpected: string[] = [];
 
   for (const node of failedNodes) {
@@ -707,14 +720,22 @@ function extractTokenUsage(
     };
   }
   if (isGemini) {
-    const usage = result as { usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number } };
+    const usage = result as {
+      usageMetadata?: {
+        promptTokenCount?: number;
+        candidatesTokenCount?: number;
+        totalTokenCount?: number;
+      };
+    };
     return {
       promptTokens: usage.usageMetadata?.promptTokenCount,
       completionTokens: usage.usageMetadata?.candidatesTokenCount,
       totalTokens: usage.usageMetadata?.totalTokenCount,
     };
   }
-  const usage = result as { usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } };
+  const usage = result as {
+    usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
+  };
   return {
     promptTokens: usage.usage?.prompt_tokens,
     completionTokens: usage.usage?.completion_tokens,

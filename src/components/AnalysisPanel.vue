@@ -126,14 +126,8 @@ const aiError = ref("");
 /**
  * 页面内搜索状态
  */
-const {
-  searchText,
-  searchScope,
-  searchResults,
-  showResults,
-  performSearch,
-  closeResults,
-} = useInPageSearch();
+const { searchText, searchScope, searchResults, showResults, performSearch, closeResults } =
+  useInPageSearch();
 
 const searchScopeOptions = [
   { label: "全部", value: "all" },
@@ -182,11 +176,11 @@ function handleSearchResultClick(result: InPageSearchResult) {
   if (result.nodeId) {
     const nodeId = result.nodeId;
     setTimeout(() => {
-      const nodeIndex = props.selectedTaskNodes.findIndex(
-        (n) => n.node_id === nodeId
-      );
+      const nodeIndex = props.selectedTaskNodes.findIndex((n) => n.node_id === nodeId);
       if (nodeScrollerRef.value && nodeIndex >= 0) {
-        (nodeScrollerRef.value as unknown as { scrollToItem: (index: number) => void }).scrollToItem(nodeIndex);
+        (
+          nodeScrollerRef.value as unknown as { scrollToItem: (index: number) => void }
+        ).scrollToItem(nodeIndex);
       }
       highlightNodeId.value = nodeId;
       setTimeout(() => {
@@ -538,9 +532,7 @@ function openScreenshot(filePath: string): void {
             />
             <!-- 搜索结果下拉 -->
             <div v-if="showResults && searchResults.length > 0" class="search-results">
-              <div class="search-results-header">
-                找到 {{ searchResults.length }} 个结果
-              </div>
+              <div class="search-results-header">找到 {{ searchResults.length }} 个结果</div>
               <div class="search-results-list">
                 <div
                   v-for="(result, index) in searchResults"
@@ -749,7 +741,10 @@ function openScreenshot(filePath: string): void {
         <div v-if="!selectedTask" class="empty">请选择左侧任务</div>
         <div v-else class="detail-content">
           <!-- 错误截图 -->
-          <n-collapse :default-expanded-names="hasErrorScreenshot ? ['screenshot'] : []" class="error-screenshot-collapse">
+          <n-collapse
+            :default-expanded-names="hasErrorScreenshot ? ['screenshot'] : []"
+            class="error-screenshot-collapse"
+          >
             <n-collapse-item name="screenshot">
               <template #header>
                 <span class="error-screenshot-label">错误截图</span>
@@ -1040,11 +1035,17 @@ function openScreenshot(filePath: string): void {
                           <span class="attempt-label">位置：</span>
                           <span>{{ formatBox(attempt.reco_details.box) }}</span>
                         </div>
-                        <div v-if="formatRecognitionScores(attempt.reco_details.detail)" class="attempt-detail-row">
+                        <div
+                          v-if="formatRecognitionScores(attempt.reco_details.detail)"
+                          class="attempt-detail-row"
+                        >
                           <span class="attempt-label">分数：</span>
                           <span>{{ formatRecognitionScores(attempt.reco_details.detail) }}</span>
                         </div>
-                        <div v-if="hasNestedRecognition(attempt.reco_details.detail)" class="attempt-detail-row">
+                        <div
+                          v-if="hasNestedRecognition(attempt.reco_details.detail)"
+                          class="attempt-detail-row"
+                        >
                           <span class="attempt-label">嵌套识别：</span>
                           <RecognitionTree
                             :node="attempt.reco_details"

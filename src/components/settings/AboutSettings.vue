@@ -1,10 +1,5 @@
 <script setup lang="ts">
-import {
-  NSpace,
-  NText,
-  NButton,
-  NTag,
-} from "naive-ui";
+import { NSpace, NText, NButton, NTag } from "naive-ui";
 import { ref, onMounted } from "vue";
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { checkForUpdate, getCurrentVersion } from "@/utils/updater";
@@ -70,7 +65,9 @@ async function openLogDir() {
         <div class="about-divider"></div>
         <div class="about-section">
           <n-text depth="2" style="font-weight: 600"> MaaLogs - MaaFramework 日志分析利器 </n-text>
-          <n-text depth="3" style="margin-top: 4px; display: block"> 支持多项目日志解析、可视化任务流程、集成 AI 智能分析 </n-text>
+          <n-text depth="3" style="margin-top: 4px; display: block">
+            支持多项目日志解析、可视化任务流程、集成 AI 智能分析
+          </n-text>
         </div>
         <div class="about-divider"></div>
         <div class="about-links">

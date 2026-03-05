@@ -13,7 +13,13 @@
  */
 
 import { ref, type Ref } from "vue";
-import type { TaskInfo, NodeInfo, RecognitionAttempt, ActionAttempt, AuxLogEntry } from "@/types/logTypes";
+import type {
+  TaskInfo,
+  NodeInfo,
+  RecognitionAttempt,
+  ActionAttempt,
+  AuxLogEntry,
+} from "@/types/logTypes";
 
 /**
  * 搜索结果类型
@@ -197,11 +203,7 @@ export function useInPageSearch(): InPageSearcherResult {
       });
     }
 
-    function checkRecognitionDetails(
-      attempt: RecognitionAttempt,
-      task: TaskInfo,
-      node: NodeInfo
-    ) {
+    function checkRecognitionDetails(attempt: RecognitionAttempt, task: TaskInfo, node: NodeInfo) {
       const details = attempt.reco_details;
       if (!details) return;
 
@@ -218,11 +220,7 @@ export function useInPageSearch(): InPageSearcherResult {
       }
     }
 
-    function searchSingleAttempt(
-      attempt: RecognitionAttempt,
-      task: TaskInfo,
-      node: NodeInfo
-    ) {
+    function searchSingleAttempt(attempt: RecognitionAttempt, task: TaskInfo, node: NodeInfo) {
       if (matches(attempt.name, keyword)) {
         addRecognitionResult(attempt, task, node, "name", attempt.name, {
           status: attempt.status,
@@ -286,11 +284,7 @@ export function useInPageSearch(): InPageSearcherResult {
       });
     }
 
-    function searchSingleActionAttempt(
-      attempt: ActionAttempt,
-      task: TaskInfo,
-      node: NodeInfo
-    ) {
+    function searchSingleActionAttempt(attempt: ActionAttempt, task: TaskInfo, node: NodeInfo) {
       if (matches(attempt.name, keyword)) {
         addActionResult(attempt, task, node, "name", attempt.name, {
           status: attempt.status,

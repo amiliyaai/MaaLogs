@@ -29,7 +29,6 @@
 <script setup lang="ts">
 import { NButton } from "naive-ui";
 
-
 type ViewMode = "analysis" | "search" | "statistics";
 type ThemeMode = "light" | "dark" | "auto";
 

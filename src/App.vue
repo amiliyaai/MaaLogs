@@ -437,11 +437,15 @@ watch(filteredTasks, () => {
 /**
  * 文件选择后自动开始解析
  */
-watch(selectedFiles, (files) => {
-  if (files.length > 0 && parseState.value !== "parsing" && parseState.value !== "done") {
-    void handleParse();
-  }
-}, { deep: true });
+watch(
+  selectedFiles,
+  (files) => {
+    if (files.length > 0 && parseState.value !== "parsing" && parseState.value !== "done") {
+      void handleParse();
+    }
+  },
+  { deep: true }
+);
 
 // ============================================
 // 详情面板选择状态

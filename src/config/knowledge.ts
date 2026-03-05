@@ -160,11 +160,7 @@ export const MAA_KNOWLEDGE: MAAKnowledgeBase = {
     LongPress: {
       desc: "长按",
       params: ["target", "duration", "contact"],
-      failures: [
-        "长按时间过短，未触发效果",
-        "目标位置不正确",
-        "目标区域偏移",
-      ],
+      failures: ["长按时间过短，未触发效果", "目标位置不正确", "目标区域偏移"],
       suggestions: [
         "增加 duration 时间（建议 500ms 以上）",
         "检查 target 坐标是否正确",
@@ -174,128 +170,56 @@ export const MAA_KNOWLEDGE: MAAKnowledgeBase = {
     Swipe: {
       desc: "滑动",
       params: ["begin", "end", "duration", "end_hold"],
-      failures: [
-        "滑动距离过短",
-        "滑动速度过快",
-        "滑动未达到预期效果",
-      ],
-      suggestions: [
-        "调整 begin/end 坐标",
-        "增加 duration 时间",
-        "确认滑动方向正确",
-      ],
+      failures: ["滑动距离过短", "滑动速度过快", "滑动未达到预期效果"],
+      suggestions: ["调整 begin/end 坐标", "增加 duration 时间", "确认滑动方向正确"],
     },
     MultiSwipe: {
       desc: "多指滑动",
       params: ["swipes"],
-      failures: [
-        "多点触控不支持",
-        "手势参数错误",
-        "各手指滑动不同步",
-      ],
-      suggestions: [
-        "检查设备是否支持多点触控",
-        "验证 swipes 参数格式",
-        "减少手指数量尝试",
-      ],
+      failures: ["多点触控不支持", "手势参数错误", "各手指滑动不同步"],
+      suggestions: ["检查设备是否支持多点触控", "验证 swipes 参数格式", "减少手指数量尝试"],
     },
     ClickKey: {
       desc: "按键",
       params: ["key"],
-      failures: [
-        "按键码无效",
-        "按键无响应",
-        "应用不支持该按键",
-      ],
-      suggestions: [
-        "检查 key 值是否正确",
-        "确认应用支持该按键",
-        "尝试使用其他方式（如点击）",
-      ],
+      failures: ["按键码无效", "按键无响应", "应用不支持该按键"],
+      suggestions: ["检查 key 值是否正确", "确认应用支持该按键", "尝试使用其他方式（如点击）"],
     },
     InputText: {
       desc: "输入文本",
       params: ["input_text"],
-      failures: [
-        "输入框未获得焦点",
-        "文本编码问题",
-        "特殊字符输入失败",
-      ],
-      suggestions: [
-        "先点击输入框获取焦点",
-        "检查文本编码",
-        "分多次输入长文本",
-      ],
+      failures: ["输入框未获得焦点", "文本编码问题", "特殊字符输入失败"],
+      suggestions: ["先点击输入框获取焦点", "检查文本编码", "分多次输入长文本"],
     },
     StartApp: {
       desc: "启动应用",
       params: ["package"],
-      failures: [
-        "应用包名错误",
-        "应用未安装",
-        "应用启动缓慢或无响应",
-      ],
-      suggestions: [
-        "确认 package 名称正确",
-        "检查应用是否已安装",
-        "增加启动等待时间",
-      ],
+      failures: ["应用包名错误", "应用未安装", "应用启动缓慢或无响应"],
+      suggestions: ["确认 package 名称正确", "检查应用是否已安装", "增加启动等待时间"],
     },
     StopApp: {
       desc: "停止应用",
       params: ["package"],
-      failures: [
-        "应用包名错误",
-        "应用未运行",
-        "停止应用权限不足",
-      ],
-      suggestions: [
-        "确认 package 名称正确",
-        "检查应用是否在运行",
-        "使用 force stop 参数",
-      ],
+      failures: ["应用包名错误", "应用未运行", "停止应用权限不足"],
+      suggestions: ["确认 package 名称正确", "检查应用是否在运行", "使用 force stop 参数"],
     },
     Command: {
       desc: "执行外部命令",
       params: ["exec", "args"],
-      failures: [
-        "命令不存在",
-        "执行权限不足",
-        "命令执行超时",
-      ],
-      suggestions: [
-        "检查命令路径",
-        "确认执行权限",
-        "增加超时时间",
-      ],
+      failures: ["命令不存在", "执行权限不足", "命令执行超时"],
+      suggestions: ["检查命令路径", "确认执行权限", "增加超时时间"],
     },
     Shell: {
       desc: "执行 ADB Shell",
       params: ["cmd"],
-      failures: [
-        "ADB 命令错误",
-        "设备未连接",
-        "Shell 命令权限不足",
-      ],
-      suggestions: [
-        "检查 cmd 语法",
-        "确认 ADB 连接正常",
-        "使用 root 权限执行",
-      ],
+      failures: ["ADB 命令错误", "设备未连接", "Shell 命令权限不足"],
+      suggestions: ["检查 cmd 语法", "确认 ADB 连接正常", "使用 root 权限执行"],
     },
     Custom: {
       desc: "自定义动作",
       params: ["custom_action"],
-      failures: [
-        "Go Service 未启动",
-        "自定义动作执行异常",
-        "动作参数传递错误",
-      ],
-      suggestions: [
-        "检查 Go Service 日志",
-        "确认动作已注册",
-        "检查动作参数格式",
-      ],
+      failures: ["Go Service 未启动", "自定义动作执行异常", "动作参数传递错误"],
+      suggestions: ["检查 Go Service 日志", "确认动作已注册", "检查动作参数格式"],
     },
     Sleep: {
       desc: "等待一段时间",
@@ -306,16 +230,8 @@ export const MAA_KNOWLEDGE: MAAKnowledgeBase = {
     Wait: {
       desc: "等待直到条件满足",
       params: ["target", "timeout"],
-      failures: [
-        "等待超时",
-        "目标状态始终未满足",
-        "超时时间设置过短",
-      ],
-      suggestions: [
-        "增加超时时间",
-        "检查目标识别条件",
-        "确认等待逻辑是否正确",
-      ],
+      failures: ["等待超时", "目标状态始终未满足", "超时时间设置过短"],
+      suggestions: ["增加超时时间", "检查目标识别条件", "确认等待逻辑是否正确"],
     },
   },
   controllers: {
@@ -349,12 +265,7 @@ export const MAA_KNOWLEDGE: MAAKnowledgeBase = {
       ],
     },
     recognition_timeout: {
-      failures: [
-        "识别耗时过长导致超时",
-        "设备性能不足",
-        "截图文件过大",
-        "识别算法复杂度高",
-      ],
+      failures: ["识别耗时过长导致超时", "设备性能不足", "截图文件过大", "识别算法复杂度高"],
       suggestions: [
         "优化 ROI 区域减少识别范围",
         "简化识别算法",
@@ -363,28 +274,12 @@ export const MAA_KNOWLEDGE: MAAKnowledgeBase = {
       ],
     },
     node_disabled: {
-      failures: [
-        "节点被主动禁用",
-        "前置条件未满足",
-        "任务流程跳过",
-      ],
-      suggestions: [
-        "检查节点禁用原因",
-        "确认任务流程是否正确",
-        "查看完整的任务执行日志",
-      ],
+      failures: ["节点被主动禁用", "前置条件未满足", "任务流程跳过"],
+      suggestions: ["检查节点禁用原因", "确认任务流程是否正确", "查看完整的任务执行日志"],
     },
     action_timeout: {
-      failures: [
-        "动作执行超时",
-        "设备响应慢",
-        "动作参数不正确",
-      ],
-      suggestions: [
-        "增加动作超时时间",
-        "检查设备性能",
-        "验证动作参数是否正确",
-      ],
+      failures: ["动作执行超时", "设备响应慢", "动作参数不正确"],
+      suggestions: ["增加动作超时时间", "检查设备性能", "验证动作参数是否正确"],
     },
   },
 };

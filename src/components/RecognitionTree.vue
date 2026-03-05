@@ -148,7 +148,10 @@ onMounted(() => {
   </div>
 
   <template v-else-if="isRoot && hasChildren">
-    <template v-for="(child, idx) in node.detail" :key="`${depth}-${idx}-${(child as RecognitionDetail)?.reco_id || idx}`">
+    <template
+      v-for="(child, idx) in node.detail"
+      :key="`${depth}-${idx}-${(child as RecognitionDetail)?.reco_id || idx}`"
+    >
       <RecognitionTree
         v-if="child && typeof child === 'object'"
         :node="child as RecognitionDetail"
@@ -158,7 +161,11 @@ onMounted(() => {
     </template>
   </template>
 
-  <div v-else-if="node.name || node.reco_id" class="recognition-tree" :style="{ paddingLeft: `${depth * 16}px` }">
+  <div
+    v-else-if="node.name || node.reco_id"
+    class="recognition-tree"
+    :style="{ paddingLeft: `${depth * 16}px` }"
+  >
     <div class="tree-node">
       <span v-if="hasChildren" class="toggle" @click="toggleExpand">
         {{ expanded ? "▼" : "▶" }}
@@ -170,7 +177,11 @@ onMounted(() => {
       <span v-if="scoreDisplay" class="node-score">score: {{ scoreDisplay }}</span>
     </div>
 
-    <div v-if="imageUrls.length > 0" class="image-preview" :style="{ paddingLeft: `${depth * 16 + 24}px` }">
+    <div
+      v-if="imageUrls.length > 0"
+      class="image-preview"
+      :style="{ paddingLeft: `${depth * 16 + 24}px` }"
+    >
       <n-image-group v-if="imageUrls.length > 1">
         <n-image
           v-for="(url, idx) in imageUrls"
@@ -186,7 +197,10 @@ onMounted(() => {
     </div>
 
     <div v-if="hasChildren && expanded" class="children">
-      <template v-for="(child, idx) in node.detail" :key="`${depth}-${idx}-${(child as RecognitionDetail)?.reco_id || idx}`">
+      <template
+        v-for="(child, idx) in node.detail"
+        :key="`${depth}-${idx}-${(child as RecognitionDetail)?.reco_id || idx}`"
+      >
         <RecognitionTree
           v-if="child && typeof child === 'object'"
           :node="child as RecognitionDetail"
