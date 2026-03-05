@@ -27,14 +27,14 @@
 -->
 
 <script setup lang="ts">
-import { NButton, NDropdown } from "naive-ui";
+import { NButton } from "naive-ui";
 import AboutModal from "./AboutModal.vue";
 import { ref } from "vue";
 
 type ViewMode = "analysis" | "search" | "statistics";
 type ThemeMode = "light" | "dark" | "auto";
 
-const props = defineProps<{
+defineProps<{
   viewMode: ViewMode;
   isTauri: boolean;
   themeMode: ThemeMode;
@@ -44,6 +44,7 @@ const emit = defineEmits<{
   (e: "change-view", value: ViewMode): void;
   (e: "open-devtools"): void;
   (e: "change-theme", value: ThemeMode): void;
+  (e: "open-settings"): void;
 }>();
 
 const emitView = (value: ViewMode) => {
@@ -51,22 +52,6 @@ const emitView = (value: ViewMode) => {
 };
 
 const showAbout = ref(false);
-
-const themeOptions = [
-  { label: "☀️ 浅色", key: "light" },
-  { label: "🌙 深色", key: "dark" },
-  { label: "💻 跟随系统", key: "auto" },
-];
-
-const themeLabels: Record<ThemeMode, string> = {
-  light: "☀️",
-  dark: "🌙",
-  auto: "💻",
-};
-
-const handleThemeSelect = (key: string) => {
-  emit("change-theme", key as ThemeMode);
-};
 </script>
 
 <template>
@@ -105,17 +90,8 @@ const handleThemeSelect = (key: string) => {
         </span>
       </div>
       <div class="divider" />
-      <!-- 主题切换 -->
-      <n-dropdown
-        :options="themeOptions"
-        :value="props.themeMode"
-        trigger="click"
-        @select="handleThemeSelect"
-      >
-        <n-button size="small" quaternary>
-          {{ themeLabels[props.themeMode] }}
-        </n-button>
-      </n-dropdown>
+      <!-- 设置按钮 -->
+      <n-button size="small" quaternary @click="emit('open-settings')"> ⚙️ 设置 </n-button>
       <!-- 关于按钮 -->
       <n-button size="small" quaternary @click="showAbout = true"> 关于 </n-button>
       <!-- 开发者工具按钮（仅 Tauri 环境） -->

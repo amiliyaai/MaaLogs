@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { NModal, NForm, NFormItem, NSelect, NInput, NButton } from "naive-ui";
+import { NForm, NFormItem, NSelect, NInput, NButton, NAlert } from "naive-ui";
 import {
   PROVIDER_INFO,
   PROVIDER_MODELS,
@@ -10,12 +10,10 @@ import {
 } from "@/utils/aiAnalyzer";
 
 const props = defineProps<{
-  show: boolean;
   config: AIConfig | null;
 }>();
 
 const emit = defineEmits<{
-  (e: "update:show", value: boolean): void;
   (e: "update:config", value: AIConfig): void;
   (e: "save", config: AIConfig): void;
 }>();
@@ -33,15 +31,10 @@ const modelOptions = computed(() => {
 
 const isCustomProvider = computed(() => currentConfig.value.provider === "custom");
 
-function handleClose() {
-  emit("update:show", false);
-}
-
 function handleSave() {
   if (props.config) {
     emit("save", props.config);
   }
-  emit("update:show", false);
 }
 
 function updateConfig<K extends keyof AIConfig>(key: K, value: AIConfig[K]) {
@@ -73,17 +66,12 @@ function updateApiKey(value: string) {
 </script>
 
 <template>
-  <n-modal
-    :show="show"
-    preset="card"
-    title="AI 分析设置"
-    style="width: 500px"
-    @update:show="emit('update:show', $event)"
-  >
-    <div style="color: #666; margin-bottom: 16px">
-      目前ai分析仅供参考，推荐使用免费模型，如智谱 AI：glm-4.7-flash！！！
-    </div>
-    <n-form v-if="config">
+  <div class="ai-settings">
+    <n-alert type="info" style="margin-bottom: 16px">
+      目前 AI 分析仅供参考，推荐使用免费模型，如智谱 AI：glm-4.7-flash
+    </n-alert>
+
+    <n-form v-if="config" label-placement="left" label-width="100">
       <n-form-item label="服务商">
         <n-select
           :value="config.provider"
@@ -91,14 +79,17 @@ function updateApiKey(value: string) {
           @update:value="updateConfig('provider', $event)"
         />
       </n-form-item>
+
       <n-form-item label="API Key">
         <n-input
           :value="config.apiKeys[config.provider]"
           type="password"
           placeholder="输入 API Key"
+          show-password-on="click"
           @update:value="updateApiKey($event)"
         />
       </n-form-item>
+
       <n-form-item label="模型">
         <n-select
           v-if="!isCustomProvider"
@@ -113,17 +104,25 @@ function updateApiKey(value: string) {
           @update:value="updateConfig('model', $event)"
         />
       </n-form-item>
-      <n-form-item label="Base URL (可选)">
+
+      <n-form-item label="Base URL">
         <n-input
           :value="config.baseUrl"
-          placeholder="留空使用默认"
+          placeholder="留空使用默认地址"
           @update:value="updateConfig('baseUrl', $event)"
         />
       </n-form-item>
+
+      <n-form-item :show-label="false">
+        <n-button type="primary" :disabled="!config" @click="handleSave"> 保存设置 </n-button>
+      </n-form-item>
     </n-form>
-    <template #footer>
-      <n-button @click="handleClose"> 取消 </n-button>
-      <n-button type="primary" :disabled="!config" @click="handleSave"> 保存 </n-button>
-    </template>
-  </n-modal>
+  </div>
 </template>
+
+<style scoped>
+.ai-settings {
+  display: flex;
+  flex-direction: column;
+}
+</style>

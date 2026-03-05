@@ -53,6 +53,7 @@ import FileListPanel from "@/components/FileListPanel.vue";
 import AnalysisPanel from "@/components/AnalysisPanel.vue";
 import SearchPanel from "@/components/SearchPanel.vue";
 import StatisticsPanel from "@/components/StatisticsPanel.vue";
+import SettingsModal from "@/components/SettingsModal.vue";
 
 /**
  * Composables 导入
@@ -91,6 +92,7 @@ import { extractCustomActionFromActionDetails } from "@/utils/parse";
 import { isTauriEnv, clearZipExtractCache } from "@/utils/file";
 import { createLogger, init, flushLogs, setLoggerContext } from "@/utils/logger";
 import { appConfig } from "@/config";
+import { getAIConfig, saveAIConfig, type AIConfig } from "@/utils/aiAnalyzer";
 import type { AuxLogEntry } from "@/types/logTypes";
 
 // ============================================
@@ -140,6 +142,12 @@ const updateScrollbarVars = () => {
 };
 
 watch(isDark, updateScrollbarVars, { immediate: true });
+
+/** 设置弹窗显示状态 */
+const showSettings = ref(false);
+
+/** AI 配置 */
+const aiConfig = ref<AIConfig | null>(null);
 
 /** 当前选中的任务键 */
 const selectedTaskKey = ref<string | null>(null);
@@ -506,6 +514,28 @@ async function openDevtools() {
   }
 }
 
+/**
+ * 打开设置弹窗
+ */
+function openSettings() {
+  showSettings.value = true;
+}
+
+/**
+ * 加载 AI 配置
+ */
+async function loadAIConfig() {
+  aiConfig.value = await getAIConfig();
+}
+
+/**
+ * 保存 AI 配置
+ */
+async function handleSaveAIConfig(config: AIConfig) {
+  await saveAIConfig(config);
+  aiConfig.value = config;
+}
+
 // ============================================
 // Tauri 拖拽事件监听器
 // ============================================
@@ -606,6 +636,9 @@ onMounted(() => {
         themeMode.value = savedThemeMode;
       }
 
+      // 加载 AI 配置
+      await loadAIConfig();
+
       // 监听 hiddenCallers 变化并保存
       watch(
         () => hiddenCallers.value,
@@ -674,6 +707,7 @@ onBeforeUnmount(() => {
             @change-view="viewMode = $event"
             @open-devtools="openDevtools"
             @change-theme="themeMode = $event"
+            @open-settings="openSettings"
           />
 
           <!-- 拖拽遮罩层 -->
@@ -797,6 +831,16 @@ onBeforeUnmount(() => {
             />
           </div>
         </div>
+
+        <!-- 设置弹窗 -->
+        <SettingsModal
+          v-model:show="showSettings"
+          :theme-mode="themeMode"
+          :ai-config="aiConfig"
+          @update:theme-mode="themeMode = $event"
+          @update:ai-config="aiConfig = $event"
+          @save-ai-config="handleSaveAIConfig"
+        />
       </n-dialog-provider>
     </n-message-provider>
   </n-config-provider>

@@ -98,16 +98,15 @@ import type {
 import {
   analyzeWithAI,
   getAIConfig,
-  saveAIConfig,
   type AIConfig,
   type FailureAnalysis,
   type AIAnalysisStats,
 } from "@/utils/aiAnalyzer";
-import AISettingsModal from "./AISettingsModal.vue";
 import AIResultCard from "./AIResultCard.vue";
 import ControllerInfoCard from "./ControllerInfoCard.vue";
 import CustomLogPanel from "./CustomLogPanel.vue";
 import RecognitionTree from "./RecognitionTree.vue";
+import WaitFreezesImages from "./WaitFreezesImages.vue";
 
 /**
  * AI 分析状态
@@ -120,22 +119,13 @@ onMounted(async () => {
 const aiAnalyzing = ref(false);
 const aiResults = ref<FailureAnalysis[]>([]);
 const aiStats = ref<AIAnalysisStats>();
-const showAISettings = ref(false);
 const showScreenshot = ref(false);
 const screenshotSrc = ref("");
-const showAIConfirm = ref(false);
 const skipAIConfirm = useStorage("skipAIConfirm", false);
+const showAIConfirm = ref(false);
 const aiError = ref("");
 
 const hasErrorScreenshot = computed(() => !!props.selectedNode?.error_screenshot);
-
-/**
- * 保存 AI 设置
- */
-async function handleSaveAIConfig(config: AIConfig) {
-  aiConfig.value = config;
-  await saveAIConfig(config);
-}
 
 /**
  * 执行 AI 分析
@@ -157,7 +147,7 @@ async function doAIAnalyze() {
   if (!aiConfig.value) return;
 
   if (!aiConfig.value.apiKeys[aiConfig.value.provider]) {
-    showAISettings.value = true;
+    aiError.value = "请先在设置中配置 API Key";
     return;
   }
 
@@ -446,7 +436,6 @@ function openScreenshot(filePath: string): void {
                   AI 分析
                 </n-button>
               </n-spin>
-              <n-button size="small" @click="showAISettings = true"> 设置 </n-button>
             </div>
           </div>
         </div>
@@ -561,7 +550,7 @@ function openScreenshot(filePath: string): void {
                       </n-icon>
                     </div>
                     <div class="node-sub">
-                      <div>时间：{{ item.timestamp }}</div>
+                      <div>完成时间：{{ item.timestamp }}</div>
                       <span :style="{ color: item.status === 'failed' ? '#d03050' : '#18a058' }">
                         状态：{{ formatResultStatus(item.status) }}
                       </span>
@@ -776,6 +765,14 @@ function openScreenshot(filePath: string): void {
                   </div>
                 </div>
               </div>
+              <!-- Wait Freezes 图片 -->
+              <WaitFreezesImages
+                v-if="visionDir"
+                :vision-dir="visionDir"
+                :node-name="selectedNode.action_details.name"
+                :start-time="selectedNode.start_time"
+                :end-time="selectedNode.end_time"
+              />
               <!-- 原始动作数据折叠面板 -->
               <n-collapse class="detail-section-collapse" :default-expanded-names="[]">
                 <n-collapse-item title="原始动作数据" name="action-raw">
@@ -881,11 +878,21 @@ function openScreenshot(filePath: string): void {
                         </div>
                         <div v-if="hasNestedRecognition(attempt.reco_details.detail)" class="attempt-detail-row">
                           <span class="attempt-label">嵌套识别：</span>
-                          <RecognitionTree :node="attempt.reco_details" :depth="0" :vision-dir="visionDir" is-root />
+                          <RecognitionTree
+                            :node="attempt.reco_details"
+                            :depth="0"
+                            :vision-dir="visionDir"
+                            is-root
+                          />
                         </div>
                         <div v-else class="attempt-detail-row">
                           <span class="attempt-label">Vision：</span>
-                          <RecognitionTree :node="attempt.reco_details" :depth="0" :vision-dir="visionDir" vision-only />
+                          <RecognitionTree
+                            :node="attempt.reco_details"
+                            :depth="0"
+                            :vision-dir="visionDir"
+                            vision-only
+                          />
                         </div>
                       </div>
                       <div v-else class="empty">无识别详情</div>
@@ -1164,13 +1171,6 @@ function openScreenshot(filePath: string): void {
         </div>
       </div>
     </div>
-    <!-- AI 设置 Modal -->
-    <AISettingsModal
-      v-model:show="showAISettings"
-      :config="aiConfig"
-      @update:config="aiConfig = $event"
-      @save="handleSaveAIConfig"
-    />
     <!-- AI 分析确认弹窗 -->
     <n-modal
       v-model:show="showAIConfirm"

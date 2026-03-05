@@ -1517,7 +1517,7 @@ type TaskNodeBuildContext = {
   nodes: NodeInfo[];
   nodeIdSet: Set<number>;
   recognitionAttempts: RecognitionAttempt[];
-  recognitionIdSet: Set<number>; // 用于识别尝试去重
+  recognitionIdSet: Set<number>;
   nestedNodes: RecognitionAttempt[];
   nestedActionNodes: NestedActionNode[];
   currentNextList: NextListItem[];
@@ -1525,7 +1525,22 @@ type TaskNodeBuildContext = {
   recognitionsByTaskId: Map<number, RecognitionAttempt[]>;
   actionsByTaskId: Map<number, ActionAttempt[]>;
   actionNodesByTaskId: Map<number, NestedActionNode[]>;
+  nodeStartTimes: Map<number, string>;
 };
+
+function updateNodeStartTime(
+  context: TaskNodeBuildContext,
+  message: string,
+  details: Record<string, JsonValue>,
+  eventTaskId: number | undefined,
+  timestamp: string
+) {
+  if (message !== "Node.PipelineNode.Starting") return;
+  if (eventTaskId !== context.task.task_id) return;
+  const nodeId = normalizeId(details.node_id ?? details.nodeId);
+  if (nodeId === undefined) return;
+  context.nodeStartTimes.set(nodeId, timestamp);
+}
 
 /**
  * 从事件中更新 Next List
@@ -1807,10 +1822,13 @@ function updatePipelineNodes(
       ? context.actionNodesByTaskId.get(actionId) || []
       : context.nestedActionNodes.slice();
 
+  const startTime = context.nodeStartTimes.get(nodeId);
   context.nodes.push({
     node_id: nodeId,
     name: context.stringPool.intern(nodeName),
     timestamp: context.stringPool.intern(timestamp),
+    start_time: startTime ? context.stringPool.intern(startTime) : undefined,
+    end_time: context.stringPool.intern(timestamp),
     status: message === "Node.PipelineNode.Succeeded" ? "success" : "failed",
     task_id: context.task.task_id,
     reco_details: recoDetails,
@@ -1872,6 +1890,7 @@ function buildTaskNodes(
   const recognitionsByTaskId = new Map<number, RecognitionAttempt[]>();
   const actionsByTaskId = new Map<number, ActionAttempt[]>();
   const actionNodesByTaskId = new Map<number, NestedActionNode[]>();
+  const nodeStartTimes = new Map<number, string>();
 
   const context: TaskNodeBuildContext = {
     task,
@@ -1887,11 +1906,13 @@ function buildTaskNodes(
     recognitionsByTaskId,
     actionsByTaskId,
     actionNodesByTaskId,
+    nodeStartTimes,
   };
 
   for (const event of taskEvents) {
     const { message, details } = event;
     const eventTaskId = normalizeId(details?.task_id ?? details?.taskId);
+    updateNodeStartTime(context, message, details, eventTaskId, event.timestamp);
     updateNextListFromEvent(context, message, details, eventTaskId);
     updateNestedRecognitionNode(context, message, details, eventTaskId, event.timestamp);
     updateRecognitionAttempts(context, message, details, eventTaskId, event.timestamp);

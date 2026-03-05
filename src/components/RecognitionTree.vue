@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
-import { NTag, NImage } from "naive-ui";
+import { NTag, NImage, NImageGroup } from "naive-ui";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { readDir } from "@tauri-apps/plugin-fs";
 import { join } from "@tauri-apps/api/path";
@@ -23,7 +23,7 @@ const props = withDefaults(
 );
 
 const expanded = ref(props.depth < 2);
-const imageUrl = ref<string | null>(null);
+const imageUrls = ref<string[]>([]);
 
 const hasChildren = computed(() => {
   return Array.isArray(props.node.detail) && props.node.detail.length > 0;
@@ -89,15 +89,30 @@ const algorithmColor = computed((): "success" | "warning" | "info" | "error" | "
 });
 
 async function loadImage() {
-  if (!props.node.reco_id || !props.node.name || !props.visionDir) return;
+  if (!props.node.name || !props.visionDir) return;
 
   try {
     const entries = await readDir(props.visionDir);
-    const pattern = `_${props.node.name}_${props.node.reco_id}.jpg`;
-    const matched = entries.find((entry) => entry.name && entry.name.endsWith(pattern));
-    if (matched && matched.name) {
-      const filePath = await join(props.visionDir, matched.name);
-      imageUrl.value = convertFileSrc(filePath);
+    const matched: string[] = [];
+
+    if (props.node.reco_id) {
+      const pattern = `_${props.node.name}_${props.node.reco_id}.jpg`;
+      const recoMatched = entries
+        .filter((entry) => entry.name && entry.name.endsWith(pattern))
+        .map((entry) => entry.name!);
+      matched.push(...recoMatched);
+    }
+
+    matched.sort();
+
+    if (matched.length > 0) {
+      const urls = await Promise.all(
+        matched.map(async (name) => {
+          const filePath = await join(props.visionDir!, name);
+          return convertFileSrc(filePath);
+        })
+      );
+      imageUrls.value = urls;
     }
   } catch (err) {
     console.error("Failed to load vision image:", err);
@@ -115,8 +130,19 @@ onMounted(() => {
 
 <template>
   <div v-if="visionOnly" class="recognition-tree">
-    <div v-if="imageUrl" class="image-preview">
-      <n-image :src="imageUrl" :alt="node.name" width="320" object-fit="contain" />
+    <div v-if="imageUrls.length > 0" class="image-preview">
+      <n-image-group v-if="imageUrls.length > 1">
+        <n-image
+          v-for="(url, idx) in imageUrls"
+          :key="idx"
+          :src="url"
+          :alt="`${node.name}-${idx + 1}`"
+          width="320"
+          object-fit="contain"
+          style="margin-right: 8px"
+        />
+      </n-image-group>
+      <n-image v-else :src="imageUrls[0]" :alt="node.name" width="320" object-fit="contain" />
     </div>
     <span v-else class="no-vision">无此id截图或目录里没有vision文件夹</span>
   </div>
@@ -144,8 +170,19 @@ onMounted(() => {
       <span v-if="scoreDisplay" class="node-score">score: {{ scoreDisplay }}</span>
     </div>
 
-    <div v-if="imageUrl" class="image-preview" :style="{ paddingLeft: `${depth * 16 + 24}px` }">
-      <n-image :src="imageUrl" :alt="node.name" width="320" object-fit="contain" />
+    <div v-if="imageUrls.length > 0" class="image-preview" :style="{ paddingLeft: `${depth * 16 + 24}px` }">
+      <n-image-group v-if="imageUrls.length > 1">
+        <n-image
+          v-for="(url, idx) in imageUrls"
+          :key="idx"
+          :src="url"
+          :alt="`${node.name}-${idx + 1}`"
+          width="320"
+          object-fit="contain"
+          style="margin-right: 8px"
+        />
+      </n-image-group>
+      <n-image v-else :src="imageUrls[0]" :alt="node.name" width="320" object-fit="contain" />
     </div>
 
     <div v-if="hasChildren && expanded" class="children">

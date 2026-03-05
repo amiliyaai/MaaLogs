@@ -352,6 +352,8 @@ export type NodeInfo = {
   node_id: number;
   name: string;
   timestamp: string;
+  start_time?: string;
+  end_time?: string;
   status: "success" | "failed";
   task_id: number;
   reco_details?: RecognitionDetail;
