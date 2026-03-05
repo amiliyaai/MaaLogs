@@ -77,17 +77,18 @@ import {
   NCollapseItem,
   NCode,
   NImage,
+  NInput,
   NModal,
   NSelect,
   NTag,
   NSpin,
   NIcon,
 } from "naive-ui";
-import { PictureFilled } from "@vicons/antd";
+import { PictureFilled, SearchOutlined } from "@vicons/antd";
 import { DynamicScroller, DynamicScrollerItem } from "vue-virtual-scroller";
-import { ref, watch, onMounted, computed } from "vue";
+import { ref, watch, onMounted, onUnmounted, computed } from "vue";
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { useStorage } from "@/composables";
+import { useStorage, useInPageSearch } from "@/composables";
 import type {
   NodeInfo,
   NextListItem,
@@ -95,6 +96,7 @@ import type {
   PipelineCustomActionInfo,
   AuxLogEntry,
 } from "@/types/logTypes";
+import type { InPageSearchResult } from "@/composables/useInPageSearch";
 import {
   analyzeWithAI,
   getAIConfig,
@@ -112,10 +114,6 @@ import WaitFreezesImages from "./WaitFreezesImages.vue";
  * AI 分析状态
  */
 const aiConfig = ref<AIConfig | null>(null);
-
-onMounted(async () => {
-  aiConfig.value = await getAIConfig();
-});
 const aiAnalyzing = ref(false);
 const aiResults = ref<FailureAnalysis[]>([]);
 const aiStats = ref<AIAnalysisStats>();
@@ -124,6 +122,120 @@ const screenshotSrc = ref("");
 const skipAIConfirm = useStorage("skipAIConfirm", false);
 const showAIConfirm = ref(false);
 const aiError = ref("");
+
+/**
+ * 页面内搜索状态
+ */
+const {
+  searchText,
+  searchScope,
+  searchResults,
+  showResults,
+  performSearch,
+  closeResults,
+} = useInPageSearch();
+
+const searchScopeOptions = [
+  { label: "全部", value: "all" },
+  { label: "任务", value: "task" },
+  { label: "节点", value: "node" },
+  { label: "识别", value: "recognition" },
+  { label: "动作", value: "action" },
+  { label: "日志", value: "auxlog" },
+];
+
+const nodeScrollerRef = ref<InstanceType<typeof DynamicScroller> | null>(null);
+const searchContainerRef = ref<HTMLElement | null>(null);
+const highlightNodeId = ref<number | null>(null);
+
+function handleSearchInput() {
+  performSearch(props.tasks);
+}
+
+function handleSearchFocus() {
+  if (searchText.value.trim()) {
+    performSearch(props.tasks);
+  }
+}
+
+function handleClickOutside(event: MouseEvent) {
+  if (searchContainerRef.value && !searchContainerRef.value.contains(event.target as Node)) {
+    closeResults();
+  }
+}
+
+onMounted(async () => {
+  aiConfig.value = await getAIConfig();
+  document.addEventListener("click", handleClickOutside);
+});
+
+onUnmounted(() => {
+  document.removeEventListener("click", handleClickOutside);
+});
+
+function handleSearchResultClick(result: InPageSearchResult) {
+  const task = props.tasks.find((t) => t.task_id === result.taskId);
+  if (!task) return;
+
+  emit("select-task", { taskKey: task.key, nodeId: result.nodeId || null });
+
+  if (result.nodeId) {
+    const nodeId = result.nodeId;
+    setTimeout(() => {
+      const nodeIndex = props.selectedTaskNodes.findIndex(
+        (n) => n.node_id === nodeId
+      );
+      if (nodeScrollerRef.value && nodeIndex >= 0) {
+        (nodeScrollerRef.value as unknown as { scrollToItem: (index: number) => void }).scrollToItem(nodeIndex);
+      }
+      highlightNodeId.value = nodeId;
+      setTimeout(() => {
+        highlightNodeId.value = null;
+      }, 1500);
+    }, 100);
+  }
+
+  closeResults();
+}
+
+function getSearchResultIcon(type: string): string {
+  switch (type) {
+    case "task":
+      return "📋";
+    case "node":
+      return "📦";
+    case "recognition":
+      return "🔍";
+    case "action":
+      return "⚙️";
+    case "auxlog":
+      return "📝";
+    default:
+      return "📄";
+  }
+}
+
+function getSearchResultLabel(result: InPageSearchResult): string {
+  switch (result.type) {
+    case "task":
+      return `任务: ${result.taskName}`;
+    case "node":
+      return `节点: ${result.nodeName}`;
+    case "recognition": {
+      const recoName = result.extra?.recoName;
+      if (recoName && result.field === "reco_id") {
+        return `${recoName} (ID: ${result.value})`;
+      }
+      return `识别[${result.field}]: ${result.value}`;
+    }
+    case "action":
+      return `动作[${result.field}]: ${result.value}`;
+    case "auxlog":
+      return `日志: ${result.value.substring(0, 30)}...`;
+    default:
+      return result.value;
+  }
+}
 
 const hasErrorScreenshot = computed(() => !!props.selectedNode?.error_screenshot);
 
@@ -402,6 +514,57 @@ function openScreenshot(filePath: string): void {
       <div class="panel-header">
         <div class="panel-title">任务与节点</div>
         <div class="panel-filters">
+          <!-- 页面内搜索 -->
+          <div ref="searchContainerRef" class="search-container">
+            <n-input
+              v-model:value="searchText"
+              size="small"
+              placeholder="搜索节点、识别、算法..."
+              clearable
+              class="search-input"
+              @update:value="handleSearchInput"
+              @focus="handleSearchFocus"
+            >
+              <template #prefix>
+                <n-icon :component="SearchOutlined" />
+              </template>
+            </n-input>
+            <n-select
+              v-model:value="searchScope"
+              size="small"
+              :options="searchScopeOptions"
+              class="search-scope-select"
+              @update:value="handleSearchInput"
+            />
+            <!-- 搜索结果下拉 -->
+            <div v-if="showResults && searchResults.length > 0" class="search-results">
+              <div class="search-results-header">
+                找到 {{ searchResults.length }} 个结果
+              </div>
+              <div class="search-results-list">
+                <div
+                  v-for="(result, index) in searchResults"
+                  :key="index"
+                  class="search-result-item"
+                  @click="handleSearchResultClick(result)"
+                >
+                  <span class="result-icon">{{ getSearchResultIcon(result.type) }}</span>
+                  <div class="result-content">
+                    <div class="result-label">{{ getSearchResultLabel(result) }}</div>
+                    <div class="result-meta">
+                      <span class="result-task">{{ result.taskName }}</span>
+                      <span v-if="result.nodeName && result.type !== 'node'" class="result-node">
+                        / {{ result.nodeName }}
+                      </span>
+                      <span v-if="result.extra?.status" class="result-status">
+                        · {{ result.extra.status }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
           <!-- 进程过滤 -->
           <n-select
             size="small"
@@ -513,6 +676,7 @@ function openScreenshot(filePath: string): void {
         <div v-else class="node-list-content">
           <!-- 虚拟滚动节点列表 -->
           <DynamicScroller
+            ref="nodeScrollerRef"
             class="virtual-scroller"
             :items="selectedTaskNodes"
             key-field="node_id"
@@ -532,6 +696,7 @@ function openScreenshot(filePath: string): void {
                   :class="{
                     active: item.node_id === selectedNodeId,
                     failed: item.status === 'failed',
+                    highlight: item.node_id === highlightNodeId,
                   }"
                   @click="handleNodeSelect(item.node_id)"
                 >
@@ -1449,6 +1614,135 @@ function openScreenshot(filePath: string): void {
 .focus-log-message {
   font-size: 13px;
   color: var(--n-text-color);
-  word-break: break-all;
+}
+
+.search-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.search-input {
+  width: 200px;
+}
+
+.search-scope-select {
+  width: 80px;
+}
+
+.search-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  background: var(--n-color-modal);
+  border: 1px solid var(--n-border-color);
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.search-results-header {
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--n-text-color-3);
+  border-bottom: 1px solid var(--n-border-color);
+  background: var(--n-color-hover);
+}
+
+.search-results-list {
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.search-result-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.search-result-item:hover {
+  background: var(--n-color-hover);
+}
+
+.result-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.result-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.result-label {
+  font-size: 13px;
+  color: var(--n-text-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.result-meta {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--n-text-color-3);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.result-task {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100px;
+  flex-shrink: 1;
+}
+
+.result-node {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 80px;
+  flex-shrink: 1;
+}
+
+.result-status {
+  flex-shrink: 0;
+  margin-left: 4px;
+}
+
+.node-row.highlight {
+  animation: highlight-flash 1.5s ease-out;
+  position: relative;
+}
+
+@keyframes highlight-flash {
+  0% {
+    background: rgba(250, 173, 20, 0.6);
+    box-shadow: 0 0 12px rgba(250, 173, 20, 0.8);
+  }
+  30% {
+    background: rgba(250, 173, 20, 0.5);
+    box-shadow: 0 0 8px rgba(250, 173, 20, 0.6);
+  }
+  60% {
+    background: rgba(250, 173, 20, 0.3);
+    box-shadow: 0 0 4px rgba(250, 173, 20, 0.4);
+  }
+  100% {
+    background: transparent;
+    box-shadow: none;
+  }
 }
 </style>

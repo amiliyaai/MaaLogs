@@ -33,3 +33,7 @@ export type { FileSelectorResult } from "./useFileSelection";
 
 // 导出 Store 相关
 export { useStorage } from "./useStore";
+
+// 导出页面内搜索相关
+export { useInPageSearch } from "./useInPageSearch";
+export type { InPageSearchResult, SearchResultType, SearchScope } from "./useInPageSearch";
