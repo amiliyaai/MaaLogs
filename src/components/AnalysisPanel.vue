@@ -101,6 +101,7 @@ import {
   saveAIConfig,
   type AIConfig,
   type FailureAnalysis,
+  type AIAnalysisStats,
 } from "@/utils/aiAnalyzer";
 import AISettingsModal from "./AISettingsModal.vue";
 import AIResultCard from "./AIResultCard.vue";
@@ -117,6 +118,7 @@ onMounted(async () => {
 });
 const aiAnalyzing = ref(false);
 const aiResults = ref<FailureAnalysis[]>([]);
+const aiStats = ref<AIAnalysisStats>();
 const showAISettings = ref(false);
 const showScreenshot = ref(false);
 const screenshotSrc = ref("");
@@ -159,13 +161,16 @@ async function doAIAnalyze() {
   aiAnalyzing.value = true;
   aiError.value = "";
   aiResults.value = [];
+  aiStats.value = undefined;
 
   try {
-    const rawResults = await analyzeWithAI(
+    const { results: rawResults, stats } = await analyzeWithAI(
       aiConfig.value,
       [props.selectedTask],
-      props.selectedTaskAuxLogs
+      props.selectedTaskAuxLogs,
+      props.expectedParams
     );
+    aiStats.value = stats;
 
     const dedupedMap = new Map<string, FailureAnalysis>();
     for (const result of rawResults) {
@@ -253,6 +258,7 @@ const props = withDefaults(
     selectedNodeCustomActions: PipelineCustomActionInfo[];
     selectedNodeFocusLogs?: { recognition: AuxLogEntry[]; action: AuxLogEntry[] };
     selectedTaskAuxLogs: AuxLogEntry[];
+    expectedParams: Map<string, string[]>;
     formatAuxLevel: (
       value: string
     ) => "default" | "primary" | "info" | "success" | "warning" | "error";
@@ -549,7 +555,7 @@ function openScreenshot(filePath: string): void {
             :controller-info="selectedTask.controllerInfo"
           />
           <!-- AI 分析结果卡片 -->
-          <AIResultCard :results="aiResults" :error="aiError" />
+          <AIResultCard :results="aiResults" :error="aiError" :stats="aiStats" />
           <!-- 空状态：未选择节点 -->
           <div v-if="!selectedNode" class="empty">请选择节点</div>
           <template v-else>

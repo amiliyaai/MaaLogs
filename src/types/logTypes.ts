@@ -409,6 +409,7 @@ export type RecognitionDetail = {
   box: [number, number, number, number] | null;
   detail: JsonValue;
   name: string;
+  expected?: string[];
 };
 
 /**

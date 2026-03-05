@@ -205,6 +205,7 @@ const {
   processOptions,
   threadOptions,
   filteredTasks,
+  expectedParams,
   handleParse,
   resetParseState,
 } = logParser;
@@ -734,6 +735,7 @@ onBeforeUnmount(() => {
               :selected-node-custom-actions="selectedNodeCustomActions"
               :selected-node-focus-logs="selectedNodeFocusLogs"
               :selected-task-aux-logs="selectedTaskAuxLogs"
+              :expected-params="expectedParams"
               :format-aux-level="formatAuxLevel"
               :selected-aux-levels="selectedAuxLevels"
               :hidden-callers="hiddenCallers"

@@ -56,6 +56,8 @@ export interface MainLogParseContext {
   detectedProject: ProjectType;
   /** save_on_error 相关的原始日志行 */
   saveOnErrorRawLines: string[];
+  /** OCR expected 参数缓存 { nodeName: expected[] } */
+  expectedParams: Map<string, string[]>;
 }
 
 /** 创建主日志解析上下文 */
@@ -67,6 +69,7 @@ export function createMainLogContext(): MainLogParseContext {
     lastIdentifier: null,
     detectedProject: "unknown",
     saveOnErrorRawLines: [],
+    expectedParams: new Map(),
   };
 }
 
@@ -418,6 +421,39 @@ function updateIdentifier(context: MainLogParseContext, rawLine: string): void {
 }
 
 /**
+ * 解析 OCR 调试日志，提取 expected 参数
+ *
+ * 日志格式：
+ * [时间戳][DBG][...][OCRer.cpp][L90] NodeName [param_.expected=["文字1","文字2",...]]
+ *
+ * @param rawLine - 原始日志行
+ * @param context - 解析上下文
+ */
+function parseOCRExpectedParam(rawLine: string, context: MainLogParseContext): void {
+  if (!rawLine.includes("[DBG]") || !rawLine.includes("OCRer.cpp")) return;
+
+  const match = rawLine.match(/param_\.expected=\[([^\]]+)\]/);
+  if (!match) return;
+
+  const nodeMatch = rawLine.match(/\]\s+([a-zA-Z_]\w*)\s+\[/);
+  if (!nodeMatch) return;
+
+  const nodeName = nodeMatch[1];
+  const expectedStr = match[1];
+  const expectedValues: string[] = [];
+
+  const itemRegex = /"([^"]+)"/g;
+  let itemMatch;
+  while ((itemMatch = itemRegex.exec(expectedStr)) !== null) {
+    expectedValues.push(itemMatch[1]);
+  }
+
+  if (expectedValues.length > 0) {
+    context.expectedParams.set(nodeName, expectedValues);
+  }
+}
+
+/**
  * 解析主日志文件（共享入口）
  *
  * 所有项目解析器的 parseMainLog 方法都应调用此函数。
@@ -435,6 +471,8 @@ export function parseMainLogBase(lines: string[], fileName: string): MainLogPars
   for (let i = 0; i < lines.length; i++) {
     const rawLine = lines[i].trim();
     if (!rawLine) continue;
+
+    parseOCRExpectedParam(rawLine, context);
 
     const parsed = parseBracketLine(rawLine);
     handleMainLogLine(context, rawLine, parsed, fileName, i + 1);
@@ -478,6 +516,7 @@ export function parseMainLogWithLogDir(lines: string[], fileName: string): MainL
     detectedProject: context.detectedProject,
     _logDir: extractLogDirectory(lines),
     saveOnErrorRawLines: context.saveOnErrorRawLines,
+    expectedParams: context.expectedParams,
   };
 }
 
@@ -512,6 +551,8 @@ export async function parseMainLogStream(
         linesForDir.push(rawLine);
       }
 
+      parseOCRExpectedParam(rawLine, context);
+
       const parsed = parseBracketLine(rawLine);
       handleMainLogLine(context, rawLine, parsed, fileName, lineNumber);
       lineNumber++;
@@ -540,6 +581,7 @@ export async function parseMainLogStream(
       detectedProject: context.detectedProject,
       _logDir: extractLogDirectory(linesForDir),
       saveOnErrorRawLines: context.saveOnErrorRawLines,
+      expectedParams: context.expectedParams,
     };
   } catch (error) {
     logger.error("流式解析主日志失败", { fileName, error });

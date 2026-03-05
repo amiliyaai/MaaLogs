@@ -59,7 +59,8 @@ src/
 
 ## 关键文件
 
-- [`src/config/`](src/config/): 应用配置文件（ai.ts, parser.ts, file.ts, knowledge.ts）。
+- [`src/config/`](src/config/): 应用配置文件（ai.ts, knowledge.ts, parser.ts, file.ts）。
+- [`src/config/knowledge.ts`](src/config/knowledge.ts): AI 知识库，包含识别算法、动作类型、控制器等知识。
 - [`src/parsers/projects/`](src/parsers/projects/): 项目解析器实现（m9a.ts, maaend.ts）。
 - [`src/types/`](src/types/): TypeScript 类型定义（logTypes.ts, parserTypes.ts）。
 - [`src/utils/`](src/utils/): 工具函数（parse.ts, format.ts, aiAnalyzer.ts）。
