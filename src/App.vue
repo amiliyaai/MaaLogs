@@ -179,11 +179,6 @@ const searchItemHeight = 64;
  */
 const fileSelector = useFileSelection((files) => {
   setSelectedFiles(files);
-  if (files.length > 0) {
-    parseState.value = "ready";
-  } else {
-    parseState.value = "idle";
-  }
   resetParseState();
   searcherResetSearch();
 });
@@ -430,6 +425,15 @@ watch(filteredTasks, () => {
     selectedNodeId.value = filteredTasks.value[0]?.nodes[0]?.node_id ?? null;
   }
 });
+
+/**
+ * 文件选择后自动开始解析
+ */
+watch(selectedFiles, (files) => {
+  if (files.length > 0 && parseState.value !== "parsing" && parseState.value !== "done") {
+    void handleParse();
+  }
+}, { deep: true });
 
 // ============================================
 // 详情面板选择状态
@@ -692,7 +696,6 @@ onBeforeUnmount(() => {
             :is-dragging="isDragging"
             :format-size="formatSize"
             @select-directory="handleSelectDirectory"
-            @parse="handleParse"
             @drag-over="handleDragOver"
             @drag-enter="handleDragOver"
             @drag-leave="handleDragLeave"

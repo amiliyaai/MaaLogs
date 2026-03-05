@@ -49,14 +49,11 @@ defineProps<{
 
 const emit = defineEmits<{
   (e: "select-directory"): void;
-  (e: "parse"): void;
   (e: "drag-over", event: DragEvent): void;
   (e: "drag-enter", event: DragEvent): void;
   (e: "drag-leave", event: DragEvent): void;
   (e: "drop", event: DragEvent): void;
 }>();
-
-const emitParse = () => emit("parse");
 </script>
 
 <!--
@@ -79,22 +76,13 @@ const emitParse = () => emit("parse");
       <div class="actions">
         <!-- 目录选择按钮 -->
         <NButton size="small" @click="emit('select-directory')">📂 选择日志目录</NButton>
-        <!-- 解析按钮 -->
-        <NButton
-          type="primary"
-          size="small"
-          :disabled="parseState === 'parsing' || selectedFiles.length === 0"
-          @click="emitParse"
-        >
-          {{ parseState === "parsing" ? "解析中…" : "开始解析" }}
-        </NButton>
       </div>
       <!-- 提示 -->
       <div class="drag-hint">
         <div class="hint-line" style="font-weight: bold">
           💡 请选择日志根目录，以便导入 maa.log、Custom 日志、错误截图！！！
         </div>
-        <div class="hint-line">📂 支持拖拽导入（日志压缩包或日志目录）</div>
+        <div class="hint-line">📂 支持拖拽导入（日志压缩包或日志目录），选择后自动解析</div>
       </div>
     </div>
     <!-- 状态信息卡片 -->
