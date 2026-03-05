@@ -228,6 +228,12 @@ const {
   handleTauriDrop,
 } = fileSelector;
 
+const visionDir = computed(() => {
+  const dir = fileSelector.baseDir.value;
+  if (!dir) return undefined;
+  return `${dir}/vision`;
+});
+
 /**
  * 搜索器
  * 提供文本搜索功能
@@ -740,6 +746,7 @@ onBeforeUnmount(() => {
               :selected-aux-levels="selectedAuxLevels"
               :hidden-callers="hiddenCallers"
               :caller-options="callerOptions"
+              :vision-dir="visionDir"
               @select-task="
                 ({ taskKey, nodeId }) => {
                   selectedTaskKey = taskKey;

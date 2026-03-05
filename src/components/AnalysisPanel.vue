@@ -85,7 +85,7 @@ import {
 } from "naive-ui";
 import { PictureFilled } from "@vicons/antd";
 import { DynamicScroller, DynamicScrollerItem } from "vue-virtual-scroller";
-import { ref, watch, onMounted } from "vue";
+import { ref, watch, onMounted, computed } from "vue";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { useStorage } from "@/composables";
 import type {
@@ -107,6 +107,7 @@ import AISettingsModal from "./AISettingsModal.vue";
 import AIResultCard from "./AIResultCard.vue";
 import ControllerInfoCard from "./ControllerInfoCard.vue";
 import CustomLogPanel from "./CustomLogPanel.vue";
+import RecognitionTree from "./RecognitionTree.vue";
 
 /**
  * AI 分析状态
@@ -125,6 +126,8 @@ const screenshotSrc = ref("");
 const showAIConfirm = ref(false);
 const skipAIConfirm = useStorage("skipAIConfirm", false);
 const aiError = ref("");
+
+const hasErrorScreenshot = computed(() => !!props.selectedNode?.error_screenshot);
 
 /**
  * 保存 AI 设置
@@ -189,6 +192,59 @@ async function doAIAnalyze() {
   } finally {
     aiAnalyzing.value = false;
   }
+}
+
+function hasNestedRecognition(detail: unknown): boolean {
+  return Array.isArray(detail) && detail.length > 0;
+}
+
+function getRecognitionScores(detail: unknown): number[] {
+  if (!detail || typeof detail !== "object") return [];
+  const d = detail as Record<string, unknown>;
+
+  if (d.best && typeof d.best === "object") {
+    const best = d.best as Record<string, unknown>;
+    if (typeof best.score === "number") {
+      return [best.score];
+    }
+  }
+
+  if (typeof d.score === "number") {
+    return [d.score];
+  }
+
+  if (typeof d.best_score === "number") {
+    return [d.best_score];
+  }
+
+  if (Array.isArray(d.filtered) && d.filtered.length > 0) {
+    const filteredScores = d.filtered
+      .map((item) => (item as Record<string, unknown>)?.score)
+      .filter((s): s is number => typeof s === "number");
+    if (filteredScores.length > 0) {
+      return filteredScores;
+    }
+  }
+
+  if (Array.isArray(d.all) && d.all.length > 0) {
+    const allScores = d.all
+      .map((item) => (item as Record<string, unknown>)?.score)
+      .filter((s): s is number => typeof s === "number");
+    if (allScores.length > 0) {
+      return allScores;
+    }
+  }
+
+  return [];
+}
+
+function formatRecognitionScores(detail: unknown): string | null {
+  const scores = getRecognitionScores(detail);
+  if (scores.length === 0) return null;
+  if (scores.length === 1) {
+    return scores[0].toFixed(3);
+  }
+  return scores.map((s) => s.toFixed(3)).join(", ");
 }
 
 /**
@@ -265,11 +321,13 @@ const props = withDefaults(
     selectedAuxLevels?: string[];
     hiddenCallers?: string[];
     callerOptions: { label: string; value: string }[];
+    visionDir?: string;
   }>(),
   {
     selectedAuxLevels: () => ["error", "warn", "info", "debug", "other"],
     hiddenCallers: () => [],
     selectedNodeFocusLogs: () => ({ recognition: [], action: [] }),
+    visionDir: undefined,
   }
 );
 
@@ -535,20 +593,25 @@ function openScreenshot(filePath: string): void {
         <div v-if="!selectedTask" class="empty">请选择左侧任务</div>
         <div v-else class="detail-content">
           <!-- 错误截图 -->
-          <div class="error-screenshot-panel">
-            <div class="error-screenshot-header">
-              <span class="error-screenshot-label">错误截图</span>
-            </div>
-            <n-image
-              v-if="selectedNode?.error_screenshot"
-              :src="convertFileSrc(selectedNode.error_screenshot)"
-              object-fit="contain"
-              class="error-screenshot-image"
-              preview-disabled
-              @click="openScreenshot(selectedNode.error_screenshot!)"
-            />
-            <div v-else class="error-screenshot-empty">无截图</div>
-          </div>
+          <n-collapse :default-expanded-names="hasErrorScreenshot ? ['screenshot'] : []" class="error-screenshot-collapse">
+            <n-collapse-item name="screenshot">
+              <template #header>
+                <span class="error-screenshot-label">错误截图</span>
+              </template>
+              <template #header-extra>
+                <span v-if="!hasErrorScreenshot" class="no-screenshot-hint">无截图</span>
+              </template>
+              <n-image
+                v-if="hasErrorScreenshot"
+                :src="convertFileSrc(selectedNode!.error_screenshot!)"
+                object-fit="contain"
+                class="error-screenshot-image"
+                preview-disabled
+                @click="openScreenshot(selectedNode!.error_screenshot!)"
+              />
+              <div v-else class="error-screenshot-empty">无截图</div>
+            </n-collapse-item>
+          </n-collapse>
           <!-- 控制器信息卡片 -->
           <ControllerInfoCard
             v-if="selectedTask.controllerInfo"
@@ -794,11 +857,6 @@ function openScreenshot(filePath: string): void {
                         </n-tag>
                       </template>
                       <div v-if="attempt.reco_details" class="attempt-details">
-                        <div class="attempt-detail-actions">
-                          <n-button size="tiny" @click="copyJson(attempt.reco_details)">
-                            复制
-                          </n-button>
-                        </div>
                         <div v-if="attempt.reco_details.algorithm" class="attempt-detail-row">
                           <span class="attempt-label">算法：</span>
                           <n-tag size="small" type="info">
@@ -817,14 +875,17 @@ function openScreenshot(filePath: string): void {
                           <span class="attempt-label">位置：</span>
                           <span>{{ formatBox(attempt.reco_details.box) }}</span>
                         </div>
-                        <div v-if="attempt.reco_details.detail" class="attempt-detail-row">
-                          <span class="attempt-label">结果：</span>
-                          <n-code
-                            :code="JSON.stringify(attempt.reco_details.detail, null, 2)"
-                            language="json"
-                            word-wrap
-                            class="detail-code"
-                          />
+                        <div v-if="formatRecognitionScores(attempt.reco_details.detail)" class="attempt-detail-row">
+                          <span class="attempt-label">分数：</span>
+                          <span>{{ formatRecognitionScores(attempt.reco_details.detail) }}</span>
+                        </div>
+                        <div v-if="hasNestedRecognition(attempt.reco_details.detail)" class="attempt-detail-row">
+                          <span class="attempt-label">嵌套识别：</span>
+                          <RecognitionTree :node="attempt.reco_details" :depth="0" :vision-dir="visionDir" is-root />
+                        </div>
+                        <div v-else class="attempt-detail-row">
+                          <span class="attempt-label">Vision：</span>
+                          <RecognitionTree :node="attempt.reco_details" :depth="0" :vision-dir="visionDir" vision-only />
                         </div>
                       </div>
                       <div v-else class="empty">无识别详情</div>
@@ -1302,17 +1363,7 @@ function openScreenshot(filePath: string): void {
   gap: 16px;
 }
 
-.error-screenshot-panel {
-  border: 1px solid var(--n-border-color);
-  border-radius: 6px;
-  padding: 8px;
-  background: var(--n-color);
-}
-
-.error-screenshot-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.error-screenshot-collapse {
   margin-bottom: 8px;
 }
 
@@ -1344,6 +1395,11 @@ function openScreenshot(filePath: string): void {
   font-size: 14px;
   text-align: center;
   padding: 16px;
+}
+
+.no-screenshot-hint {
+  color: var(--n-text-color-3);
+  font-size: 12px;
 }
 
 .screenshot-modal-content {
