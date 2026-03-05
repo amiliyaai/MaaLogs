@@ -652,7 +652,8 @@ function openScreenshot(filePath: string): void {
                     </div>
                     <div class="task-side">
                       <span
-                        >{{ formatTaskTimeParts(item.start_time).date }}
+                        >开始时间：
+                        {{ formatTaskTimeParts(item.start_time).date }}
                         {{ formatTaskTimeParts(item.start_time).time }}</span
                       >
                       <span>耗时：{{ item.duration ? formatDuration(item.duration) : "-" }}</span>
@@ -715,7 +716,8 @@ function openScreenshot(filePath: string): void {
                       </n-icon>
                     </div>
                     <div class="node-sub">
-                      <div>完成时间：{{ item.timestamp }}</div>
+                      <div v-if="item.start_time">开始时间：{{ item.start_time }}</div>
+                      <div>完成时间：{{ item.end_time || item.timestamp }}</div>
                       <span :style="{ color: item.status === 'failed' ? '#d03050' : '#18a058' }">
                         状态：{{ formatResultStatus(item.status) }}
                       </span>
@@ -969,7 +971,8 @@ function openScreenshot(filePath: string): void {
                 </template>
                 <div class="detail-grid">
                   <div>名称: {{ selectedNode.name }}</div>
-                  <div>时间: {{ selectedNode.timestamp }}</div>
+                  <div v-if="selectedNode.start_time">开始时间: {{ selectedNode.start_time }}</div>
+                  <div>完成时间: {{ selectedNode.end_time || selectedNode.timestamp }}</div>
                   <div>
                     状态
                     <n-tag
@@ -1409,12 +1412,29 @@ function openScreenshot(filePath: string): void {
   flex-wrap: wrap;
 }
 
+.task-row-top,
+.task-row-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .task-sub,
 .task-side {
   display: flex;
-  align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.task-sub {
+  align-items: center;
+}
+
+.task-side {
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
 }
 
 .collapse-header {
