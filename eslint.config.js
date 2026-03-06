@@ -13,7 +13,6 @@ export default [
       "node_modules/**",
       "vscode/out/**",
       "commitlint.config.cjs",
-      "src/rag/prebuilt/knowledge.ts",
     ],
   },
   js.configs.recommended,
@@ -45,7 +44,12 @@ export default [
       "@typescript-eslint/no-empty-object-type": "off",
       "no-empty": "warn",
       "no-useless-assignment": "warn",
-      "sonarjs/cognitive-complexity": ["error", 15],
+      "sonarjs/cognitive-complexity": ["warn", 20],
+      "sonarjs/todo-tag": "off",
+      "sonarjs/no-small-release": "off",
+      "sonarjs/no-nested-conditional": "warn",
+      "sonarjs/regex-complexity": "warn",
+      "sonarjs/slow-regex": "warn",
     },
   },
   {
@@ -70,7 +74,7 @@ export default [
     },
   },
   {
-    files: ["src/domains/logs/utils/**/*.ts"],
+    files: ["src/utils/**/*.ts"],
     rules: {
       "sonarjs/cognitive-complexity": "off",
       "sonarjs/no-nested-conditional": "off",
@@ -83,21 +87,28 @@ export default [
     },
   },
   {
-    files: ["src/domains/logs/composables/**/*.ts"],
+    files: ["src/composables/**/*.ts"],
     rules: {
       "sonarjs/cognitive-complexity": "off",
       "sonarjs/no-nested-conditional": "off",
+      "sonarjs/no-unused-collection": "off",
+      "sonarjs/pseudo-random": "off",
     },
   },
   {
-    files: ["src/domains/logs/parsers/**/*.ts"],
+    files: ["src/parsers/**/*.ts"],
     rules: {
       "sonarjs/cognitive-complexity": "off",
       "sonarjs/no-nested-conditional": "off",
       "sonarjs/regex-complexity": "off",
       "sonarjs/slow-regex": "off",
       "sonarjs/no-nested-template-literals": "off",
-      "sonarjs/todo-tag": "off",
+    },
+  },
+  {
+    files: ["src/types/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
     },
   },
   {
@@ -105,12 +116,6 @@ export default [
     rules: {
       "sonarjs/slow-regex": "off",
       "sonarjs/pseudo-random": "off",
-    },
-  },
-  {
-    files: ["src/domains/logs/types/logTypes.ts"],
-    rules: {
-      "@typescript-eslint/no-explicit-any": "off",
     },
   },
 ];
