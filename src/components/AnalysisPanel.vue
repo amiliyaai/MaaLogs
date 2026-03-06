@@ -268,9 +268,9 @@ function handleSearchResultClick(result: InPageSearchResult) {
   setTimeout(() => {
     const taskIndex = props.filteredTasks.findIndex((t) => t.key === task.key);
     if (taskScrollerRef.value && taskIndex >= 0) {
-      (
-        taskScrollerRef.value as unknown as { scrollToItem: (index: number) => void }
-      ).scrollToItem(taskIndex);
+      (taskScrollerRef.value as unknown as { scrollToItem: (index: number) => void }).scrollToItem(
+        taskIndex
+      );
       setTimeout(() => {
         const scrollerEl = (taskScrollerRef.value as unknown as { $el: HTMLElement }).$el;
         if (scrollerEl) {
@@ -281,7 +281,8 @@ function handleSearchResultClick(result: InPageSearchResult) {
               const itemEl = items[taskIndex] as HTMLElement;
               const wrapperRect = wrapper.getBoundingClientRect();
               const itemRect = itemEl.getBoundingClientRect();
-              const scrollOffset = itemRect.top - wrapperRect.top - (wrapperRect.height / 2) + (itemRect.height / 2);
+              const scrollOffset =
+                itemRect.top - wrapperRect.top - wrapperRect.height / 2 + itemRect.height / 2;
               wrapper.scrollTop += scrollOffset;
             }
           }
@@ -311,7 +312,8 @@ function handleSearchResultClick(result: InPageSearchResult) {
                   const itemEl = items[nodeIndex] as HTMLElement;
                   const wrapperRect = wrapper.getBoundingClientRect();
                   const itemRect = itemEl.getBoundingClientRect();
-                  const scrollOffset = itemRect.top - wrapperRect.top - (wrapperRect.height / 2) + (itemRect.height / 2);
+                  const scrollOffset =
+                    itemRect.top - wrapperRect.top - wrapperRect.height / 2 + itemRect.height / 2;
                   wrapper.scrollTop += scrollOffset;
                 }
               }
@@ -453,8 +455,7 @@ function getSearchResultMetaParts(result: InPageSearchResult): string[] {
 
   if (result.type === "recognition") {
     const recoName = typeof result.extra?.recoName === "string" ? result.extra.recoName : null;
-    const algorithm =
-      typeof result.extra?.algorithm === "string" ? result.extra.algorithm : null;
+    const algorithm = typeof result.extra?.algorithm === "string" ? result.extra.algorithm : null;
     if (recoName && result.field !== "name") {
       parts.push(`识别：${recoName}`);
     }
@@ -1021,10 +1022,7 @@ function openScreenshot(filePath: string): void {
           ref="detailContentRef"
         >
           <!-- 错误截图 -->
-          <n-collapse
-            v-model:expanded-names="screenshotExpanded"
-            class="error-screenshot-collapse"
-          >
+          <n-collapse v-model:expanded-names="screenshotExpanded" class="error-screenshot-collapse">
             <n-collapse-item name="screenshot">
               <template #header>
                 <span class="error-screenshot-label">错误截图</span>
