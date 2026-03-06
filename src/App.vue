@@ -342,36 +342,53 @@ const selectedNodeFocusLogs = computed(() => {
 /**
  * 当前选中任务的Custom日志
  */
+const matchesSelectedAuxLevel = (log: AuxLogEntry) => {
+  const normalizedLevel = normalizeAuxLevel(log.level);
+  return selectedAuxLevels.value.includes(normalizedLevel);
+};
+
+const matchesVisibleCaller = (log: AuxLogEntry) => {
+  if (hiddenCallers.value.length === 0) return true;
+  if (!log.caller) return true;
+  return !hiddenCallers.value.some((hidden) => log.caller?.includes(hidden));
+};
+
 const selectedTaskAuxLogs = computed(() => {
   if (!selectedTask.value) return [];
 
   const taskKey = selectedTask.value.key;
-
-  /**
-   * 检查日志级别是否匹配
-   */
-  const matchesLevel = (log: AuxLogEntry) => {
-    const normalizedLevel = normalizeAuxLevel(log.level);
-    return selectedAuxLevels.value.includes(normalizedLevel);
-  };
-
-  /**
-   * 检查调用者是否被隐藏
-   */
-  const matchesCaller = (log: AuxLogEntry) => {
-    if (hiddenCallers.value.length === 0) return true;
-    if (!log.caller) return true;
-    return !hiddenCallers.value.some((hidden) => log.caller?.includes(hidden));
-  };
 
   return auxLogs.value.filter(
     (log) =>
       log.source !== "focus" &&
       log.correlation?.status === "matched" &&
       log.correlation?.taskKey === taskKey &&
-      matchesLevel(log) &&
-      matchesCaller(log)
+      matchesSelectedAuxLevel(log) &&
+      matchesVisibleCaller(log)
   );
+});
+
+/**
+ * 分析页页面内搜索可用的 Custom 日志映射
+ */
+const searchableAuxLogs = computed(() => {
+  const logsByTask = new Map<string, AuxLogEntry[]>();
+
+  for (const log of auxLogs.value) {
+    if (log.source === "focus") continue;
+    if (log.correlation?.status !== "matched" || !log.correlation.taskKey) continue;
+    if (!matchesSelectedAuxLevel(log) || !matchesVisibleCaller(log)) continue;
+
+    const taskKey = log.correlation.taskKey;
+    const existingLogs = logsByTask.get(taskKey);
+    if (existingLogs) {
+      existingLogs.push(log);
+    } else {
+      logsByTask.set(taskKey, [log]);
+    }
+  }
+
+  return logsByTask;
 });
 
 /**
@@ -783,6 +800,7 @@ onBeforeUnmount(() => {
               :selected-node-custom-actions="selectedNodeCustomActions"
               :selected-node-focus-logs="selectedNodeFocusLogs"
               :selected-task-aux-logs="selectedTaskAuxLogs"
+              :searchable-aux-logs="searchableAuxLogs"
               :expected-params="expectedParams"
               :format-aux-level="formatAuxLevel"
               :selected-aux-levels="selectedAuxLevels"

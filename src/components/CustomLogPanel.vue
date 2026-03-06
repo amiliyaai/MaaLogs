@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { nextTick, ref, watch } from "vue";
 import {
   NTag,
   NCheckboxGroup,
@@ -19,6 +19,7 @@ const props = defineProps<{
   customActions: PipelineCustomActionInfo[];
   selectedAuxLevels: string[];
   hiddenCallers: string[];
+  highlightedAuxLogKey?: string | null;
   callerOptions: { label: string; value: string }[];
   formatAuxLevel: (
     value: string
@@ -45,6 +46,23 @@ const defaultHiddenCallers = useStorage<string[]>(DEFAULT_HIDDEN_CALLERS_KEY, [
   ...DEFAULT_HIDDEN_CALLERS_INITIAL,
 ]);
 const newHiddenCallerInput = ref("");
+const auxLogScrollerRef = ref<InstanceType<typeof DynamicScroller> | null>(null);
+
+watch(
+  () => [props.highlightedAuxLogKey, props.auxLogs] as const,
+  async ([highlightedAuxLogKey]) => {
+    if (!highlightedAuxLogKey) return;
+
+    const targetIndex = props.auxLogs.findIndex((log) => log.key === highlightedAuxLogKey);
+    if (targetIndex < 0 || !auxLogScrollerRef.value) return;
+
+    await nextTick();
+    (auxLogScrollerRef.value as unknown as { scrollToItem: (index: number) => void }).scrollToItem(
+      targetIndex
+    );
+  },
+  { deep: true }
+);
 
 function addDefaultHiddenCaller() {
   const value = newHiddenCallerInput.value.trim();
@@ -158,6 +176,7 @@ function applyDefaultHiddenCallers() {
       <div v-if="auxLogs.length === 0" class="empty">无关联日志</div>
       <div v-else class="aux-log-list">
         <DynamicScroller
+          ref="auxLogScrollerRef"
           class="virtual-scroller aux-log-scroller"
           :items="auxLogs"
           key-field="key"
@@ -165,7 +184,11 @@ function applyDefaultHiddenCallers() {
         >
           <template #default="{ item, active }">
             <DynamicScrollerItem :item="item" :active="active">
-              <div class="aux-log-item">
+              <div
+                class="aux-log-item"
+                :class="{ highlight: highlightedAuxLogKey === item.key }"
+                :data-aux-log-key="item.key"
+              >
                 <div class="aux-log-main">
                   <div class="aux-log-header">
                     <n-tag size="small" :type="formatAuxLevel(item.level)">
@@ -276,6 +299,11 @@ function applyDefaultHiddenCallers() {
   border-bottom: 1px solid var(--n-border-color);
 }
 
+.aux-log-item.highlight {
+  animation: highlight-flash 1.5s ease-out;
+  background: rgba(24, 160, 88, 0.12);
+}
+
 .aux-log-item:last-child {
   border-bottom: none;
 }
@@ -313,5 +341,14 @@ function applyDefaultHiddenCallers() {
   text-align: center;
   color: var(--n-text-color-3);
   padding: 24px;
+}
+
+@keyframes highlight-flash {
+  0% {
+    background: rgba(24, 160, 88, 0.22);
+  }
+  100% {
+    background: rgba(24, 160, 88, 0.02);
+  }
 }
 </style>

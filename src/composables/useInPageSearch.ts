@@ -45,6 +45,8 @@ export interface InPageSearchResult {
   taskId: number;
   /** 任务名称 */
   taskName: string;
+  /** 任务 key（可选） */
+  taskKey?: string;
   /** 节点 ID（可选） */
   nodeId?: number;
   /** 节点名称（可选） */
@@ -53,6 +55,8 @@ export interface InPageSearchResult {
   recoId?: number;
   /** 动作 ID（可选） */
   actionId?: number;
+  /** 辅助日志 key（可选） */
+  auxLogKey?: string;
   /** 日志行号（可选） */
   logLineNumber?: number;
   /** 额外信息 */
@@ -120,6 +124,12 @@ export function useInPageSearch(): InPageSearcherResult {
           value: task.entry,
           taskId: task.task_id,
           taskName: task.entry,
+          taskKey: task.key,
+          extra: {
+            status: task.status,
+            processId: task.processId,
+            threadId: task.threadId,
+          },
         });
       }
 
@@ -130,6 +140,12 @@ export function useInPageSearch(): InPageSearcherResult {
           value: String(task.task_id),
           taskId: task.task_id,
           taskName: task.entry,
+          taskKey: task.key,
+          extra: {
+            status: task.status,
+            processId: task.processId,
+            threadId: task.threadId,
+          },
         });
       }
     }
@@ -152,9 +168,10 @@ export function useInPageSearch(): InPageSearcherResult {
             value: node.name,
             taskId: task.task_id,
             taskName: task.entry,
+            taskKey: task.key,
             nodeId: node.node_id,
             nodeName: node.name,
-            extra: { status: node.status },
+            extra: { status: node.status, nodeId: node.node_id },
           });
         }
 
@@ -165,9 +182,10 @@ export function useInPageSearch(): InPageSearcherResult {
             value: String(node.node_id),
             taskId: task.task_id,
             taskName: task.entry,
+            taskKey: task.key,
             nodeId: node.node_id,
             nodeName: node.name,
-            extra: { status: node.status },
+            extra: { status: node.status, nodeId: node.node_id },
           });
         }
       }
@@ -196,10 +214,16 @@ export function useInPageSearch(): InPageSearcherResult {
         value,
         taskId: task.task_id,
         taskName: task.entry,
+        taskKey: task.key,
         nodeId: node.node_id,
         nodeName: node.name,
         recoId: attempt.reco_id,
-        extra,
+        extra: {
+          recoName: attempt.name,
+          status: attempt.status,
+          algorithm: attempt.reco_details?.algorithm,
+          ...extra,
+        },
       });
     }
 
@@ -222,15 +246,11 @@ export function useInPageSearch(): InPageSearcherResult {
 
     function searchSingleAttempt(attempt: RecognitionAttempt, task: TaskInfo, node: NodeInfo) {
       if (matches(attempt.name, keyword)) {
-        addRecognitionResult(attempt, task, node, "name", attempt.name, {
-          status: attempt.status,
-        });
+        addRecognitionResult(attempt, task, node, "name", attempt.name);
       }
 
       if (matchesNumber(attempt.reco_id, keyword)) {
-        addRecognitionResult(attempt, task, node, "reco_id", String(attempt.reco_id), {
-          status: attempt.status,
-        });
+        addRecognitionResult(attempt, task, node, "reco_id", String(attempt.reco_id));
       }
 
       checkRecognitionDetails(attempt, task, node);
@@ -277,24 +297,25 @@ export function useInPageSearch(): InPageSearcherResult {
         value,
         taskId: task.task_id,
         taskName: task.entry,
+        taskKey: task.key,
         nodeId: node.node_id,
         nodeName: node.name,
         actionId: attempt.action_id,
-        extra,
+        extra: {
+          status: attempt.status,
+          actionType: attempt.action_details?.action,
+          ...extra,
+        },
       });
     }
 
     function searchSingleActionAttempt(attempt: ActionAttempt, task: TaskInfo, node: NodeInfo) {
       if (matches(attempt.name, keyword)) {
-        addActionResult(attempt, task, node, "name", attempt.name, {
-          status: attempt.status,
-        });
+        addActionResult(attempt, task, node, "name", attempt.name);
       }
 
       if (matchesNumber(attempt.action_id, keyword)) {
-        addActionResult(attempt, task, node, "action_id", String(attempt.action_id), {
-          status: attempt.status,
-        });
+        addActionResult(attempt, task, node, "action_id", String(attempt.action_id));
       }
 
       if (attempt.action_details && matches(attempt.action_details.action, keyword)) {
@@ -316,8 +337,13 @@ export function useInPageSearch(): InPageSearcherResult {
           value: node.action_details.action,
           taskId: task.task_id,
           taskName: task.entry,
+          taskKey: task.key,
           nodeId: node.node_id,
           nodeName: node.name,
+          extra: {
+            status: node.status,
+            actionType: node.action_details.action,
+          },
         });
       }
 
@@ -343,22 +369,35 @@ export function useInPageSearch(): InPageSearcherResult {
    * 搜索辅助日志
    */
   function searchAuxLogs(
+    tasks: TaskInfo[],
     auxLogs: Map<string, AuxLogEntry[]>,
     keyword: string
   ): InPageSearchResult[] {
     const results: InPageSearchResult[] = [];
+    const tasksByKey = new Map(tasks.map((task) => [task.key, task]));
 
-    for (const [, entries] of auxLogs) {
+    for (const [taskKey, entries] of auxLogs) {
+      const matchedTask = tasksByKey.get(taskKey);
+      const taskName = matchedTask?.entry || "";
+
       for (const entry of entries) {
         if (matches(entry.message, keyword)) {
           results.push({
             type: "auxlog",
             field: "message",
-            value: entry.message.substring(0, 100),
+            value: entry.message,
             taskId: entry.task_id || 0,
-            taskName: entry.entry || "",
+            taskName: taskName || entry.entry || "",
+            taskKey,
+            nodeId: entry.correlation?.nodeId,
+            auxLogKey: entry.key,
             logLineNumber: entry.lineNumber,
-            extra: { level: entry.level, source: entry.source },
+            extra: {
+              level: entry.level,
+              source: entry.source,
+              caller: entry.caller,
+              fileName: entry.fileName,
+            },
           });
         }
 
@@ -368,9 +407,17 @@ export function useInPageSearch(): InPageSearcherResult {
             field: "level",
             value: entry.level,
             taskId: entry.task_id || 0,
-            taskName: entry.entry || "",
+            taskName: taskName || entry.entry || "",
+            taskKey,
+            nodeId: entry.correlation?.nodeId,
+            auxLogKey: entry.key,
             logLineNumber: entry.lineNumber,
-            extra: { source: entry.source },
+            extra: {
+              level: entry.level,
+              source: entry.source,
+              caller: entry.caller,
+              fileName: entry.fileName,
+            },
           });
         }
       }
@@ -411,7 +458,7 @@ export function useInPageSearch(): InPageSearcherResult {
     }
 
     if ((scope === "all" || scope === "auxlog") && auxLogs) {
-      allResults.push(...searchAuxLogs(auxLogs, keyword));
+      allResults.push(...searchAuxLogs(tasks, auxLogs, keyword));
     }
 
     searchResults.value = allResults.slice(0, 100);

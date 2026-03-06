@@ -148,14 +148,27 @@ const detailPanelHighlight = ref<boolean>(false);
 const detailExpandedNames = ref<string[]>(["reco"]);
 const highlightRecoId = ref<number | null>(null);
 const highlightActionId = ref<number | null>(null);
+const highlightAuxLogKey = ref<string | null>(null);
+
+function getSearchableAuxLogs(): Map<string, AuxLogEntry[]> | undefined {
+  if (props.searchableAuxLogs && props.searchableAuxLogs.size > 0) {
+    return props.searchableAuxLogs;
+  }
+
+  if (!props.selectedTaskKey || props.selectedTaskAuxLogs.length === 0) {
+    return undefined;
+  }
+
+  return new Map([[props.selectedTaskKey, props.selectedTaskAuxLogs]]);
+}
 
 function handleSearchInput() {
-  performSearch(props.tasks);
+  performSearch(props.tasks, getSearchableAuxLogs());
 }
 
 function handleSearchFocus() {
   if (searchText.value.trim()) {
-    performSearch(props.tasks);
+    performSearch(props.tasks, getSearchableAuxLogs());
   }
 }
 
@@ -167,17 +180,31 @@ function handleClickOutside(event: MouseEvent) {
 
 function scrollHighlightedItemToCenter() {
   if (!detailContentRef.value) return;
-  
+
   const highlightedItem = detailContentRef.value.querySelector(
     ".recognition-attempt-item.highlight, .action-attempt-item.highlight"
   ) as HTMLElement | null;
-  
+
   if (highlightedItem) {
     const containerRect = detailContentRef.value.getBoundingClientRect();
     const itemRect = highlightedItem.getBoundingClientRect();
-    const scrollOffset = itemRect.top - containerRect.top - (containerRect.height / 2) + (itemRect.height / 2);
+    const scrollOffset =
+      itemRect.top - containerRect.top - containerRect.height / 2 + itemRect.height / 2;
     detailContentRef.value.scrollTop += scrollOffset;
   }
+}
+
+function scrollDetailElementToCenter(selector: string) {
+  if (!detailContentRef.value) return;
+
+  const targetElement = detailContentRef.value.querySelector(selector) as HTMLElement | null;
+  if (!targetElement) return;
+
+  const containerRect = detailContentRef.value.getBoundingClientRect();
+  const elementRect = targetElement.getBoundingClientRect();
+  const scrollOffset =
+    elementRect.top - containerRect.top - containerRect.height / 2 + elementRect.height / 2;
+  detailContentRef.value.scrollTop += scrollOffset;
 }
 
 onMounted(async () => {
@@ -190,7 +217,9 @@ onUnmounted(() => {
 });
 
 function handleSearchResultClick(result: InPageSearchResult) {
-  const task = props.tasks.find((t) => t.task_id === result.taskId);
+  const task = result.taskKey
+    ? props.tasks.find((t) => t.key === result.taskKey)
+    : props.tasks.find((t) => t.task_id === result.taskId);
   if (!task) return;
 
   let targetNodeId = result.nodeId;
@@ -202,7 +231,8 @@ function handleSearchResultClick(result: InPageSearchResult) {
 
   highlightRecoId.value = null;
   highlightActionId.value = null;
-  
+  highlightAuxLogKey.value = null;
+
   if (result.type === "recognition") {
     detailExpandedNames.value = ["reco"];
     if (result.recoId) {
@@ -225,6 +255,14 @@ function handleSearchResultClick(result: InPageSearchResult) {
         highlightActionId.value = null;
       }, 1500);
     }
+  } else if (result.type === "auxlog" && result.auxLogKey) {
+    highlightAuxLogKey.value = result.auxLogKey;
+    setTimeout(() => {
+      scrollDetailElementToCenter(".aux-log-section");
+    }, 180);
+    setTimeout(() => {
+      highlightAuxLogKey.value = null;
+    }, 1500);
   }
 
   setTimeout(() => {
@@ -311,23 +349,147 @@ function getSearchResultIcon(type: string): string {
 function getSearchResultLabel(result: InPageSearchResult): string {
   switch (result.type) {
     case "task":
-      return `任务: ${result.taskName}`;
+      return result.field === "task_id" ? `任务 ID: ${result.value}` : `任务: ${result.taskName}`;
     case "node":
-      return `节点: ${result.nodeName}`;
+      return result.field === "node_id" ? `节点 ID: ${result.value}` : `节点: ${result.nodeName}`;
     case "recognition": {
       const recoName = result.extra?.recoName;
       if (recoName && result.field === "reco_id") {
-        return `${recoName} (ID: ${result.value})`;
+        return `识别 ID: ${result.value}`;
+      }
+      if (result.field === "algorithm") {
+        return `识别算法: ${result.value}`;
+      }
+      if (result.field === "name") {
+        return `识别: ${result.value}`;
       }
       return `识别[${result.field}]: ${result.value}`;
     }
     case "action":
+      if (result.field === "action") {
+        return `动作类型: ${result.value}`;
+      }
+      if (result.field === "name") {
+        return `动作: ${result.value}`;
+      }
+      if (result.field === "action_id") {
+        return `动作 ID: ${result.value}`;
+      }
       return `动作[${result.field}]: ${result.value}`;
     case "auxlog":
-      return `日志: ${result.value.substring(0, 30)}...`;
+      return result.field === "level" ? `日志级别: ${result.value}` : `日志: ${result.value}`;
     default:
       return result.value;
   }
+}
+
+function getAuxLogSourceLabel(result: InPageSearchResult): string | null {
+  const caller = typeof result.extra?.caller === "string" ? result.extra.caller : null;
+  const fileName = typeof result.extra?.fileName === "string" ? result.extra.fileName : null;
+  const source = typeof result.extra?.source === "string" ? result.extra.source : null;
+
+  const rawSource = caller || fileName || source;
+  if (!rawSource) return null;
+
+  const lastSlash = rawSource.lastIndexOf("/");
+  const lastBackslash = rawSource.lastIndexOf("\\");
+  const lastSeparator = Math.max(lastSlash, lastBackslash);
+  return lastSeparator >= 0 ? rawSource.slice(lastSeparator + 1) : rawSource;
+}
+
+function getSearchResultMetaParts(result: InPageSearchResult): string[] {
+  const parts: string[] = [];
+
+  if (result.type === "auxlog") {
+    if (result.taskName) {
+      parts.push(`任务：${result.taskName}`);
+    }
+
+    const level = typeof result.extra?.level === "string" ? result.extra.level.toUpperCase() : null;
+    const sourceLabel = getAuxLogSourceLabel(result);
+    if (level) {
+      parts.push(level);
+    }
+    if (sourceLabel) {
+      parts.push(sourceLabel);
+    }
+    if (typeof result.logLineNumber === "number") {
+      parts.push(`第 ${result.logLineNumber} 行`);
+    }
+    return parts;
+  }
+
+  if (result.type === "task") {
+    parts.push(`任务 ID：${result.taskId}`);
+    if (result.extra?.status) {
+      parts.push(`状态：${String(result.extra.status)}`);
+    }
+    if (result.extra?.processId) {
+      parts.push(`进程：${String(result.extra.processId)}`);
+    }
+    if (result.extra?.threadId) {
+      parts.push(`线程：${String(result.extra.threadId)}`);
+    }
+    return parts;
+  }
+
+  if (result.taskName) {
+    parts.push(`任务：${result.taskName}`);
+  }
+
+  if (result.type === "node") {
+    if (typeof result.nodeId === "number") {
+      parts.push(`节点 ID：${result.nodeId}`);
+    }
+    if (result.extra?.status) {
+      parts.push(`状态：${String(result.extra.status)}`);
+    }
+    return parts;
+  }
+
+  if (result.nodeName) {
+    parts.push(`节点：${result.nodeName}`);
+  }
+
+  if (result.type === "recognition") {
+    const recoName = typeof result.extra?.recoName === "string" ? result.extra.recoName : null;
+    const algorithm =
+      typeof result.extra?.algorithm === "string" ? result.extra.algorithm : null;
+    if (recoName && result.field !== "name") {
+      parts.push(`识别：${recoName}`);
+    }
+    if (typeof result.recoId === "number") {
+      parts.push(`识别 ID：${result.recoId}`);
+    }
+    if (algorithm) {
+      parts.push(`算法：${algorithm}`);
+    }
+    if (result.extra?.status) {
+      parts.push(`状态：${String(result.extra.status)}`);
+    }
+    return parts;
+  }
+
+  if (result.type === "action") {
+    const actionType =
+      typeof result.extra?.actionType === "string" ? result.extra.actionType : null;
+    if (typeof result.actionId === "number") {
+      parts.push(`动作 ID：${result.actionId}`);
+    }
+    if (actionType) {
+      parts.push(`类型：${actionType}`);
+    }
+    if (result.extra?.status) {
+      parts.push(`状态：${String(result.extra.status)}`);
+    }
+    return parts;
+  }
+
+  if (result.extra?.status) {
+    parts.push(`状态：${String(result.extra.status)}`);
+  }
+
+  return parts;
 }
 
 const hasErrorScreenshot = computed(() => !!props.selectedNode?.error_screenshot);
@@ -511,6 +673,7 @@ const props = withDefaults(
     selectedNodeCustomActions: PipelineCustomActionInfo[];
     selectedNodeFocusLogs?: { recognition: AuxLogEntry[]; action: AuxLogEntry[] };
     selectedTaskAuxLogs: AuxLogEntry[];
+    searchableAuxLogs?: Map<string, AuxLogEntry[]>;
     expectedParams: Map<string, string[]>;
     formatAuxLevel: (
       value: string
@@ -652,13 +815,14 @@ function openScreenshot(filePath: string): void {
                   <span class="result-icon">{{ getSearchResultIcon(result.type) }}</span>
                   <div class="result-content">
                     <div class="result-label">{{ getSearchResultLabel(result) }}</div>
-                    <div class="result-meta">
-                      <span class="result-task">{{ result.taskName }}</span>
-                      <span v-if="result.nodeName && result.type !== 'node'" class="result-node">
-                        / {{ result.nodeName }}
-                      </span>
-                      <span v-if="result.extra?.status" class="result-status">
-                        · {{ result.extra.status }}
+                    <div v-if="getSearchResultMetaParts(result).length > 0" class="result-meta">
+                      <span
+                        v-for="(part, metaIndex) in getSearchResultMetaParts(result)"
+                        :key="`${index}-meta-${metaIndex}`"
+                        class="result-meta-part"
+                      >
+                        <template v-if="metaIndex > 0"> · </template>
+                        {{ part }}
                       </span>
                     </div>
                   </div>
@@ -1450,6 +1614,7 @@ function openScreenshot(filePath: string): void {
             :custom-actions="selectedNodeCustomActions"
             :selected-aux-levels="props.selectedAuxLevels"
             :hidden-callers="props.hiddenCallers"
+            :highlighted-aux-log-key="highlightAuxLogKey"
             :caller-options="props.callerOptions"
             :format-aux-level="formatAuxLevel"
             @update:selected-aux-levels="emit('update:selectedAuxLevels', $event)"
@@ -1857,40 +2022,21 @@ function openScreenshot(filePath: string): void {
 .result-label {
   font-size: 13px;
   color: var(--n-text-color);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .result-meta {
-  display: flex;
-  align-items: center;
-  gap: 0;
+  display: block;
   margin-top: 2px;
   font-size: 11px;
   color: var(--n-text-color-3);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  word-break: break-word;
 }
 
-.result-task {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex-shrink: 1;
-}
-
-.result-node {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex-shrink: 1;
-}
-
-.result-status {
-  flex-shrink: 0;
-  margin-left: 4px;
+.result-meta-part {
+  white-space: normal;
 }
 
 .node-row.highlight {
