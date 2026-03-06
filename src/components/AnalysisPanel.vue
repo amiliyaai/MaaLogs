@@ -233,6 +233,8 @@ function getSearchResultLabel(result: InPageSearchResult): string {
 
 const hasErrorScreenshot = computed(() => !!props.selectedNode?.error_screenshot);
 
+const screenshotExpanded = ref<string[]>([]);
+
 /**
  * 执行 AI 分析
  */
@@ -433,7 +435,7 @@ const props = withDefaults(
 const aiResultsCache = new Map<string, FailureAnalysis[]>();
 
 /**
- * 监听任务切换，恢复已分析任务的结个
+ * 监听任务切换，恢复已分析任务的结构
  */
 watch(
   () => props.selectedTaskKey,
@@ -445,6 +447,14 @@ watch(
     }
     aiError.value = "";
   }
+);
+
+watch(
+  () => props.selectedNodeId,
+  () => {
+    screenshotExpanded.value = hasErrorScreenshot.value ? ["screenshot"] : [];
+  },
+  { immediate: true }
 );
 
 /**
@@ -742,7 +752,7 @@ function openScreenshot(filePath: string): void {
         <div v-else class="detail-content">
           <!-- 错误截图 -->
           <n-collapse
-            :default-expanded-names="hasErrorScreenshot ? ['screenshot'] : []"
+            v-model:expanded-names="screenshotExpanded"
             class="error-screenshot-collapse"
           >
             <n-collapse-item name="screenshot">
