@@ -99,11 +99,11 @@ export function useInPageSearch(): InPageSearcherResult {
   }
 
   /**
-   * 检查数字是否匹配（精确匹配）
+   * 检查数字是否匹配（支持模糊匹配）
    */
   function matchesNumber(num: number | undefined | null, keyword: string): boolean {
     if (num === undefined || num === null) return false;
-    return String(num) === keyword;
+    return String(num).includes(keyword);
   }
 
   /**

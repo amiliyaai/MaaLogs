@@ -65,7 +65,8 @@ src/
 │   └── ...
 ├── composables/          # Vue Composables
 │   ├── useLogParser.ts       # 日志解析
-│   ├── useSearch.ts          # 文本搜索
+│   ├── useSearch.ts          # 文本搜索（原始日志）
+│   ├── useInPageSearch.ts    # 页面内搜索（结构化数据）
 │   ├── useStatistics.ts      # 统计分析
 │   ├── useFileSelection.ts   # 文件选择
 │   └── useStore.ts           # 持久化存储
@@ -246,6 +247,32 @@ export function useMyFeature() {
     increment,
   };
 }
+```
+
+### 页面内搜索（useInPageSearch）
+
+`useInPageSearch` 提供页面内结构化数据搜索功能：
+
+- 支持搜索任务、节点、识别、动作、辅助日志
+- 支持模糊搜索，数字字段使用 `includes()` 进行部分匹配
+- 搜索结果支持点击跳转，自动高亮显示对应条目
+- 自动滚动到视图中心位置
+
+使用示例：
+
+```typescript
+import { useInPageSearch } from "@/composables/useInPageSearch";
+
+const {
+  searchKeyword,
+  searchScope,
+  searchResults,
+  isSearching,
+  hasSearched,
+  performSearch,
+  clearSearch,
+  handleResultClick,
+} = useInPageSearch(tasks, selectedTaskId, setSelectedTaskId, selectedNodeId, setSelectedNodeId);
 ```
 
 ## 调试技巧

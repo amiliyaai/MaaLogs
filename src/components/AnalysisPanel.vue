@@ -139,8 +139,15 @@ const searchScopeOptions = [
 ];
 
 const nodeScrollerRef = ref<InstanceType<typeof DynamicScroller> | null>(null);
+const taskScrollerRef = ref<InstanceType<typeof DynamicScroller> | null>(null);
 const searchContainerRef = ref<HTMLElement | null>(null);
+const detailContentRef = ref<HTMLElement | null>(null);
 const highlightNodeId = ref<number | null>(null);
+const highlightTaskKey = ref<string | null>(null);
+const detailPanelHighlight = ref<boolean>(false);
+const detailExpandedNames = ref<string[]>(["reco"]);
+const highlightRecoId = ref<number | null>(null);
+const highlightActionId = ref<number | null>(null);
 
 function handleSearchInput() {
   performSearch(props.tasks);
@@ -158,6 +165,21 @@ function handleClickOutside(event: MouseEvent) {
   }
 }
 
+function scrollHighlightedItemToCenter() {
+  if (!detailContentRef.value) return;
+  
+  const highlightedItem = detailContentRef.value.querySelector(
+    ".recognition-attempt-item.highlight, .action-attempt-item.highlight"
+  ) as HTMLElement | null;
+  
+  if (highlightedItem) {
+    const containerRect = detailContentRef.value.getBoundingClientRect();
+    const itemRect = highlightedItem.getBoundingClientRect();
+    const scrollOffset = itemRect.top - containerRect.top - (containerRect.height / 2) + (itemRect.height / 2);
+    detailContentRef.value.scrollTop += scrollOffset;
+  }
+}
+
 onMounted(async () => {
   aiConfig.value = await getAIConfig();
   document.addEventListener("click", handleClickOutside);
@@ -171,23 +193,100 @@ function handleSearchResultClick(result: InPageSearchResult) {
   const task = props.tasks.find((t) => t.task_id === result.taskId);
   if (!task) return;
 
-  emit("select-task", { taskKey: task.key, nodeId: result.nodeId || null });
-
-  if (result.nodeId) {
-    const nodeId = result.nodeId;
-    setTimeout(() => {
-      const nodeIndex = props.selectedTaskNodes.findIndex((n) => n.node_id === nodeId);
-      if (nodeScrollerRef.value && nodeIndex >= 0) {
-        (
-          nodeScrollerRef.value as unknown as { scrollToItem: (index: number) => void }
-        ).scrollToItem(nodeIndex);
-      }
-      highlightNodeId.value = nodeId;
-      setTimeout(() => {
-        highlightNodeId.value = null;
-      }, 1500);
-    }, 100);
+  let targetNodeId = result.nodeId;
+  if (!targetNodeId && task.nodes.length > 0) {
+    targetNodeId = task.nodes[0].node_id;
   }
+
+  emit("select-task", { taskKey: task.key, nodeId: targetNodeId || null });
+
+  highlightRecoId.value = null;
+  highlightActionId.value = null;
+  
+  if (result.type === "recognition") {
+    detailExpandedNames.value = ["reco"];
+    if (result.recoId) {
+      highlightRecoId.value = result.recoId;
+      setTimeout(() => {
+        scrollHighlightedItemToCenter();
+      }, 200);
+      setTimeout(() => {
+        highlightRecoId.value = null;
+      }, 1500);
+    }
+  } else if (result.type === "action") {
+    detailExpandedNames.value = ["base"];
+    if (result.actionId) {
+      highlightActionId.value = result.actionId;
+      setTimeout(() => {
+        scrollHighlightedItemToCenter();
+      }, 200);
+      setTimeout(() => {
+        highlightActionId.value = null;
+      }, 1500);
+    }
+  }
+
+  setTimeout(() => {
+    const taskIndex = props.filteredTasks.findIndex((t) => t.key === task.key);
+    if (taskScrollerRef.value && taskIndex >= 0) {
+      (
+        taskScrollerRef.value as unknown as { scrollToItem: (index: number) => void }
+      ).scrollToItem(taskIndex);
+      setTimeout(() => {
+        const scrollerEl = (taskScrollerRef.value as unknown as { $el: HTMLElement }).$el;
+        if (scrollerEl) {
+          const wrapper = scrollerEl.querySelector(".vue-recycle-scroller");
+          if (wrapper) {
+            const items = wrapper.querySelectorAll(".scroller-item");
+            if (items[taskIndex]) {
+              const itemEl = items[taskIndex] as HTMLElement;
+              const wrapperRect = wrapper.getBoundingClientRect();
+              const itemRect = itemEl.getBoundingClientRect();
+              const scrollOffset = itemRect.top - wrapperRect.top - (wrapperRect.height / 2) + (itemRect.height / 2);
+              wrapper.scrollTop += scrollOffset;
+            }
+          }
+        }
+      }, 50);
+    }
+    highlightTaskKey.value = task.key;
+    setTimeout(() => {
+      highlightTaskKey.value = null;
+    }, 1500);
+
+    const nodeIdToScroll = targetNodeId;
+    if (nodeIdToScroll) {
+      setTimeout(() => {
+        const nodeIndex = props.selectedTaskNodes.findIndex((n) => n.node_id === nodeIdToScroll);
+        if (nodeScrollerRef.value && nodeIndex >= 0) {
+          (
+            nodeScrollerRef.value as unknown as { scrollToItem: (index: number) => void }
+          ).scrollToItem(nodeIndex);
+          setTimeout(() => {
+            const scrollerEl = (nodeScrollerRef.value as unknown as { $el: HTMLElement }).$el;
+            if (scrollerEl) {
+              const wrapper = scrollerEl.querySelector(".vue-recycle-scroller");
+              if (wrapper) {
+                const items = wrapper.querySelectorAll(".scroller-item");
+                if (items[nodeIndex]) {
+                  const itemEl = items[nodeIndex] as HTMLElement;
+                  const wrapperRect = wrapper.getBoundingClientRect();
+                  const itemRect = itemEl.getBoundingClientRect();
+                  const scrollOffset = itemRect.top - wrapperRect.top - (wrapperRect.height / 2) + (itemRect.height / 2);
+                  wrapper.scrollTop += scrollOffset;
+                }
+              }
+            }
+          }, 50);
+        }
+        highlightNodeId.value = nodeIdToScroll;
+        setTimeout(() => {
+          highlightNodeId.value = null;
+        }, 1500);
+      }, 100);
+    }
+  }, 100);
 
   closeResults();
 }
@@ -607,6 +706,7 @@ function openScreenshot(filePath: string): void {
         <div class="task-list-content">
           <!-- 虚拟滚动任务列表 -->
           <DynamicScroller
+            ref="taskScrollerRef"
             class="virtual-scroller"
             :items="filteredTasks"
             key-field="key"
@@ -625,6 +725,7 @@ function openScreenshot(filePath: string): void {
                   :class="{
                     active: item.key === selectedTaskKey,
                     failed: item.status === 'failed',
+                    highlight: item.key === highlightTaskKey,
                   }"
                   @click="handleTaskSelect({ taskKey: item.key, nodeId: null })"
                 >
@@ -749,7 +850,12 @@ function openScreenshot(filePath: string): void {
         </div>
         <!-- 空状态：未选择任务 -->
         <div v-if="!selectedTask" class="empty">请选择左侧任务</div>
-        <div v-else class="detail-content">
+        <div
+          v-else
+          class="detail-content"
+          :class="{ highlight: detailPanelHighlight }"
+          ref="detailContentRef"
+        >
           <!-- 错误截图 -->
           <n-collapse
             v-model:expanded-names="screenshotExpanded"
@@ -965,7 +1071,7 @@ function openScreenshot(filePath: string): void {
               <div class="empty">无动作详情</div>
             </div>
             <!-- 详细信息折叠面板 -->
-            <n-collapse :default-expanded-names="[]">
+            <n-collapse v-model:expanded-names="detailExpandedNames">
               <!-- 基础信息 -->
               <n-collapse-item name="base">
                 <template #header>
@@ -1011,6 +1117,8 @@ function openScreenshot(filePath: string): void {
                     <n-collapse-item
                       :title="`${attempt.name || 'Recognition'}`"
                       :name="`attempt-${index}`"
+                      class="recognition-attempt-item"
+                      :class="{ highlight: attempt.reco_id === highlightRecoId }"
                     >
                       <template #header-extra>
                         <n-tag
@@ -1431,6 +1539,23 @@ function openScreenshot(filePath: string): void {
   gap: 8px;
 }
 
+.task-row {
+  padding: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+  border: 1px solid transparent;
+}
+
+.task-row.failed {
+  border-left: 3px solid #d03050;
+}
+
+.task-row.highlight {
+  animation: highlight-flash 1.5s ease-out;
+  position: relative;
+}
+
 .task-sub,
 .task-side {
   display: flex;
@@ -1559,6 +1684,17 @@ function openScreenshot(filePath: string): void {
   gap: 16px;
 }
 
+.detail-content.highlight {
+  animation: highlight-flash 1.5s ease-out;
+}
+
+.recognition-attempt-item.highlight,
+.action-attempt-item.highlight {
+  animation: highlight-flash 1.5s ease-out;
+  border: 2px solid #2080f0;
+  border-radius: 6px;
+}
+
 .error-screenshot-collapse {
   margin-bottom: 8px;
 }
@@ -1655,7 +1791,12 @@ function openScreenshot(filePath: string): void {
 }
 
 .search-input {
-  width: 200px;
+  width: 320px;
+}
+
+.search-input :deep(.n-input-input) {
+  text-overflow: clip;
+  overflow-x: auto;
 }
 
 .search-scope-select {
@@ -1666,7 +1807,7 @@ function openScreenshot(filePath: string): void {
   position: absolute;
   top: 100%;
   left: 0;
-  right: 0;
+  min-width: 500px;
   margin-top: 4px;
   background: var(--n-color-modal);
   border: 1px solid var(--n-border-color);
@@ -1730,13 +1871,13 @@ function openScreenshot(filePath: string): void {
   color: var(--n-text-color-3);
   white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .result-task {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 100px;
   flex-shrink: 1;
 }
 
@@ -1744,7 +1885,6 @@ function openScreenshot(filePath: string): void {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 80px;
   flex-shrink: 1;
 }
 
