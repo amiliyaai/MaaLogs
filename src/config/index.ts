@@ -112,3 +112,4 @@ export * from "./ai";
 export * from "./parser";
 export * from "./file";
 export * from "./knowledge";
+export * from "./compare";

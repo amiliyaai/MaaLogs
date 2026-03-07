@@ -672,6 +672,7 @@ describe("computeNodeStatistics", () => {
             status: "success" as const,
             task_id: 1,
             next_list: [],
+            next_list_attempts: [],
             recognition_attempts: [],
           },
           {
@@ -681,6 +682,7 @@ describe("computeNodeStatistics", () => {
             status: "failed" as const,
             task_id: 1,
             next_list: [],
+            next_list_attempts: [],
             recognition_attempts: [],
           },
         ],

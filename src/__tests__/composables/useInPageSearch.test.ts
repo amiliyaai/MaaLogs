@@ -34,6 +34,7 @@ function createMockTasks(): TaskInfo[] {
           status: "failed",
           task_id: 1001,
           next_list: [],
+          next_list_attempts: [],
           action_details: {
             action: "Click",
             action_id: 4001,

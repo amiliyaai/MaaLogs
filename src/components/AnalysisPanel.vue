@@ -997,7 +997,7 @@ function openScreenshot(filePath: string): void {
                       >进行识别：{{ item.recognition_attempts?.length || 0 }}</n-tag
                     >
                     <n-tag type="info" size="small"
-                      >Next列表：{{ item.next_list?.length || 0 }}</n-tag
+                      >Next列表：{{ (item.next_list_attempts?.[0]?.list?.length) || item.next_list?.length || 0 }}</n-tag
                     >
                   </div>
                 </div>
@@ -1410,18 +1410,77 @@ function openScreenshot(filePath: string): void {
                     <span class="collapse-summary">{{ summarizeNextList(selectedNode) }}</span>
                   </div>
                 </template>
-                <div v-if="(selectedNode.next_list || []).length === 0" class="empty">
-                  Next List
+                <div
+                  v-if="(selectedNode.next_list_attempts || []).length === 0"
+                  class="next-list-simple"
+                >
+                  <div v-if="(selectedNode.next_list || []).length === 0" class="empty">
+                    无 Next List
+                  </div>
+                  <div v-else class="next-list">
+                    <n-tag
+                      v-for="(item, idx) in selectedNode.next_list"
+                      :key="`${selectedNode.node_id}-next-${idx}`"
+                      size="small"
+                      type="info"
+                    >
+                      {{ formatNextName(item) }}
+                    </n-tag>
+                  </div>
                 </div>
-                <div v-else class="next-list">
-                  <n-tag
-                    v-for="(item, idx) in selectedNode.next_list"
-                    :key="`${selectedNode.node_id}-next-${idx}`"
-                    size="small"
-                    type="info"
-                  >
-                    {{ formatNextName(item) }}
-                  </n-tag>
+                <div v-else class="next-list-attempts-list">
+                  <div v-if="(selectedNode.next_list_attempts || []).length === 1" class="next-list-simple">
+                    <div v-if="selectedNode.next_list_attempts[0].list.length === 0" class="empty">无 Next List</div>
+                    <div v-else class="next-list">
+                      <n-tag
+                        v-for="(item, idx) in selectedNode.next_list_attempts[0].list"
+                        :key="`${selectedNode.node_id}-next-${idx}`"
+                        size="small"
+                        type="info"
+                      >
+                        {{ formatNextName(item) }}
+                      </n-tag>
+                    </div>
+                  </div>
+                  <template v-else>
+                    <n-collapse
+                      v-for="(attempt, index) in selectedNode.next_list_attempts"
+                      :key="`${selectedNode.node_id}-next-attempt-${index}`"
+                      :default-expanded-names="[]"
+                    >
+                      <n-collapse-item
+                        :title="`尝试 ${index + 1}`"
+                        :name="`next-attempt-${index}`"
+                        class="next-list-attempt-item"
+                      >
+                        <template #header-extra>
+                          <n-tag
+                            :type="attempt.status === 'success' ? 'success' : 'error'"
+                            size="tiny"
+                          >
+                            {{ attempt.status === 'success' ? '成功' : '失败' }}
+                          </n-tag>
+                        </template>
+                        <div class="attempt-details">
+                          <div class="attempt-detail-row">
+                            <span class="attempt-label">时间：</span>
+                            <span>{{ attempt.timestamp }}</span>
+                          </div>
+                          <div v-if="attempt.list.length === 0" class="empty">无 Next List</div>
+                          <div v-else class="next-list">
+                            <n-tag
+                              v-for="(item, idx) in attempt.list"
+                              :key="`${selectedNode.node_id}-next-attempt-${index}-${idx}`"
+                              size="small"
+                              type="info"
+                            >
+                              {{ formatNextName(item) }}
+                            </n-tag>
+                          </div>
+                        </div>
+                      </n-collapse-item>
+                    </n-collapse>
+                  </template>
                 </div>
               </n-collapse-item>
               <!-- 嵌套动作节点 -->

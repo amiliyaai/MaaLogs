@@ -296,8 +296,17 @@ export function summarizeRecognition(node: NodeInfo): string {
  * // 返回 '2 个'
  */
 export function summarizeNextList(node: NodeInfo): string {
-  const length = node.next_list?.length || 0;
-  return length > 0 ? `${length} 个` : "无";
+  const attempts = node.next_list_attempts || [];
+  if (attempts.length === 0) {
+    const length = node.next_list?.length || 0;
+    return length > 0 ? `${length} 个` : "无";
+  }
+  if (attempts.length === 1) {
+    const length = attempts[0].list?.length || 0;
+    return length > 0 ? `${length} 个` : "无";
+  }
+  const successCount = attempts.filter((item) => item.status === "success").length;
+  return `${attempts.length} 次（成功 ${successCount} / 失败 ${attempts.length - successCount}）`;
 }
 
 /**

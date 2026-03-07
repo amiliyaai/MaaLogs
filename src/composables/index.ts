@@ -37,3 +37,6 @@ export { useStorage } from "./useStore";
 // 导出页面内搜索相关
 export { useInPageSearch } from "./useInPageSearch";
 export type { InPageSearchResult, SearchResultType, SearchScope } from "./useInPageSearch";
+
+export { useRunComparison } from "./useRunComparison";
+export type { RunComparisonAPI } from "./useRunComparison";

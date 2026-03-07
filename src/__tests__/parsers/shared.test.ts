@@ -142,6 +142,7 @@ describe("attachScreenshotsToNodes", () => {
         status: "failed",
         task_id: 1,
         next_list: [],
+        next_list_attempts: [],
         recognition_attempts: [],
       },
     ];
@@ -172,6 +173,7 @@ describe("attachScreenshotsToNodes", () => {
         status: "success",
         task_id: 1,
         next_list: [],
+        next_list_attempts: [],
         recognition_attempts: [],
       },
     ];
@@ -200,6 +202,7 @@ describe("attachScreenshotsToNodes", () => {
         status: "failed",
         task_id: 1,
         next_list: [],
+        next_list_attempts: [],
         recognition_attempts: [],
       },
       {
@@ -209,6 +212,7 @@ describe("attachScreenshotsToNodes", () => {
         status: "failed",
         task_id: 1,
         next_list: [],
+        next_list_attempts: [],
         recognition_attempts: [],
       },
     ];

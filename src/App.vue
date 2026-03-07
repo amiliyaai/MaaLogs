@@ -54,6 +54,7 @@ import AnalysisPanel from "@/components/AnalysisPanel.vue";
 import SearchPanel from "@/components/SearchPanel.vue";
 import StatisticsPanel from "@/components/StatisticsPanel.vue";
 import SettingsModal from "@/components/SettingsModal.vue";
+import ComparePanel from "@/components/ComparePanel.vue";
 
 /**
  * Composables 导入
@@ -64,6 +65,7 @@ import {
   useSearch,
   useStatistics,
   useFileSelection,
+  useRunComparison,
 } from "@/composables";
 
 /**
@@ -109,7 +111,10 @@ const logger = createLogger("App");
 // ============================================
 
 /** 当前视图模式：分析、搜索、统计 */
-const viewMode = ref<"analysis" | "search" | "statistics">("analysis");
+const viewMode = ref<"analysis" | "search" | "statistics" | "compare">("analysis");
+
+/** 是否禁用 Tauri 拖拽处理 */
+const tauriDragDisabled = ref(false);
 
 /** 主题模式：light, dark, auto */
 const themeMode = ref<"light" | "dark" | "auto">("auto");
@@ -208,6 +213,7 @@ const {
   tasks,
   rawLines,
   auxLogs,
+  detectedProject,
   selectedProcessId,
   selectedThreadId,
   processOptions,
@@ -266,6 +272,26 @@ const {
  */
 const statistics = useStatistics(() => tasks.value);
 const { statSort, statKeyword, nodeStatistics, nodeSummary } = statistics;
+
+const runComparison = useRunComparison();
+const {
+  baselineSnapshot,
+  candidateSnapshot,
+  selectedTaskA,
+  selectedTaskB,
+  compareResult,
+  baselineTasks,
+  candidateTasks,
+  matchedTaskNames,
+  setBaselineSnapshot,
+  setCandidateSnapshot,
+  selectTaskA,
+  selectTaskB,
+  quickMatchTask,
+  clearBaselineSnapshot,
+  clearCandidateSnapshot,
+  useBaselineAsCandidate,
+} = runComparison;
 
 // ============================================
 // 计算属性
@@ -444,6 +470,21 @@ watch(selectedTaskKey, () => {
 });
 
 /**
+ * 视图模式变更时，重置任务和节点选择
+ */
+watch(viewMode, () => {
+  selectedTaskKey.value = null;
+  selectedNodeId.value = null;
+  selectedRecognitionIndex.value = null;
+  selectedNestedIndex.value = null;
+  selectedNestedActionIndex.value = null;
+  selectedRecognitionInActionIndex.value = null;
+  
+  // compare 视图禁用 Tauri 拖拽
+  tauriDragDisabled.value = viewMode.value === "compare";
+});
+
+/**
  * 过滤任务变更时，自动选择第一个任务
  */
 watch(filteredTasks, () => {
@@ -526,6 +567,146 @@ async function copyJson(data: unknown) {
  */
 function doPerformSearch() {
   searcherPerformSearch(rawLines.value);
+}
+
+function isDropInCompareSlot(event: DragEvent): boolean {
+  const path = event.composedPath();
+  return path.some(
+    (node) =>
+      node instanceof HTMLElement &&
+      (node.dataset.dropScope === "compare-slot" || node.dataset.dropScope === "compare-panel")
+  );
+}
+
+function handleGlobalDrop(event: DragEvent): void {
+  if (viewMode.value === "compare" && isDropInCompareSlot(event)) {
+    return;
+  }
+  void handleDrop(event);
+}
+
+async function handleSelectBaselineDir(): Promise<void> {
+  const paths = await selectDirectory();
+  if (paths.length > 0) {
+    await processSlotPaths("baseline", paths);
+  }
+}
+
+async function handleSelectBaselineZip(): Promise<void> {
+  const paths = await selectZipFile();
+  if (paths.length > 0) {
+    await processSlotPaths("baseline", paths);
+  }
+}
+
+async function handleSelectCandidateDir(): Promise<void> {
+  const paths = await selectDirectory();
+  if (paths.length > 0) {
+    await processSlotPaths("candidate", paths);
+  }
+}
+
+async function handleSelectCandidateZip(): Promise<void> {
+  const paths = await selectZipFile();
+  if (paths.length > 0) {
+    await processSlotPaths("candidate", paths);
+  }
+}
+
+async function selectDirectory(): Promise<string[]> {
+  const { open } = await import("@tauri-apps/plugin-dialog");
+  const selected = await open({
+    multiple: false,
+    directory: true,
+  });
+  if (!selected) return [];
+  return Array.isArray(selected) ? selected : [selected];
+}
+
+async function selectZipFile(): Promise<string[]> {
+  const { open } = await import("@tauri-apps/plugin-dialog");
+  const selected = await open({
+    multiple: false,
+    filters: [{ name: "压缩包", extensions: ["zip"] }],
+  });
+  if (!selected) return [];
+  return Array.isArray(selected) ? selected : [selected];
+}
+
+async function processSlotFiles(slot: "baseline" | "candidate", parserFiles: SelectedFile[]): Promise<void> {
+  const previousParserFiles = selectedFiles.value;
+  const parserStateBackup = {
+    parseState: parseState.value,
+    parseProgress: parseProgress.value,
+    statusMessage: statusMessage.value,
+    tasks: tasks.value,
+    rawLines: rawLines.value,
+    auxLogs: auxLogs.value,
+    detectedProject: detectedProject.value,
+    selectedProcessId: selectedProcessId.value,
+    selectedThreadId: selectedThreadId.value,
+  };
+  try {
+    setSelectedFiles(parserFiles);
+    resetParseState();
+    await handleParse();
+    if (tasks.value.length === 0) {
+      logger.warn("对比槽位解析完成但任务为空", { slot, fileCount: parserFiles.length });
+      return;
+    }
+    const snapshot = buildParsedRunSnapshot({
+      tasks: [...tasks.value],
+      sourceName: parserFiles[0].name,
+      detectedProject: detectedProject.value,
+      label: slot === "baseline" ? "基准运行" : "当前运行",
+      nodeStatistics: [...nodeStatistics.value],
+      nodeSummary: nodeSummary.value
+        ? {
+            ...nodeSummary.value,
+            slowestNode: { ...nodeSummary.value.slowestNode },
+          }
+        : null,
+    });
+    if (slot === "baseline") {
+      setBaselineSnapshot(snapshot);
+    } else {
+      setCandidateSnapshot(snapshot);
+    }
+    logger.info("对比槽位加载完成", {
+      slot,
+      sourceName: snapshot.sourceName,
+      taskCount: snapshot.totalTaskCount,
+      failedTaskCount: snapshot.failedTaskCount,
+    });
+  } catch (error) {
+    logger.error("对比槽位加载失败", { slot, error: String(error) });
+  } finally {
+    setSelectedFiles(previousParserFiles);
+    parseState.value = parserStateBackup.parseState;
+    parseProgress.value = parserStateBackup.parseProgress;
+    statusMessage.value = parserStateBackup.statusMessage;
+    tasks.value = parserStateBackup.tasks;
+    rawLines.value = parserStateBackup.rawLines;
+    auxLogs.value = parserStateBackup.auxLogs;
+    detectedProject.value = parserStateBackup.detectedProject;
+    selectedProcessId.value = parserStateBackup.selectedProcessId;
+    selectedThreadId.value = parserStateBackup.selectedThreadId;
+  }
+}
+
+async function processSlotPaths(slot: "baseline" | "candidate", paths: string[]): Promise<void> {
+  const result = await applySelectedPaths(paths);
+  if (result.files.length === 0) {
+    logger.warn("对比槽位路径未解析到文件", { slot, pathCount: paths.length });
+    return;
+  }
+  const parserFiles = result.files.map((file) => ({
+    name: file.name,
+    size: file.size,
+    type: getFileType(file),
+    file,
+  }));
+  await processSlotFiles(slot, parserFiles);
 }
 
 /**
@@ -627,6 +808,7 @@ onMounted(() => {
       // 监听 Tauri 拖拽事件
       unlistenDragDrop = await getCurrentWindow().onDragDropEvent((event) => {
         const payload = event.payload as { type: string; paths?: string[] };
+        
         if (payload.type === "over") {
           isDragging.value = true;
           return;
@@ -635,6 +817,13 @@ onMounted(() => {
           isDragging.value = false;
           const paths = Array.isArray(payload.paths) ? payload.paths : [];
           if (paths.length === 0) return;
+          
+          // compare 视图下，忽略拖拽（使用按钮选择）
+          if (viewMode.value === "compare") {
+            return;
+          }
+          
+          // 非 compare 视图，正常导入到文件列表
           void handleTauriDrop(paths);
           return;
         }
@@ -739,7 +928,7 @@ onBeforeUnmount(() => {
   <n-config-provider :theme="currentTheme">
     <n-message-provider>
       <n-dialog-provider>
-        <div class="app" @dragover.prevent @drop.prevent="handleDrop">
+        <div class="app" @dragover.prevent @drop.prevent="handleGlobalDrop">
           <!-- 顶部导航栏 -->
           <AppTopBar
             :view-mode="viewMode"
@@ -752,7 +941,12 @@ onBeforeUnmount(() => {
           />
 
           <!-- 拖拽遮罩层 -->
-          <div v-if="isDragging" class="drop-mask" @drop="handleDrop" @dragover="handleDragOver">
+          <div
+            v-if="isDragging && viewMode !== 'compare'"
+            class="drop-mask"
+            @drop="handleGlobalDrop"
+            @dragover="handleDragOver"
+          >
             松手导入日志/配置文件
           </div>
 
@@ -763,6 +957,7 @@ onBeforeUnmount(() => {
 
           <!-- 欢迎面板：文件选择和解析控制 -->
           <HeroPanel
+            v-if="viewMode !== 'compare'"
             :selected-files="selectedFiles"
             :total-size="totalSize"
             :parse-state="parseState"
@@ -780,6 +975,7 @@ onBeforeUnmount(() => {
           <div class="main-content">
             <!-- 文件列表面板 -->
             <FileListPanel
+              v-if="viewMode !== 'compare'"
               :selected-files="selectedFiles"
               :format-size="formatSize"
               @remove="handleRemoveSelectedFile"
@@ -870,6 +1066,29 @@ onBeforeUnmount(() => {
               :format-duration="formatDuration"
               @update:stat-keyword="statKeyword = $event"
               @update:stat-sort="statSort = $event"
+            />
+
+            <ComparePanel
+              v-if="viewMode === 'compare'"
+              :baseline-snapshot="baselineSnapshot"
+              :candidate-snapshot="candidateSnapshot"
+              :selected-task-a="selectedTaskA"
+              :selected-task-b="selectedTaskB"
+              :compare-result="compareResult"
+              :baseline-tasks="baselineTasks"
+              :candidate-tasks="candidateTasks"
+              :matched-task-names="matchedTaskNames"
+              :format-duration="formatDuration"
+              @select-task-a="selectTaskA"
+              @select-task-b="selectTaskB"
+              @quick-match="quickMatchTask"
+              @clear-baseline="clearBaselineSnapshot"
+              @clear-candidate="clearCandidateSnapshot"
+              @use-baseline-as-candidate="useBaselineAsCandidate"
+              @select-baseline-dir="handleSelectBaselineDir"
+              @select-baseline-zip="handleSelectBaselineZip"
+              @select-candidate-dir="handleSelectCandidateDir"
+              @select-candidate-zip="handleSelectCandidateZip"
             />
           </div>
         </div>
@@ -983,6 +1202,11 @@ body,
 
 .main-content > .file-list-panel {
   flex: none;
+}
+
+.main-content > .compare-panel {
+  flex: 1;
+  min-height: 0;
 }
 
 /**

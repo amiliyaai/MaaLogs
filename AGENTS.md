@@ -12,6 +12,7 @@
 - **配置入口**：解析器通过 `project-registry.ts` 注册，用户选择的解析器 ID 通过 `useStorage` 持久化。
 - **配置集中管理**：应用配置集中在 `src/config/` 目录，方便统一修改。
 - **搜索功能**：支持页面内搜索，包括任务、节点、识别、动作、辅助日志，支持模糊搜索、高亮显示、跳转定位。
+- **任务对比**：支持两次运行任务的对比分析，使用 Needleman-Wunsch 算法对齐节点，识别差异。
 
 ## 目录结构
 
@@ -42,7 +43,9 @@ src/
 │   ├── logger.ts          # 日志系统
 │   ├── crypto.ts          # 加密工具
 │   ├── aiAnalyzer.ts      # AI 分析
-│   └── updater.ts         # 应用更新
+│   ├── updater.ts         # 应用更新
+│   ├── pathBuilder.ts     # 任务对比路径构建（Needleman-Wunsch 算法）
+│   └── diffDetection.ts   # 任务对比差异检测
 ├── composables/           # Vue Composables
 │   ├── useLogParser.ts    # 日志解析
 │   ├── useSearch.ts       # 文本搜索（原始日志）
@@ -66,6 +69,8 @@ src/
 - [`src/parsers/projects/`](src/parsers/projects/): 项目解析器实现（m9a.ts, maaend.ts）。
 - [`src/types/`](src/types/): TypeScript 类型定义（logTypes.ts, parserTypes.ts）。
 - [`src/utils/`](src/utils/): 工具函数（parse.ts, format.ts, aiAnalyzer.ts）。
+- [`src/utils/pathBuilder.ts`](src/utils/pathBuilder.ts): 任务对比路径构建，实现 Needleman-Wunsch 全局序列对齐算法。
+- [`src/utils/diffDetection.ts`](src/utils/diffDetection.ts): 任务对比差异检测，识别失败节点、耗时异常、路径分歧等。
 - [`src/components/`](src/components/): Vue 组件（AnalysisPanel.vue 等）。
 - [`src/composables/useInPageSearch.ts`](src/composables/useInPageSearch.ts): 页面内搜索 composable，实现任务、节点、识别、动作的搜索和跳转。
 - [`docs/developers/parser-guide.md`](docs/developers/parser-guide.md): 解析器架构与开发指南。
@@ -123,6 +128,8 @@ src/
 - **日志关联正确性**：检查 `correlateAuxLogs` 是否正确关联辅助日志与任务。
 - **UI 显示完整性**：检查组件是否正确显示解析结果（如嵌套识别、disabled 状态）。
 - **搜索功能完整性**：检查搜索结果是否正确显示、跳转动画是否正常、滚动定位是否准确。
+- **任务对比算法正确性**：检查 Needleman-Wunsch 算法是否正确对齐节点，差异检测是否准确。
+- **任务对比 UI 完整性**：检查差异摘要、路线图、节点详情是否正确显示对比结果。
 
 ## 解析器实现要点
 
@@ -209,6 +216,50 @@ src/
 2. **状态同步**：节点切换时自动根据是否有截图同步展开/折叠状态。
 3. **watch 监听**：使用 `watch` 监听节点变化，自动调整截图展开状态。
 
+## 任务对比实现要点
+
+### 核心算法
+
+任务对比使用 **Needleman-Wunsch 全局序列对齐算法**，用于对齐两次运行的节点序列：
+
+1. **算法原理**：动态规划算法，找到两个序列之间的最优对齐，允许插入和删除（gap）。
+2. **得分设置**：
+   - 匹配得分：+2（相同节点名）
+   - 错配罚分：-1（不同节点名）
+   - 空位罚分：-1（插入或删除）
+3. **实现位置**：[`src/utils/pathBuilder.ts`](src/utils/pathBuilder.ts) 中的 `needlemanWunsch` 函数。
+
+### 差异检测类型
+
+| 类型 | 说明 | 严重程度 |
+|------|------|----------|
+| 失败节点 | 新增失败、持续失败、已修复 | critical / warning / info |
+| 耗时异常 | 耗时变化超过阈值（默认 50%） | warning / info |
+| 路径分歧 | 从同一节点走了不同分支 | info |
+| 识别变化 | 识别算法改变 | warning |
+| 动作变化 | 动作类型改变 | info |
+| 节点数量变化 | 节点总数不同 | warning |
+
+### 实现文件
+
+- [`src/utils/pathBuilder.ts`](src/utils/pathBuilder.ts)：路径构建和对齐算法
+- [`src/utils/diffDetection.ts`](src/utils/diffDetection.ts)：差异检测逻辑
+- [`src/components/ComparePanel.vue`](src/components/ComparePanel.vue)：对比面板 UI
+- [`src/components/RouteMap.vue`](src/components/RouteMap.vue)：路线图组件
+- [`src/components/PathDetail.vue`](src/components/PathDetail.vue)：节点详情组件
+
+### 配置项
+
+任务对比相关配置在 [`src/config/compare.ts`](src/config/compare.ts)：
+
+```typescript
+export const compareConfig = {
+  durationChangeThreshold: 0.5,        // 耗时变化阈值
+  reportFirstPathDivergenceOnly: true, // 只报告第一个路径分歧
+  diffSeverityOrder: [...],            // 差异严重程度排序
+};
+```
+
 ## 相关文档链接
 
 建议调取以下文档以辅助理解和开发：
@@ -225,6 +276,7 @@ src/
 
 ### 当前开发重点
 
+- 任务对比功能完善
 - 解析器稳定性优化
 - AI 分析功能完善
 - 用户体验改进
@@ -239,4 +291,4 @@ src/
 
 ---
 
-最后更新: 2026-03-06
+最后更新: 2026-03-08

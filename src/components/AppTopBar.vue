@@ -29,7 +29,7 @@
 <script setup lang="ts">
 import { NButton } from "naive-ui";
 
-type ViewMode = "analysis" | "search" | "statistics";
+type ViewMode = "analysis" | "search" | "statistics" | "compare";
 type ThemeMode = "light" | "dark" | "auto";
 
 defineProps<{
@@ -80,6 +80,13 @@ const emitView = (value: ViewMode) => {
           @click="emitView('statistics')"
         >
           📈 节点统计
+        </n-button>
+        <n-button
+          size="small"
+          :type="viewMode === 'compare' ? 'primary' : 'default'"
+          @click="emit('change-view', 'compare')"
+        >
+          ⚖️ 任务对比
         </n-button>
         <span title="功能开发中">
           <n-button size="small" disabled> 流程图 </n-button>

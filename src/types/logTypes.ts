@@ -297,6 +297,22 @@ export type NextListItem = {
 };
 
 /**
+ * Next List 尝试记录
+ *
+ * 记录单次 Next List 识别的结果。
+ * 一个节点可能包含多次 Next List 尝试（识别失败后重试）。
+ *
+ * @property {string} timestamp - 尝试发生时间戳
+ * @property {'success' | 'failed'} status - 尝试结果状态
+ * @property {NextListItem[]} list - 本次尝试的 next 列表
+ */
+export type NextListAttempt = {
+  timestamp: string;
+  status: "success" | "failed";
+  list: NextListItem[];
+};
+
+/**
  * 识别尝试记录
  *
  * 记录单次识别操作的结果和详情。
@@ -355,6 +371,7 @@ export type ActionAttempt = {
  * @property {ActionDetail} [action_details] - 最终动作详情
  * @property {any} [focus] - Focus 数据（用于调试）
  * @property {NextListItem[]} next_list - 后续节点列表
+ * @property {NextListAttempt[]} next_list_attempts - Next List 尝试历史
  * @property {RecognitionAttempt[]} recognition_attempts - 识别尝试历史
  * @property {RecognitionAttempt[]} [nested_recognition_in_action] - 动作中的嵌套识别
  * @property {Object} [node_details] - 节点配置详情
@@ -372,6 +389,7 @@ export type NodeInfo = {
   action_details?: ActionDetail;
   focus?: JsonValue;
   next_list: NextListItem[];
+  next_list_attempts: NextListAttempt[];
   recognition_attempts: RecognitionAttempt[];
   nested_recognition_in_action?: RecognitionAttempt[];
   nested_action_nodes?: NestedActionNode[];
@@ -622,6 +640,99 @@ export type CompareResult = {
   candidateNodes: NodeInfo[];
   matchedTasks: string[];
 };
+
+export type CompareStatus = "equal" | "diverged" | "a_only" | "b_only";
+
+export type PathNodeStatus = "success" | "failed" | "skipped";
+
+export interface RecognitionSummary {
+  algorithm: string;
+  confidence?: number;
+  box?: number[];
+  expected?: string;
+}
+
+export interface ActionSummary {
+  type: string;
+  params: Record<string, unknown>;
+}
+
+export interface PathNode {
+  id: string;
+  name: string;
+  status: PathNodeStatus;
+  executionIndex: number;
+  loopCount?: number;
+  compareStatus: CompareStatus;
+  nextList?: NextListItem[];
+  nextListAttempts?: NextListAttempt[];
+  taskA?: {
+    recognition?: RecognitionSummary;
+    action?: ActionSummary;
+    duration: number;
+  };
+  taskB?: {
+    recognition?: RecognitionSummary;
+    action?: ActionSummary;
+    duration: number;
+  };
+}
+
+export interface PathBranch {
+  index: number;
+  divergeFromNode: string;
+  pathA: string[];
+  pathB: string[];
+}
+
+export interface PathLoop {
+  name: string;
+  startIndex: number;
+  endIndex: number;
+  count: number;
+}
+
+export interface PathComparison {
+  nodes: PathNode[];
+  branches: PathBranch[];
+  loops: PathLoop[];
+  summary: {
+    totalA: number;
+    totalB: number;
+    equalCount: number;
+    aOnlyCount: number;
+    bOnlyCount: number;
+    divergedCount: number;
+    statusChangedCount: number;
+    durationChangedCount: number;
+    loopCount: number;
+  };
+}
+
+export type DiffType = "status_changed" | "a_only" | "b_only" | "duration_changed" | "diverged";
+
+export interface DiffContext {
+  before: string[];
+  after: string[];
+}
+
+export interface DiffItem {
+  type: DiffType;
+  index: number;
+  name: string;
+  nodeA?: PathNode;
+  nodeB?: PathNode;
+  context: DiffContext;
+  description: string;
+}
+
+export interface DiffGroup {
+  type: DiffType;
+  label: string;
+  icon: string;
+  priority: number;
+  items: DiffItem[];
+}
 
 /**
  * 控制器类型枚举

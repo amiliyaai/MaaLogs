@@ -71,6 +71,7 @@ function createMockNode(overrides: Partial<NodeInfo> = {}): NodeInfo {
     status: "success",
     task_id: 1,
     next_list: [],
+    next_list_attempts: [],
     recognition_attempts: [],
     ...overrides,
   };

@@ -31,6 +31,7 @@ import type {
   JsonValue,
   NestedActionNode,
   AuxLogEntry,
+  NextListAttempt,
 } from "@/types/logTypes";
 import { createLogger } from "./logger";
 import { parseMessageAndParams } from "@/parsers/shared";
@@ -1521,6 +1522,7 @@ type TaskNodeBuildContext = {
   nestedNodes: RecognitionAttempt[];
   nestedActionNodes: NestedActionNode[];
   currentNextList: NextListItem[];
+  nextListAttemptsByNodeName: Map<string, NextListAttempt[]>;
   currentActionId: number | undefined;
   recognitionsByTaskId: Map<number, RecognitionAttempt[]>;
   actionsByTaskId: Map<number, ActionAttempt[]>;
@@ -1557,12 +1559,15 @@ function updateNextListFromEvent(
   context: TaskNodeBuildContext,
   message: string,
   details: Record<string, JsonValue>,
-  eventTaskId: number | undefined
+  eventTaskId: number | undefined,
+  timestamp: string
 ) {
-  if (message !== "Node.NextList.Starting" && message !== "Node.NextList.Succeeded") return;
+  if (message !== "Node.NextList.Succeeded" && message !== "Node.NextList.Failed") return;
   if (eventTaskId !== context.task.task_id) return;
+  const nodeName = coerceString(details.name);
+  if (!nodeName) return;
   const list = Array.isArray(details.list) ? details.list : [];
-  context.currentNextList = list.map((item) => {
+  const nextList: NextListItem[] = list.map((item) => {
     if (!isRecordJsonValue(item)) {
       return {
         name: context.stringPool.intern(""),
@@ -1579,6 +1584,28 @@ function updateNextListFromEvent(
       jump_back: jumpBack,
     };
   });
+  const status = message === "Node.NextList.Succeeded" ? "success" : "failed";
+  const attempts = context.nextListAttemptsByNodeName.get(nodeName) || [];
+  const lastAttempt = attempts[attempts.length - 1];
+  const isDuplicate =
+    lastAttempt &&
+    lastAttempt.status === status &&
+    lastAttempt.list.length === nextList.length &&
+    lastAttempt.list.every(
+      (item, idx) =>
+        item.name === nextList[idx].name &&
+        item.anchor === nextList[idx].anchor &&
+        item.jump_back === nextList[idx].jump_back
+    );
+  if (!isDuplicate) {
+    attempts.push({
+      timestamp: context.stringPool.intern(timestamp),
+      status,
+      list: nextList,
+    });
+    context.nextListAttemptsByNodeName.set(nodeName, attempts);
+  }
+  context.currentNextList = nextList;
 }
 
 /**
@@ -1823,6 +1850,31 @@ function updatePipelineNodes(
       : context.nestedActionNodes.slice();
 
   const startTime = context.nodeStartTimes.get(nodeId);
+  const parentName = coerceString(details.name);
+  const actualNodeName = coerceString(nodeDetails?.name);
+  const nextListAttemptsForParent = parentName
+    ? context.nextListAttemptsByNodeName.get(parentName) || []
+    : [];
+  const nextListAttemptsForActual = actualNodeName && actualNodeName !== parentName
+    ? context.nextListAttemptsByNodeName.get(actualNodeName) || []
+    : [];
+  const nextListAttemptsForNode = nextListAttemptsForActual.length > 0
+    ? nextListAttemptsForActual
+    : nextListAttemptsForParent;
+  const status: "success" | "failed" = message === "Node.PipelineNode.Succeeded" ? "success" : "failed";
+  const nextListAttempt = nextListAttemptsForNode.length > 0
+    ? nextListAttemptsForNode
+    : context.currentNextList.length > 0
+      ? [{
+          timestamp: context.stringPool.intern(timestamp),
+          status,
+          list: context.currentNextList.map((item) => ({
+            name: context.stringPool.intern(item.name),
+            anchor: item.anchor,
+            jump_back: item.jump_back,
+          })),
+        }]
+      : [];
   context.nodes.push({
     node_id: nodeId,
     name: context.stringPool.intern(nodeName),
@@ -1839,6 +1891,15 @@ function updatePipelineNodes(
       name: context.stringPool.intern(item.name),
       anchor: item.anchor,
       jump_back: item.jump_back,
+    })),
+    next_list_attempts: nextListAttempt.map((attempt) => ({
+      timestamp: context.stringPool.intern(attempt.timestamp),
+      status: attempt.status,
+      list: attempt.list.map((item) => ({
+        name: context.stringPool.intern(item.name),
+        anchor: item.anchor,
+        jump_back: item.jump_back,
+      })),
     })),
     recognition_attempts: recognitionAttempts.map((attempt) => ({
       reco_id: attempt.reco_id,
@@ -1884,13 +1945,14 @@ function buildTaskNodes(
   const taskEvents = events.slice(startIndex, endIndex + 1);
 
   const recognitionAttempts: RecognitionAttempt[] = [];
-  const recognitionIdSet = new Set<number>(); // 用于识别尝试去重
+  const recognitionIdSet = new Set<number>();
   const nestedNodes: RecognitionAttempt[] = [];
   const nestedActionNodes: NestedActionNode[] = [];
   const recognitionsByTaskId = new Map<number, RecognitionAttempt[]>();
   const actionsByTaskId = new Map<number, ActionAttempt[]>();
   const actionNodesByTaskId = new Map<number, NestedActionNode[]>();
   const nodeStartTimes = new Map<number, string>();
+  const nextListAttemptsByNodeName = new Map<string, NextListAttempt[]>();
 
   const context: TaskNodeBuildContext = {
     task,
@@ -1902,6 +1964,7 @@ function buildTaskNodes(
     nestedNodes,
     nestedActionNodes,
     currentNextList: [],
+    nextListAttemptsByNodeName,
     currentActionId: undefined,
     recognitionsByTaskId,
     actionsByTaskId,
@@ -1913,12 +1976,54 @@ function buildTaskNodes(
     const { message, details } = event;
     const eventTaskId = normalizeId(details?.task_id ?? details?.taskId);
     updateNodeStartTime(context, message, details, eventTaskId, event.timestamp);
-    updateNextListFromEvent(context, message, details, eventTaskId);
+    updateNextListFromEvent(context, message, details, eventTaskId, event.timestamp);
     updateNestedRecognitionNode(context, message, details, eventTaskId, event.timestamp);
     updateRecognitionAttempts(context, message, details, eventTaskId, event.timestamp);
     updateActionAttempts(context, message, details, eventTaskId, event.timestamp);
     updateActionNodes(context, message, details, eventTaskId, event.timestamp);
     updatePipelineNodes(context, message, details, eventTaskId, event.timestamp);
+  }
+
+  const nextListEventsByName = new Map<string, { timestamp: string; list: NextListItem[]; status: "success" | "failed" }[]>();
+
+  for (const event of taskEvents) {
+    if (event.message !== "Node.NextList.Succeeded" && event.message !== "Node.NextList.Failed") continue;
+    const details = event.details as Record<string, JsonValue>;
+    const nodeName = coerceString(details.name);
+    if (!nodeName) continue;
+    const list = Array.isArray(details.list) ? details.list : [];
+    const nextList: NextListItem[] = list.map((item) => {
+      if (!isRecordJsonValue(item)) {
+        return { name: stringPool.intern(""), anchor: false, jump_back: false };
+      }
+      const name = typeof item.name === "string" ? item.name : "";
+      const anchor = typeof item.anchor === "boolean" ? item.anchor : false;
+      const jumpBack = typeof item.jump_back === "boolean" ? item.jump_back : false;
+      return { name: stringPool.intern(name), anchor, jump_back: jumpBack };
+    });
+    const status: "success" | "failed" = event.message === "Node.NextList.Succeeded" ? "success" : "failed";
+
+    if (!nextListEventsByName.has(nodeName)) {
+      nextListEventsByName.set(nodeName, []);
+    }
+    nextListEventsByName.get(nodeName)!.push({ timestamp: event.timestamp, list: nextList, status });
+  }
+
+  for (const node of nodes) {
+    const nodeName = node.name;
+    const nodeTimestamp = node.timestamp;
+    if (!nodeName) continue;
+
+    const nodeNextListEvents = nextListEventsByName.get(nodeName) || [];
+    const nextListEvent = nodeNextListEvents.find((e) => e.timestamp > nodeTimestamp);
+
+    if (nextListEvent) {
+      node.next_list_attempts = [{
+        timestamp: stringPool.intern(nextListEvent.timestamp),
+        status: nextListEvent.status,
+        list: nextListEvent.list,
+      }];
+    }
   }
 
   return nodes;
