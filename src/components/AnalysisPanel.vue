@@ -1016,9 +1016,9 @@ function openScreenshot(filePath: string): void {
         <div v-if="!selectedTask" class="empty">请选择左侧任务</div>
         <div
           v-else
+          ref="detailContentRef"
           class="detail-content"
           :class="{ highlight: detailPanelHighlight }"
-          ref="detailContentRef"
         >
           <!-- 错误截图 -->
           <n-collapse

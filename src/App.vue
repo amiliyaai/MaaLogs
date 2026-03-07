@@ -89,11 +89,13 @@ import {
   splitMatch,
 } from "@/utils/format";
 import { extractCustomActionFromActionDetails } from "@/utils/parse";
-import { isTauriEnv, clearZipExtractCache } from "@/utils/file";
+import { isTauriEnv, clearZipExtractCache, getFileType, applySelectedPaths } from "@/utils/file";
 import { createLogger, init, flushLogs, setLoggerContext } from "@/utils/logger";
 import { appConfig } from "@/config";
+import { setImportMaaBakLogGetter } from "@/config/file";
 import { getAIConfig, saveAIConfig, type AIConfig } from "@/utils/aiAnalyzer";
-import type { AuxLogEntry } from "@/types/logTypes";
+import type { AuxLogEntry, SelectedFile } from "@/types/logTypes";
+import { buildParsedRunSnapshot } from "@/utils/diffDetection";
 
 // ============================================
 // 日志记录器
@@ -111,6 +113,9 @@ const viewMode = ref<"analysis" | "search" | "statistics">("analysis");
 
 /** 主题模式：light, dark, auto */
 const themeMode = ref<"light" | "dark" | "auto">("auto");
+
+/** 是否导入 maa.bak.log */
+const importMaaBakLog = ref(true);
 
 /** 当前是否为暗色主题 */
 const isDark = computed(() => {
@@ -657,6 +662,11 @@ onMounted(() => {
       if (savedThemeMode) {
         themeMode.value = savedThemeMode;
       }
+      const savedImportMaaBakLog = await store.get<boolean>("importMaaBakLog");
+      if (savedImportMaaBakLog !== null && savedImportMaaBakLog !== undefined) {
+        importMaaBakLog.value = savedImportMaaBakLog;
+      }
+      setImportMaaBakLogGetter(() => importMaaBakLog.value);
 
       // 加载 AI 配置
       await loadAIConfig();
@@ -686,6 +696,15 @@ onMounted(() => {
         () => themeMode.value,
         async (newValue) => {
           await store.set("themeMode", newValue);
+          await store.save();
+        }
+      );
+
+      // 监听 importMaaBakLog 变化并保存
+      watch(
+        () => importMaaBakLog.value,
+        async (newValue) => {
+          await store.set("importMaaBakLog", newValue);
           await store.save();
         }
       );
@@ -860,9 +879,11 @@ onBeforeUnmount(() => {
           v-model:show="showSettings"
           :theme-mode="themeMode"
           :ai-config="aiConfig"
+          :import-maa-bak-log="importMaaBakLog"
           @update:theme-mode="themeMode = $event"
           @update:ai-config="aiConfig = $event"
           @save-ai-config="handleSaveAIConfig"
+          @update:import-maa-bak-log="importMaaBakLog = $event"
         />
       </n-dialog-provider>
     </n-message-provider>

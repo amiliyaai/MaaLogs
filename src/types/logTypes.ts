@@ -19,6 +19,7 @@
  * @property {number} size - 文件大小（字节）
  * @property {string} type - 文件 MIME 类型或扩展名
  * @property {File} file - 原始浏览器 File 对象，用于读取文件内容
+ * @property {string[]} [sourceFiles] - 来源文件列表（用于合并日志时记录原始文件）
  *
  * @example
  * const selectedFile: SelectedFile = {
@@ -27,12 +28,23 @@
  *   type: 'text/plain',
  *   file: new File(['...'], 'maa.log')
  * };
+ *
+ * @example
+ * // 合并 maa.bak.log 和 maa.log 后的文件
+ * const mergedFile: SelectedFile = {
+ *   name: 'maa.log',
+ *   size: 2048000,
+ *   type: 'text/plain',
+ *   file: new File(['...'], 'maa.log'),
+ *   sourceFiles: ['maa.bak.log', 'maa.log']
+ * };
  */
 export type SelectedFile = {
   name: string;
   size: number;
   type: string;
   file: File;
+  sourceFiles?: string[];
 };
 
 /**
@@ -557,6 +569,58 @@ export type TaskInfo = {
   controllerInfo?: ControllerInfo;
   _startEventIndex?: number;
   _endEventIndex?: number;
+};
+
+export type ParsedRunSnapshot = {
+  id: string;
+  label: string;
+  sourceName: string;
+  parsedAt: string;
+  tasks: TaskInfo[];
+  nodeStatistics: NodeStat[];
+  nodeSummary: {
+    totalNodes: number;
+    totalDuration: number;
+    avgDuration: number;
+    slowestNode: NodeStat | null;
+    uniqueNodes: number;
+  } | null;
+  detectedProject: string;
+  totalTaskCount: number;
+  failedTaskCount: number;
+};
+
+export type KeyDiffType = "failed" | "duration" | "path" | "recognition" | "action" | "node_count";
+
+export type KeyDiffSeverity = "critical" | "warning" | "info";
+
+export type KeyDiff = {
+  id: string;
+  type: KeyDiffType;
+  severity: KeyDiffSeverity;
+  nodeName: string;
+  description: string;
+  baselineNode?: NodeInfo;
+  candidateNode?: NodeInfo;
+  baselineValue?: string | number;
+  candidateValue?: string | number;
+};
+
+export type CompareResult = {
+  overview: {
+    baselineStatus: string;
+    candidateStatus: string;
+    baselineDuration: number;
+    candidateDuration: number;
+    baselineNodeCount: number;
+    candidateNodeCount: number;
+    durationChange: number;
+    nodeCountChange: number;
+  };
+  keyDiffs: KeyDiff[];
+  baselineNodes: NodeInfo[];
+  candidateNodes: NodeInfo[];
+  matchedTasks: string[];
 };
 
 /**

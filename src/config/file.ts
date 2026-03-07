@@ -5,6 +5,7 @@
  * - 浏览器环境下单个文件的大小限制
  * - ZIP 压缩包处理的条目数量和大小限制
  * - 支持导入的日志文件名称匹配模式
+ * - 是否导入 maa.bak.log 配置
  *
  * 使用说明：
  * - FILE_CONFIG 用于控制文件导入的行为限制
@@ -62,4 +63,10 @@ export const FILE_CONFIG = {
   maxZipUncompressedBytes: 256 * 1024 * 1024,
   /** 支持导入的日志文件名称匹配模式 */
   logFilePattern: /^(?:maa|go-service|\d{4}-\d{2}-\d{2})\.log$/i,
+  /** 获取是否导入 maa.bak.log 的回调函数，由 App.vue 设置 */
+  getImportMaaBakLog: (): boolean => false,
 };
+
+export function setImportMaaBakLogGetter(getter: () => boolean): void {
+  FILE_CONFIG.getImportMaaBakLog = getter;
+}

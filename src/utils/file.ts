@@ -278,12 +278,14 @@ export async function applySelectedPaths(paths: string[]): Promise<{
 
   /**
    * 判断文件夹中的文件是否为需要提取的日志文件
-   * 支持: maa.log, go-service.log, YYYY-MM-DD.log 格式
+   * 支持: maa.log, maa.bak.log, go-service.log, YYYY-MM-DD.log 格式
    * @param {string} name - 文件名
    * @returns {boolean} 是否需要提取
    */
   const allowDirectoryFile = (name: string): boolean => {
-    return isSupportedLogFile(name);
+    if (isSupportedLogFile(name)) return true;
+    if (FILE_CONFIG.getImportMaaBakLog() && name.toLowerCase() === "maa.bak.log") return true;
+    return false;
   };
 
   const decoder = new TextDecoder("utf-8");
@@ -588,6 +590,15 @@ export function isMainLog(fileName: string): boolean {
   const lowerName = fileName.toLowerCase();
   return (
     lowerName === "maa.log" || lowerName.endsWith("/maa.log") || lowerName.endsWith("\\maa.log")
+  );
+}
+
+export function isMaaBakLog(fileName: string): boolean {
+  const lowerName = fileName.toLowerCase();
+  return (
+    lowerName === "maa.bak.log" ||
+    lowerName.endsWith("/maa.bak.log") ||
+    lowerName.endsWith("\\maa.bak.log")
   );
 }
 

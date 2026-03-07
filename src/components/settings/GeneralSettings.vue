@@ -1,15 +1,17 @@
 <script setup lang="ts">
-import { NButton } from "naive-ui";
+import { NButton, NSwitch } from "naive-ui";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 
 type ThemeMode = "light" | "dark" | "auto";
 
 const props = defineProps<{
   themeMode: ThemeMode;
+  importMaaBakLog: boolean;
 }>();
 
 const emit = defineEmits<{
   (e: "update:themeMode", value: ThemeMode): void;
+  (e: "update:importMaaBakLog", value: boolean): void;
 }>();
 
 const themeOptions: { label: string; icon: string; value: ThemeMode }[] = [
@@ -26,6 +28,10 @@ async function resetWindowLayout() {
 
 function selectTheme(value: ThemeMode) {
   emit("update:themeMode", value);
+}
+
+function handleImportMaaBakLogChange(value: boolean) {
+  emit("update:importMaaBakLog", value);
 }
 </script>
 
@@ -63,6 +69,20 @@ function selectTheme(value: ThemeMode) {
         <n-button class="reset-btn" @click="resetWindowLayout">重置</n-button>
       </div>
     </div>
+
+    <div class="setting-card">
+      <div class="setting-row">
+        <div class="setting-icon">📄</div>
+        <div class="setting-info">
+          <div class="setting-title">导入 maa.bak.log</div>
+          <div class="setting-desc">导入目录时同时导入 maa.bak.log，与 maa.log 拼接后解析</div>
+        </div>
+        <n-switch
+          :value="props.importMaaBakLog"
+          @update:value="handleImportMaaBakLogChange"
+        />
+      </div>
+    </div>
   </div>
 </template>
 
@@ -77,6 +97,7 @@ function selectTheme(value: ThemeMode) {
   background: var(--n-color-fill-weak);
   border-radius: 16px;
   padding: 20px;
+  border: 1px solid var(--n-border-color);
 }
 
 .setting-row {

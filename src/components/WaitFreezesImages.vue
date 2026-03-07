@@ -4,6 +4,9 @@ import { NImage, NImageGroup, NCollapse, NCollapseItem } from "naive-ui";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { readDir } from "@tauri-apps/plugin-fs";
 import { join } from "@tauri-apps/api/path";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("WaitFreezesImages");
 
 const props = defineProps<{
   visionDir: string;
@@ -58,7 +61,7 @@ async function loadImages() {
     );
     imageUrls.value = urls;
   } catch (err) {
-    console.error("Failed to load wait_freezes images:", err);
+    logger.warn("Failed to load wait_freezes images", { error: String(err) });
     imageUrls.value = [];
   }
 }

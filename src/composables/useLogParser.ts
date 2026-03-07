@@ -37,8 +37,9 @@ import {
   attachScreenshotsToTasks,
   attachScreenshotsFromSaveOnError,
 } from "@/parsers/shared";
-import { isMainLog } from "@/utils/file";
+import { isMainLog, isMaaBakLog } from "@/utils/file";
 import { createLogger, setLoggerContext } from "@/utils/logger";
+import { parseTimestampToMs } from "@/utils/parse";
 
 const logger = createLogger("LogParser");
 
@@ -252,6 +253,14 @@ interface FileParseProgress {
   detectedProjectType: ProjectType;
 }
 
+function extractTimestamp(line: string): number | null {
+  const match = line.match(/^\[(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}[.,]?\d{3})\]/);
+  if (match) {
+    return parseTimestampToMs(match[1]);
+  }
+  return null;
+}
+
 async function processFileEntries(
   collections: ParseCollections,
   fileLines: FileLineEntry[],
@@ -260,13 +269,63 @@ async function processFileEntries(
   const startTime = performance.now();
   const mainLogEntries: FileLineEntry[] = [];
   const auxLogEntries: FileLineEntry[] = [];
+  const maaBakLogEntries: FileLineEntry[] = [];
 
   for (const entry of fileLines) {
-    if (isMainLog(entry.file.name)) {
+    if (isMaaBakLog(entry.file.name)) {
+      maaBakLogEntries.push(entry);
+    } else if (isMainLog(entry.file.name)) {
       mainLogEntries.push(entry);
     } else {
       auxLogEntries.push(entry);
     }
+  }
+
+  if (maaBakLogEntries.length > 0 && mainLogEntries.length > 0) {
+    const sortedBakLogs = maaBakLogEntries.sort((a, b) => {
+      const timeA = extractTimestamp(a.lines[0]) || 0;
+      const timeB = extractTimestamp(b.lines[0]) || 0;
+      return timeA - timeB;
+    });
+
+    const mergedBakLines: string[] = [];
+    const sourceFiles: string[] = [];
+    for (const bak of sortedBakLogs) {
+      mergedBakLines.push(...bak.lines);
+      sourceFiles.push(bak.file.name);
+    }
+
+    for (const entry of mainLogEntries) {
+      const bakLastLineTime = extractTimestamp(mergedBakLines[mergedBakLines.length - 1]);
+      const logFirstLineTime = extractTimestamp(entry.lines[0]);
+
+      if (bakLastLineTime !== null && logFirstLineTime !== null && bakLastLineTime > logFirstLineTime) {
+        logger.warn("maa.bak.log 时间顺序可能不正确（最后一条日志晚于 maa.log 第一条）", {
+          bakLastTime: bakLastLineTime,
+          logFirstTime: logFirstLineTime,
+        });
+      }
+
+      const mergedLines = [...mergedBakLines, ...entry.lines];
+      const mergedContent = mergedLines.join("\n");
+      const mergedFile: SelectedFile = {
+        name: "maa.log",
+        size: mergedContent.length,
+        type: "text/plain",
+        file: new File([mergedContent], "maa.log", { type: "text/plain" }),
+        sourceFiles: [...sourceFiles, entry.file.name],
+      };
+      entry.file = mergedFile;
+      entry.lines = mergedLines;
+      entry.size = mergedFile.size;
+    }
+
+    logger.info("已合并 maa.bak.log 和 maa.log", {
+      bakFileCount: sortedBakLogs.length,
+      bakLogLines: mergedBakLines.length,
+      mainLogLines: mainLogEntries.reduce((sum, e) => sum + e.lines.length, 0),
+      mergedFiles: mainLogEntries.map((e) => e.file.sourceFiles),
+    });
   }
 
   logger.info("文件分类完成", {

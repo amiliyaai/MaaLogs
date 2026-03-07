@@ -12,6 +12,7 @@ const props = defineProps<{
   show: boolean;
   themeMode: ThemeMode;
   aiConfig: AIConfig | null;
+  importMaaBakLog: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -19,6 +20,7 @@ const emit = defineEmits<{
   (e: "update:theme-mode", value: ThemeMode): void;
   (e: "update:ai-config", value: AIConfig): void;
   (e: "save-ai-config", value: AIConfig): void;
+  (e: "update:import-maa-bak-log", value: boolean): void;
 }>();
 
 const contentRef = ref<HTMLElement | null>(null);
@@ -82,6 +84,10 @@ function handleAIConfigSave(value: AIConfig) {
   emit("save-ai-config", value);
 }
 
+function handleImportMaaBakLogChange(value: boolean) {
+  emit("update:import-maa-bak-log", value);
+}
+
 onMounted(() => {
   nextTick(() => {
     if (contentRef.value) {
@@ -117,7 +123,12 @@ onMounted(() => {
       <div ref="contentRef" class="settings-content" @scroll="handleScroll">
         <section id="general" class="settings-section">
           <h3 class="section-title">通用设置</h3>
-          <GeneralSettings :theme-mode="props.themeMode" @update:theme-mode="handleThemeChange" />
+          <GeneralSettings
+            :theme-mode="props.themeMode"
+            :import-maa-bak-log="props.importMaaBakLog"
+            @update:theme-mode="handleThemeChange"
+            @update:import-maa-bak-log="handleImportMaaBakLogChange"
+          />
         </section>
 
         <section id="ai" class="settings-section">
