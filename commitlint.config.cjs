@@ -11,5 +11,7 @@ module.exports = {
     "subject-empty": [2, "never"],
     "subject-full-stop": [2, "never", "."],
     "header-max-length": [2, "always", 100],
+    "scope-enum": [0],
+    "scope-case": [0],
   },
 };
