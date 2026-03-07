@@ -313,9 +313,12 @@ jobs:
           echo "Windows aarch64: ${WIN_ARM_SIG:0:50}..."
           echo "Linux x86_64: ${LINUX_X64_SIG:0:50}..."
 
+          CHANGELOG="${{ needs.changelog.outputs.release_body }}"
+          CHANGELOG_ESCAPED=$(echo "$CHANGELOG" | jq -Rs .)
+
           jq -n \
             --arg version "$VERSION" \
-            --arg notes "See release notes for details" \
+            --argjson notes "$CHANGELOG_ESCAPED" \
             --arg pub_date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --arg mac_x64_sig "$MAC_X64_SIG" \
             --arg mac_arm_sig "$MAC_ARM_SIG" \
