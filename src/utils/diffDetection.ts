@@ -57,8 +57,7 @@ export function buildParsedRunSnapshot(input: SnapshotBuildInput): ParsedRunSnap
 
   // 优化：单次遍历计算汇总数据
   const nodeSummary =
-    input.nodeSummary ??
-    (nodeStatistics.length > 0 ? computeNodeSummary(nodeStatistics) : null);
+    input.nodeSummary ?? (nodeStatistics.length > 0 ? computeNodeSummary(nodeStatistics) : null);
 
   return {
     id: createSnapshotId(),

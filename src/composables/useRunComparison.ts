@@ -318,11 +318,7 @@ export function useRunComparison(): RunComparisonAPI {
     const candidate = candidateSnapshot.value;
 
     // 只在特定条件下自动匹配
-    if (
-      names.length === 1 &&
-      baseline?.tasks.length === 1 &&
-      candidate?.tasks.length === 1
-    ) {
+    if (names.length === 1 && baseline?.tasks.length === 1 && candidate?.tasks.length === 1) {
       quickMatchTask(names[0]);
     }
   });

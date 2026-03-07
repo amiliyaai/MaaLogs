@@ -481,7 +481,7 @@ watch(viewMode, () => {
   selectedNestedIndex.value = null;
   selectedNestedActionIndex.value = null;
   selectedRecognitionInActionIndex.value = null;
-  
+
   // compare 视图禁用 Tauri 拖拽
   tauriDragDisabled.value = viewMode.value === "compare";
 });
@@ -635,7 +635,10 @@ async function selectZipFile(): Promise<string[]> {
   return Array.isArray(selected) ? selected : [selected];
 }
 
-async function processSlotFiles(slot: "baseline" | "candidate", parserFiles: SelectedFile[]): Promise<void> {
+async function processSlotFiles(
+  slot: "baseline" | "candidate",
+  parserFiles: SelectedFile[]
+): Promise<void> {
   const previousParserFiles = selectedFiles.value;
   const parserStateBackup = {
     parseState: parseState.value,
@@ -810,7 +813,7 @@ onMounted(() => {
       // 监听 Tauri 拖拽事件
       unlistenDragDrop = await getCurrentWindow().onDragDropEvent((event) => {
         const payload = event.payload as { type: string; paths?: string[] };
-        
+
         if (payload.type === "over") {
           isDragging.value = true;
           return;
@@ -819,12 +822,12 @@ onMounted(() => {
           isDragging.value = false;
           const paths = Array.isArray(payload.paths) ? payload.paths : [];
           if (paths.length === 0) return;
-          
+
           // compare 视图下，忽略拖拽（使用按钮选择）
           if (viewMode.value === "compare") {
             return;
           }
-          
+
           // 非 compare 视图，正常导入到文件列表
           void handleTauriDrop(paths);
           return;

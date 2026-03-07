@@ -9,7 +9,21 @@
  *
  * @module utils/pathBuilder
  */
-import type { TaskInfo, PathNode, PathComparison, PathBranch, PathLoop, CompareStatus, RecognitionSummary, ActionSummary, NextListItem, NextListAttempt, DiffGroup, DiffItem, DiffType } from "@/types/logTypes";
+import type {
+  TaskInfo,
+  PathNode,
+  PathComparison,
+  PathBranch,
+  PathLoop,
+  CompareStatus,
+  RecognitionSummary,
+  ActionSummary,
+  NextListItem,
+  NextListAttempt,
+  DiffGroup,
+  DiffItem,
+  DiffType,
+} from "@/types/logTypes";
 
 /**
  * 耗时变化阈值
@@ -45,7 +59,8 @@ export function buildPathComparison(taskA: TaskInfo, taskB: TaskInfo): PathCompa
   const diffGroups = buildDiffGroups(aligned);
 
   const statusChangedCount = diffGroups.find((g) => g.type === "status_changed")?.items.length ?? 0;
-  const durationChangedCount = diffGroups.find((g) => g.type === "duration_changed")?.items.length ?? 0;
+  const durationChangedCount =
+    diffGroups.find((g) => g.type === "duration_changed")?.items.length ?? 0;
 
   return {
     nodes: aligned,
@@ -87,7 +102,12 @@ export function buildDiffGroups(alignedNodes: PathNode[]): DiffGroup[] {
 
     switch (node.compareStatus) {
       case "a_only": {
-        const item: DiffItem = { type: "a_only", ...baseItem, nodeA: node, description: `基准任务独有节点: ${node.name}` };
+        const item: DiffItem = {
+          type: "a_only",
+          ...baseItem,
+          nodeA: node,
+          description: `基准任务独有节点: ${node.name}`,
+        };
         if (itemsByType.has("a_only")) {
           itemsByType.get("a_only")!.push(item);
         } else {
@@ -96,7 +116,12 @@ export function buildDiffGroups(alignedNodes: PathNode[]): DiffGroup[] {
         break;
       }
       case "b_only": {
-        const item: DiffItem = { type: "b_only", ...baseItem, nodeB: node, description: `本次任务独有节点: ${node.name}` };
+        const item: DiffItem = {
+          type: "b_only",
+          ...baseItem,
+          nodeB: node,
+          description: `本次任务独有节点: ${node.name}`,
+        };
         if (itemsByType.has("b_only")) {
           itemsByType.get("b_only")!.push(item);
         } else {
@@ -105,7 +130,13 @@ export function buildDiffGroups(alignedNodes: PathNode[]): DiffGroup[] {
         break;
       }
       case "diverged": {
-        const item: DiffItem = { type: "diverged", ...baseItem, nodeA: node.taskA ? { ...node } : undefined, nodeB: node.taskB ? { ...node } : undefined, description: `执行路径分歧: ${node.name}` };
+        const item: DiffItem = {
+          type: "diverged",
+          ...baseItem,
+          nodeA: node.taskA ? { ...node } : undefined,
+          nodeB: node.taskB ? { ...node } : undefined,
+          description: `执行路径分歧: ${node.name}`,
+        };
         if (itemsByType.has("diverged")) {
           itemsByType.get("diverged")!.push(item);
         } else {
@@ -162,7 +193,10 @@ export function buildDiffGroups(alignedNodes: PathNode[]): DiffGroup[] {
  * @param index - 目标节点索引
  * @returns 前后各 2 个节点名称
  */
-function getNodeContext(alignedNodes: PathNode[], index: number): { before: string[]; after: string[] } {
+function getNodeContext(
+  alignedNodes: PathNode[],
+  index: number
+): { before: string[]; after: string[] } {
   const before: string[] = [];
   const after: string[] = [];
 
@@ -223,25 +257,34 @@ function extractNodeDetails(
   const node = task.nodes?.find((n) => n.name === nodeName);
   if (!node) return undefined;
 
-  const duration = node.end_time && node.start_time
-    ? new Date(node.end_time).getTime() - new Date(node.start_time).getTime()
-    : 0;
+  const duration =
+    node.end_time && node.start_time
+      ? new Date(node.end_time).getTime() - new Date(node.start_time).getTime()
+      : 0;
 
-  const recognition = node.reco_details ? {
-    algorithm: node.reco_details.algorithm ?? "Unknown",
-    confidence: undefined,
-    box: node.reco_details.box ?? undefined,
-    ...(node.reco_details.detail && typeof node.reco_details.detail === "object"
-      ? { expected: (node.reco_details.detail as Record<string, unknown>).expected
-          ? ((node.reco_details.detail as Record<string, unknown>).expected as string[]).join(", ")
-          : undefined }
-      : {}),
-  } : undefined;
+  const recognition = node.reco_details
+    ? {
+        algorithm: node.reco_details.algorithm ?? "Unknown",
+        confidence: undefined,
+        box: node.reco_details.box ?? undefined,
+        ...(node.reco_details.detail && typeof node.reco_details.detail === "object"
+          ? {
+              expected: (node.reco_details.detail as Record<string, unknown>).expected
+                ? ((node.reco_details.detail as Record<string, unknown>).expected as string[]).join(
+                    ", "
+                  )
+                : undefined,
+            }
+          : {}),
+      }
+    : undefined;
 
-  const action = node.action_details ? {
-    type: node.action_details.action ?? "Unknown",
-    params: node.action_details.detail as Record<string, unknown> ?? {},
-  } : undefined;
+  const action = node.action_details
+    ? {
+        type: node.action_details.action ?? "Unknown",
+        params: (node.action_details.detail as Record<string, unknown>) ?? {},
+      }
+    : undefined;
 
   return { recognition, action, duration };
 }
@@ -257,7 +300,12 @@ function extractNodeDetails(
  * @param taskB - 本次任务
  * @returns 对齐后的 PathNode 数组
  */
-function lcsAlign(nodesA: string[], nodesB: string[], taskA: TaskInfo, taskB: TaskInfo): PathNode[] {
+function lcsAlign(
+  nodesA: string[],
+  nodesB: string[],
+  taskA: TaskInfo,
+  taskB: TaskInfo
+): PathNode[] {
   return needlemanWunsch(nodesA, nodesB, taskA, taskB);
 }
 
@@ -284,7 +332,12 @@ function lcsAlign(nodesA: string[], nodesB: string[], taskA: TaskInfo, taskB: Ta
  * @param taskB - 本次任务
  * @returns 对齐后的 PathNode 数组
  */
-function needlemanWunsch(nodesA: string[], nodesB: string[], taskA: TaskInfo, taskB: TaskInfo): PathNode[] {
+function needlemanWunsch(
+  nodesA: string[],
+  nodesB: string[],
+  taskA: TaskInfo,
+  taskB: TaskInfo
+): PathNode[] {
   const m = nodesA.length;
   const n = nodesB.length;
 
@@ -302,7 +355,9 @@ function needlemanWunsch(nodesA: string[], nodesB: string[], taskA: TaskInfo, ta
    * dp 得分矩阵
    * dp[i][j] 表示 A[0..i-1] 和 B[0..j-1] 对齐的最大得分
    */
-  const score: number[][] = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0));
+  const score: number[][] = Array(m + 1)
+    .fill(null)
+    .map(() => Array(n + 1).fill(0));
 
   /**
    * 方向矩阵，记录每个位置的最优操作
@@ -311,7 +366,8 @@ function needlemanWunsch(nodesA: string[], nodesB: string[], taskA: TaskInfo, ta
    * - "left": 插入 gap（从左方来）
    * - "none": 初始状态
    */
-  const direction: ("diag" | "up" | "left" | "none")[][] = Array(m + 1).fill(null)
+  const direction: ("diag" | "up" | "left" | "none")[][] = Array(m + 1)
+    .fill(null)
     .map(() => Array(n + 1).fill("none"));
 
   // 初始化第一列：序列B为空，序列A只能通过插入 gap 对齐
@@ -330,9 +386,10 @@ function needlemanWunsch(nodesA: string[], nodesB: string[], taskA: TaskInfo, ta
   for (let i = 1; i <= m; i++) {
     for (let j = 1; j <= n; j++) {
       // 三种可能的操作
-      const match = score[i - 1][j - 1] + (nodesA[i - 1] === nodesB[j - 1] ? MATCH_SCORE : MISMATCH_PENALTY);
-      const del = score[i - 1][j] + GAP_PENALTY;  // 从上方来：在序列A中插入 gap
-      const insert = score[i][j - 1] + GAP_PENALTY;  // 从左方来：在序列B中插入 gap
+      const match =
+        score[i - 1][j - 1] + (nodesA[i - 1] === nodesB[j - 1] ? MATCH_SCORE : MISMATCH_PENALTY);
+      const del = score[i - 1][j] + GAP_PENALTY; // 从上方来：在序列A中插入 gap
+      const insert = score[i][j - 1] + GAP_PENALTY; // 从左方来：在序列B中插入 gap
 
       // 选择得分最高的操作
       if (match >= del && match >= insert) {
@@ -447,7 +504,8 @@ function buildPathNodes(
 
     const nextListAttemptsA = taskNodeA?.next_list_attempts ?? [];
     const nextListAttemptsB = taskNodeB?.next_list_attempts ?? [];
-    const nextListAttempts: NextListAttempt[] = nextListAttemptsB.length > 0 ? nextListAttemptsB : nextListAttemptsA;
+    const nextListAttempts: NextListAttempt[] =
+      nextListAttemptsB.length > 0 ? nextListAttemptsB : nextListAttemptsA;
 
     result.push({
       id: `node-${execIndex - 1}`,
@@ -546,7 +604,8 @@ function detectLoops(alignedNodes: PathNode[]): PathLoop[] {
 function detectBranches(alignedNodes: PathNode[]): PathBranch[] {
   const branches: PathBranch[] = [];
   const divergeIndex = alignedNodes.findIndex(
-    (n) => n.compareStatus === "diverged" || n.compareStatus === "a_only" || n.compareStatus === "b_only"
+    (n) =>
+      n.compareStatus === "diverged" || n.compareStatus === "a_only" || n.compareStatus === "b_only"
   );
 
   if (divergeIndex >= 0) {

@@ -57,7 +57,7 @@
               </div>
               <div v-if="node.taskA.recognition.box" class="detail-row">
                 <span class="label">区域:</span>
-                <span class="value">[{{ node.taskA.recognition.box.join(', ') }}]</span>
+                <span class="value">[{{ node.taskA.recognition.box.join(", ") }}]</span>
               </div>
               <div v-if="node.taskA.recognition.expected" class="detail-row">
                 <span class="label">期望:</span>
@@ -75,7 +75,7 @@
               </div>
               <div v-if="node.taskB.recognition.box" class="detail-row">
                 <span class="label">区域:</span>
-                <span class="value">[{{ node.taskB.recognition.box.join(', ') }}]</span>
+                <span class="value">[{{ node.taskB.recognition.box.join(", ") }}]</span>
               </div>
               <div v-if="node.taskB.recognition.expected" class="detail-row">
                 <span class="label">期望:</span>

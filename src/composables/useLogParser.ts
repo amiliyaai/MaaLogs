@@ -299,7 +299,11 @@ async function processFileEntries(
       const bakLastLineTime = extractTimestamp(mergedBakLines[mergedBakLines.length - 1]);
       const logFirstLineTime = extractTimestamp(entry.lines[0]);
 
-      if (bakLastLineTime !== null && logFirstLineTime !== null && bakLastLineTime > logFirstLineTime) {
+      if (
+        bakLastLineTime !== null &&
+        logFirstLineTime !== null &&
+        bakLastLineTime > logFirstLineTime
+      ) {
         logger.warn("maa.bak.log 时间顺序可能不正确（最后一条日志晚于 maa.log 第一条）", {
           bakLastTime: bakLastLineTime,
           logFirstTime: logFirstLineTime,

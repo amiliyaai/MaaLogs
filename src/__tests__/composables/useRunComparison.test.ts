@@ -73,7 +73,9 @@ describe("useRunComparison", () => {
   it("should quick-match tasks by entry name", () => {
     const state = useRunComparison();
     const baseline = createSnapshot("baseline", [createTask({ key: "a", entry: "SharedTask" })]);
-    const candidate = createSnapshot("candidate", [createTask({ key: "b", task_id: 2, entry: "SharedTask" })]);
+    const candidate = createSnapshot("candidate", [
+      createTask({ key: "b", task_id: 2, entry: "SharedTask" }),
+    ]);
 
     state.setBaselineSnapshot(baseline);
     state.setCandidateSnapshot(candidate);
@@ -99,7 +101,10 @@ describe("useRunComparison", () => {
         task_id: 2,
         status: "failed",
         duration: 1800,
-        nodes: [createNode({ name: "NodeA", status: "failed" }), createNode({ node_id: 2, name: "NodeB" })],
+        nodes: [
+          createNode({ name: "NodeA", status: "failed" }),
+          createNode({ node_id: 2, name: "NodeB" }),
+        ],
       }),
     ]);
 
@@ -122,7 +127,9 @@ describe("useRunComparison", () => {
 
   it("should clear candidate snapshot and reset selected task B", () => {
     const state = useRunComparison();
-    state.setCandidateSnapshot(createSnapshot("candidate", [createTask({ key: "task-b", task_id: 2 })]));
+    state.setCandidateSnapshot(
+      createSnapshot("candidate", [createTask({ key: "task-b", task_id: 2 })])
+    );
     state.clearCandidateSnapshot();
     expect(state.candidateSnapshot.value).toBeNull();
     expect(state.selectedTaskB.value).toBeNull();
@@ -161,8 +168,12 @@ describe("useRunComparison", () => {
 
   it("should allow manual selection update and handle unmatched quick match", () => {
     const state = useRunComparison();
-    state.setBaselineSnapshot(createSnapshot("baseline", [createTask({ key: "a", entry: "TaskA" })]));
-    state.setCandidateSnapshot(createSnapshot("candidate", [createTask({ key: "b", task_id: 2, entry: "TaskB" })]));
+    state.setBaselineSnapshot(
+      createSnapshot("baseline", [createTask({ key: "a", entry: "TaskA" })])
+    );
+    state.setCandidateSnapshot(
+      createSnapshot("candidate", [createTask({ key: "b", task_id: 2, entry: "TaskB" })])
+    );
     state.selectTaskA(state.baselineTasks.value[0]);
     state.selectTaskB(state.candidateTasks.value[0]);
     expect(state.compareResult.value).not.toBeNull();
@@ -176,7 +187,9 @@ describe("useRunComparison", () => {
   it("should reset all comparison state", () => {
     const state = useRunComparison();
     state.setBaselineSnapshot(createSnapshot("baseline", [createTask()]));
-    state.setCandidateSnapshot(createSnapshot("candidate", [createTask({ key: "other", task_id: 2 })]));
+    state.setCandidateSnapshot(
+      createSnapshot("candidate", [createTask({ key: "other", task_id: 2 })])
+    );
 
     state.resetComparison();
 

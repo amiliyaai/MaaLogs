@@ -1855,26 +1855,30 @@ function updatePipelineNodes(
   const nextListAttemptsForParent = parentName
     ? context.nextListAttemptsByNodeName.get(parentName) || []
     : [];
-  const nextListAttemptsForActual = actualNodeName && actualNodeName !== parentName
-    ? context.nextListAttemptsByNodeName.get(actualNodeName) || []
-    : [];
-  const nextListAttemptsForNode = nextListAttemptsForActual.length > 0
-    ? nextListAttemptsForActual
-    : nextListAttemptsForParent;
-  const status: "success" | "failed" = message === "Node.PipelineNode.Succeeded" ? "success" : "failed";
-  const nextListAttempt = nextListAttemptsForNode.length > 0
-    ? nextListAttemptsForNode
-    : context.currentNextList.length > 0
-      ? [{
-          timestamp: context.stringPool.intern(timestamp),
-          status,
-          list: context.currentNextList.map((item) => ({
-            name: context.stringPool.intern(item.name),
-            anchor: item.anchor,
-            jump_back: item.jump_back,
-          })),
-        }]
+  const nextListAttemptsForActual =
+    actualNodeName && actualNodeName !== parentName
+      ? context.nextListAttemptsByNodeName.get(actualNodeName) || []
       : [];
+  const nextListAttemptsForNode =
+    nextListAttemptsForActual.length > 0 ? nextListAttemptsForActual : nextListAttemptsForParent;
+  const status: "success" | "failed" =
+    message === "Node.PipelineNode.Succeeded" ? "success" : "failed";
+  const nextListAttempt =
+    nextListAttemptsForNode.length > 0
+      ? nextListAttemptsForNode
+      : context.currentNextList.length > 0
+        ? [
+            {
+              timestamp: context.stringPool.intern(timestamp),
+              status,
+              list: context.currentNextList.map((item) => ({
+                name: context.stringPool.intern(item.name),
+                anchor: item.anchor,
+                jump_back: item.jump_back,
+              })),
+            },
+          ]
+        : [];
   context.nodes.push({
     node_id: nodeId,
     name: context.stringPool.intern(nodeName),
@@ -1984,10 +1988,14 @@ function buildTaskNodes(
     updatePipelineNodes(context, message, details, eventTaskId, event.timestamp);
   }
 
-  const nextListEventsByName = new Map<string, { timestamp: string; list: NextListItem[]; status: "success" | "failed" }[]>();
+  const nextListEventsByName = new Map<
+    string,
+    { timestamp: string; list: NextListItem[]; status: "success" | "failed" }[]
+  >();
 
   for (const event of taskEvents) {
-    if (event.message !== "Node.NextList.Succeeded" && event.message !== "Node.NextList.Failed") continue;
+    if (event.message !== "Node.NextList.Succeeded" && event.message !== "Node.NextList.Failed")
+      continue;
     const details = event.details as Record<string, JsonValue>;
     const nodeName = coerceString(details.name);
     if (!nodeName) continue;
@@ -2001,12 +2009,15 @@ function buildTaskNodes(
       const jumpBack = typeof item.jump_back === "boolean" ? item.jump_back : false;
       return { name: stringPool.intern(name), anchor, jump_back: jumpBack };
     });
-    const status: "success" | "failed" = event.message === "Node.NextList.Succeeded" ? "success" : "failed";
+    const status: "success" | "failed" =
+      event.message === "Node.NextList.Succeeded" ? "success" : "failed";
 
     if (!nextListEventsByName.has(nodeName)) {
       nextListEventsByName.set(nodeName, []);
     }
-    nextListEventsByName.get(nodeName)!.push({ timestamp: event.timestamp, list: nextList, status });
+    nextListEventsByName
+      .get(nodeName)!
+      .push({ timestamp: event.timestamp, list: nextList, status });
   }
 
   for (const node of nodes) {
@@ -2018,11 +2029,13 @@ function buildTaskNodes(
     const nextListEvent = nodeNextListEvents.find((e) => e.timestamp > nodeTimestamp);
 
     if (nextListEvent) {
-      node.next_list_attempts = [{
-        timestamp: stringPool.intern(nextListEvent.timestamp),
-        status: nextListEvent.status,
-        list: nextListEvent.list,
-      }];
+      node.next_list_attempts = [
+        {
+          timestamp: stringPool.intern(nextListEvent.timestamp),
+          status: nextListEvent.status,
+          list: nextListEvent.list,
+        },
+      ];
     }
   }
 
