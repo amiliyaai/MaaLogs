@@ -28,28 +28,43 @@ function parseMarkdown(text: string): string {
   });
 
   // 行内代码
-  html = html.replace(/`([^`]+)`/g, '<code style="background: var(--n-color-fill-weak); padding: 2px 6px; border-radius: 3px; font-size: 12px;">$1</code>');
+  html = html.replace(
+    /`([^`]+)`/g,
+    '<code style="background: var(--n-color-fill-weak); padding: 2px 6px; border-radius: 3px; font-size: 12px;">$1</code>'
+  );
 
   // 标题 ### → h4
-  html = html.replace(/^### (.+)$/gm, '<h4 style="margin: 12px 0 8px 0; font-size: 14px; font-weight: 600;">$1</h4>');
+  html = html.replace(
+    /^### (.+)$/gm,
+    '<h4 style="margin: 12px 0 8px 0; font-size: 14px; font-weight: 600;">$1</h4>'
+  );
 
   // 标题 ## → h3
-  html = html.replace(/^## (.+)$/gm, '<h3 style="margin: 12px 0 8px 0; font-size: 15px; font-weight: 600;">$1</h3>');
+  html = html.replace(
+    /^## (.+)$/gm,
+    '<h3 style="margin: 12px 0 8px 0; font-size: 15px; font-weight: 600;">$1</h3>'
+  );
 
   // 列表项
-  html = html.replace(/^[-*] (.+)$/gm, '<li style="margin-left: 20px; margin-bottom: 4px; line-height: 1.6;">$1</li>');
+  html = html.replace(
+    /^[-*] (.+)$/gm,
+    '<li style="margin-left: 20px; margin-bottom: 4px; line-height: 1.6;">$1</li>'
+  );
 
   // 粗体
-  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
   // 斜体
-  html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  html = html.replace(/\*([^*]+)\*/g, "<em>$1</em>");
   // 删除线
-  html = html.replace(/~~([^~]+)~~/g, '<del>$1</del>');
+  html = html.replace(/~~([^~]+)~~/g, "<del>$1</del>");
 
   // 段落和列表包裹
   html = html.replace(/\n\n/g, '</p><p style="margin: 8px 0;">');
-  html = '<p style="margin: 8px 0;">' + html + '</p>';
-  html = html.replace(/(<li[^>]*>[\s\S]*?<\/li>)+/g, '<ul style="margin: 4px 0; padding-left: 0;">$&</ul>');
+  html = '<p style="margin: 8px 0;">' + html + "</p>";
+  html = html.replace(
+    /(<li[^>]*>[\s\S]*?<\/li>)+/g,
+    '<ul style="margin: 4px 0; padding-left: 0;">$&</ul>'
+  );
 
   return html;
 }
@@ -58,7 +73,11 @@ function parseMarkdown(text: string): string {
  * HTML 特殊字符转义
  */
 function escapeHtml(text: string): string {
-  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 const { message: $message, dialog: $dialog } = createDiscreteApi(["message", "dialog"], {
@@ -81,16 +100,31 @@ function createUpdateDialogContent(
 ) {
   return h("div", { style: "max-height: 400px; display: flex; flex-direction: column;" }, [
     h("div", { style: "margin-bottom: 12px;" }, [
-      h("div", { style: "font-size: 14px;" }, [h(NText, null, () => `当前版本：v${currentVersion}`)]),
-      h("div", { style: "font-size: 14px; margin-top: 4px;" }, [h(NText, null, () => `最新版本：v${newVersion}`)]),
+      h("div", { style: "font-size: 14px;" }, [
+        h(NText, null, () => `当前版本：v${currentVersion}`),
+      ]),
+      h("div", { style: "font-size: 14px; margin-top: 4px;" }, [
+        h(NText, null, () => `最新版本：v${newVersion}`),
+      ]),
     ]),
-    h(NText, { depth: 2, style: "font-size: 13px; margin-bottom: 8px; display: block;" }, () => "更新内容："),
-    h(NCard, { style: "flex: 1; margin-bottom: 16px;", size: "small", contentStyle: "padding: 12px;" }, {
-      default: () =>
-        h(NScrollbar, { style: "max-height: 250px;" }, () =>
-          h("div", { style: "font-size: 13px; line-height: 1.6;", innerHTML: parseMarkdown(changelog) })
-        ),
-    }),
+    h(
+      NText,
+      { depth: 2, style: "font-size: 13px; margin-bottom: 8px; display: block;" },
+      () => "更新内容："
+    ),
+    h(
+      NCard,
+      { style: "flex: 1; margin-bottom: 16px;", size: "small", contentStyle: "padding: 12px;" },
+      {
+        default: () =>
+          h(NScrollbar, { style: "max-height: 250px;" }, () =>
+            h("div", {
+              style: "font-size: 13px; line-height: 1.6;",
+              innerHTML: parseMarkdown(changelog),
+            })
+          ),
+      }
+    ),
     h("div", { style: "text-align: right;" }, [
       h(NButton, { onClick: onCancel, style: "margin-right: 8px;" }, () => "稍后提醒"),
       h(NButton, { type: "primary", onClick: onUpdate }, () => "立即更新"),
