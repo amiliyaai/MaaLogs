@@ -123,7 +123,7 @@ const emitView = (value: ViewMode) => {
 }
 
 .brand-subtitle {
-  font-size: 14 px;
+  font-size: 14px;
   font-weight: bold;
   color: var(--n-text-color-3);
 }

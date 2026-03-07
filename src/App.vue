@@ -224,10 +224,12 @@ const {
   resetParseState,
 } = logParser;
 
-// @ts-expect-error Debug only
-window.__tasks__ = tasks;
-// @ts-expect-error Debug only
-window.__tasksValue__ = () => tasks.value;
+if (import.meta.env.DEV) {
+  // @ts-expect-error Debug only
+  window.__tasks__ = tasks;
+  // @ts-expect-error Debug only
+  window.__tasksValue__ = () => tasks.value;
+}
 
 const {
   selectedFiles,
@@ -1077,11 +1079,9 @@ onBeforeUnmount(() => {
               :compare-result="compareResult"
               :baseline-tasks="baselineTasks"
               :candidate-tasks="candidateTasks"
-              :matched-task-names="matchedTaskNames"
               :format-duration="formatDuration"
               @select-task-a="selectTaskA"
               @select-task-b="selectTaskB"
-              @quick-match="quickMatchTask"
               @clear-baseline="clearBaselineSnapshot"
               @clear-candidate="clearCandidateSnapshot"
               @use-baseline-as-candidate="useBaselineAsCandidate"

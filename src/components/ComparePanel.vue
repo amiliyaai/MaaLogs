@@ -78,7 +78,7 @@ function handleSelectTaskB(taskKey: string | null): void {
 
 const activeTab = ref<"overview" | "route">("overview");
 
-const canCompare = computed(() => props.selectedTaskA && props.selectedTaskB);
+const canCompare = computed(() => !!(props.selectedTaskA && props.selectedTaskB));
 </script>
 
 <template>
