@@ -461,8 +461,16 @@ export function useInPageSearch(): InPageSearcherResult {
       allResults.push(...searchAuxLogs(tasks, auxLogs, keyword));
     }
 
-    searchResults.value = allResults.slice(0, 100);
-    showResults.value = allResults.length > 0;
+    const seen = new Set<string>();
+    const uniqueResults = allResults.filter((result) => {
+      const key = `${result.taskId}-${result.nodeId || ""}-${result.type}-${result.field}-${result.value}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    searchResults.value = uniqueResults.slice(0, 100);
+    showResults.value = uniqueResults.length > 0;
   }
 
   /**
