@@ -498,7 +498,6 @@ watch(viewMode, () => {
   selectedNestedIndex.value = null;
   selectedNestedActionIndex.value = null;
   selectedRecognitionInActionIndex.value = null;
-  
 });
 
 /**

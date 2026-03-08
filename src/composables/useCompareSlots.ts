@@ -4,7 +4,13 @@
  * 提供基准与对比分别加载日志并生成快照的组合式逻辑。
  */
 import type { ComputedRef, Ref } from "vue";
-import type { AuxLogEntry, ParsedRunSnapshot, RawLine, SelectedFile, TaskInfo } from "@/types/logTypes";
+import type {
+  AuxLogEntry,
+  ParsedRunSnapshot,
+  RawLine,
+  SelectedFile,
+  TaskInfo,
+} from "@/types/logTypes";
 import type { ParseState } from "@/composables/useLogParser";
 import { setSelectedFiles } from "@/composables/useLogParser";
 import { applySelectedPaths, getFileType } from "@/utils/file";

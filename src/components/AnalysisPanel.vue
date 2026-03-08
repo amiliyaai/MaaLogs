@@ -1333,7 +1333,10 @@ function openScreenshot(filePath: string): void {
                           <span>{{ formatRecognitionScores(attempt.reco_details.detail) }}</span>
                         </div>
                         <div
-                          v-if="hasNestedRecognition(attempt.reco_details.detail) || (attempt.nested_nodes && attempt.nested_nodes.length > 0)"
+                          v-if="
+                            hasNestedRecognition(attempt.reco_details.detail) ||
+                            (attempt.nested_nodes && attempt.nested_nodes.length > 0)
+                          "
                           class="attempt-detail-row"
                         >
                           <span class="attempt-label">嵌套识别：</span>
