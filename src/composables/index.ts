@@ -40,3 +40,5 @@ export type { InPageSearchResult, SearchResultType, SearchScope } from "./useInP
 
 export { useRunComparison } from "./useRunComparison";
 export type { RunComparisonAPI } from "./useRunComparison";
+export { useCompareSlots } from "./useCompareSlots";
+export { useTauriIntegration } from "./useTauriIntegration";

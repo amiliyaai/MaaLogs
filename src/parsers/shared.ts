@@ -12,16 +12,24 @@
 import type {
   EventNotification,
   ControllerInfo,
-  AdbScreencapMethod,
-  AdbInputMethod,
-  Win32ScreencapMethod,
-  Win32InputMethod,
   JsonValue,
   NodeInfo,
   TaskInfo,
 } from "@/types/logTypes";
+import {
+  parseAdbScreencapMethods,
+  parseAdbInputMethods,
+  parseWin32ScreencapMethod,
+  parseWin32InputMethod,
+} from "@/utils/controllerParse";
 
 import { invoke } from "@tauri-apps/api/core";
+export {
+  parseAdbScreencapMethods,
+  parseAdbInputMethods,
+  parseWin32ScreencapMethod,
+  parseWin32InputMethod,
+} from "@/utils/controllerParse";
 
 interface PngFileInfo {
   filename: string;
@@ -35,56 +43,6 @@ export function normalizeId(value: unknown): number | undefined {
   }
   return undefined;
 }
-
-/**
- * ADB 截图方式 Bitmask 映射
- */
-const ADB_SCREENCAP_METHOD_MAP: Record<number, AdbScreencapMethod> = {
-  1: "EncodeToFileAndPull",
-  2: "Encode",
-  4: "RawWithGzip",
-  8: "RawByNetcat",
-  16: "MinicapDirect",
-  32: "MinicapStream",
-  64: "EmulatorExtras",
-};
-
-/**
- * ADB 输入方式 Bitmask 映射
- */
-const ADB_INPUT_METHOD_MAP: Record<number, AdbInputMethod> = {
-  1: "AdbShell",
-  2: "MinitouchAndAdbKey",
-  4: "Maatouch",
-  8: "EmulatorExtras",
-};
-
-/**
- * Win32 截图方式映射
- */
-const WIN32_SCREENCAP_METHOD_MAP: Record<number, Win32ScreencapMethod> = {
-  1: "GDI",
-  2: "FramePool",
-  4: "DXGI_DesktopDup",
-  8: "DXGI_DesktopDup_Window",
-  16: "PrintWindow",
-  32: "ScreenDC",
-};
-
-/**
- * Win32 输入方式映射
- */
-const WIN32_INPUT_METHOD_MAP: Record<number, Win32InputMethod> = {
-  1: "Seize",
-  2: "SendMessage",
-  4: "PostMessage",
-  8: "LegacyEvent",
-  16: "PostThreadMessage",
-  32: "SendMessageWithCursorPos",
-  64: "PostMessageWithCursorPos",
-  128: "SendMessageWithWindowPos",
-  256: "PostMessageWithWindowPos",
-};
 
 /**
  * 方括号日志行解析结果
@@ -143,48 +101,6 @@ export function parseValue(value: string): JsonValue {
     return value.slice(1, -1);
   }
   return value;
-}
-
-/**
- * 解析 ADB 截图方式 bitmask
- */
-export function parseAdbScreencapMethods(bitmask: number | bigint): AdbScreencapMethod[] {
-  const methods: AdbScreencapMethod[] = [];
-  const bigBitmask = typeof bitmask === "bigint" ? bitmask : BigInt(bitmask);
-  for (const [bit, name] of Object.entries(ADB_SCREENCAP_METHOD_MAP)) {
-    if ((bigBitmask & BigInt(bit)) !== 0n) {
-      methods.push(name);
-    }
-  }
-  return methods.length > 0 ? methods : ["Unknown"];
-}
-
-/**
- * 解析 ADB 输入方式 bitmask
- */
-export function parseAdbInputMethods(bitmask: number | bigint): AdbInputMethod[] {
-  const methods: AdbInputMethod[] = [];
-  const bigBitmask = typeof bitmask === "bigint" ? bitmask : BigInt(bitmask);
-  for (const [bit, name] of Object.entries(ADB_INPUT_METHOD_MAP)) {
-    if ((bigBitmask & BigInt(bit)) !== 0n) {
-      methods.push(name);
-    }
-  }
-  return methods.length > 0 ? methods : ["Unknown"];
-}
-
-/**
- * 解析 Win32 截图方式值
- */
-export function parseWin32ScreencapMethod(value: number): Win32ScreencapMethod {
-  return WIN32_SCREENCAP_METHOD_MAP[value] || "Unknown";
-}
-
-/**
- * 解析 Win32 输入方式值
- */
-export function parseWin32InputMethod(value: number): Win32InputMethod {
-  return WIN32_INPUT_METHOD_MAP[value] || "Unknown";
 }
 
 /**

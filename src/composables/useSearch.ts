@@ -70,6 +70,10 @@ export interface SearcherResult {
   clearHistory: () => void;
 }
 
+export interface UseSearchOptions {
+  searchHistoryRef?: Ref<string[]>;
+}
+
 /**
  * 搜索器 Composable
  *
@@ -87,7 +91,7 @@ export interface SearcherResult {
  * searchText.value = 'error';
  * performSearch(rawLines);
  */
-export function useSearch(): SearcherResult {
+export function useSearch(options: UseSearchOptions = {}): SearcherResult {
   // ============================================
   // 响应式状态
   // ============================================
@@ -105,7 +109,7 @@ export function useSearch(): SearcherResult {
   /** 搜索状态消息 */
   const searchMessage = ref("");
   /** 搜索历史列表 */
-  const searchHistory = ref<string[]>([]);
+  const searchHistory = options.searchHistoryRef ?? ref<string[]>([]);
 
   // ============================================
   // 搜索方法

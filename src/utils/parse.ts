@@ -23,10 +23,6 @@ import type {
   ActionAttempt,
   NextListItem,
   ControllerInfo,
-  AdbScreencapMethod,
-  AdbInputMethod,
-  Win32ScreencapMethod,
-  Win32InputMethod,
   RecognitionDetail,
   JsonValue,
   NestedActionNode,
@@ -35,6 +31,18 @@ import type {
 } from "@/types/logTypes";
 import { createLogger } from "./logger";
 import { parseMessageAndParams } from "@/parsers/shared";
+import {
+  parseAdbScreencapMethods,
+  parseAdbInputMethods,
+  parseWin32ScreencapMethod,
+  parseWin32InputMethod,
+} from "@/utils/controllerParse";
+export {
+  parseAdbScreencapMethods,
+  parseAdbInputMethods,
+  parseWin32ScreencapMethod,
+  parseWin32InputMethod,
+} from "@/utils/controllerParse";
 
 const logger = createLogger("Parse");
 
@@ -60,149 +68,6 @@ function isRecordJsonValue(value: JsonValue | undefined): value is Record<string
  */
 function asString(value: JsonValue | undefined): string | undefined {
   return typeof value === "string" ? value : undefined;
-}
-
-/**
- * ADB 截图方式 Bitmask 映射
- *
- * 用于将日志中的数字 bitmask 转换为可读的截图方式名称。
- *
- * @see https://github.com/MaaXYZ/MaaFramework/blob/main/include/MaaFramework/MaaDef.h
- */
-const ADB_SCREENCAP_METHOD_MAP: Record<number, AdbScreencapMethod> = {
-  1: "EncodeToFileAndPull",
-  2: "Encode",
-  4: "RawWithGzip",
-  8: "RawByNetcat",
-  16: "MinicapDirect",
-  32: "MinicapStream",
-  64: "EmulatorExtras",
-};
-
-/**
- * ADB 输入方式 Bitmask 映射
- *
- * 用于将日志中的数字 bitmask 转换为可读的输入方式名称。
- *
- * @see https://github.com/MaaXYZ/MaaFramework/blob/main/include/MaaFramework/MaaDef.h
- */
-const ADB_INPUT_METHOD_MAP: Record<number, AdbInputMethod> = {
-  1: "AdbShell",
-  2: "MinitouchAndAdbKey",
-  4: "Maatouch",
-  8: "EmulatorExtras",
-};
-
-/**
- * Win32 截图方式映射
- *
- * 用于将日志中的数字值转换为可读的截图方式名称。
- *
- * @see https://github.com/MaaXYZ/MaaFramework/blob/main/include/MaaFramework/MaaDef.h
- */
-const WIN32_SCREENCAP_METHOD_MAP: Record<number, Win32ScreencapMethod> = {
-  1: "GDI",
-  2: "FramePool",
-  4: "DXGI_DesktopDup",
-  8: "DXGI_DesktopDup_Window",
-  16: "PrintWindow",
-  32: "ScreenDC",
-};
-
-/**
- * Win32 输入方式映射
- *
- * 用于将日志中的数字值转换为可读的输入方式名称。
- *
- * @see https://github.com/MaaXYZ/MaaFramework/blob/main/include/MaaFramework/MaaDef.h
- */
-const WIN32_INPUT_METHOD_MAP: Record<number, Win32InputMethod> = {
-  1: "Seize",
-  2: "SendMessage",
-  4: "PostMessage",
-  8: "LegacyEvent",
-  16: "PostThreadMessage",
-  32: "SendMessageWithCursorPos",
-  64: "PostMessageWithCursorPos",
-  128: "SendMessageWithWindowPos",
-  256: "PostMessageWithWindowPos",
-};
-
-/**
- * 解析 ADB 截图方式 bitmask
- *
- * 将 bitmask 数字转换为截图方式名称数组。
- *
- * @param {number} bitmask - 截图方式 bitmask
- * @returns {AdbScreencapMethod[]} 截图方式名称数组
- *
- * @example
- * parseAdbScreencapMethods(64); // ['ADB']
- * parseAdbScreencapMethods(64 | 512); // ['ADB', 'MuMuPlayer12']
- */
-export function parseAdbScreencapMethods(bitmask: number): AdbScreencapMethod[] {
-  const methods: AdbScreencapMethod[] = [];
-  for (const [bit, name] of Object.entries(ADB_SCREENCAP_METHOD_MAP)) {
-    if ((bitmask & parseInt(bit)) !== 0) {
-      methods.push(name);
-    }
-  }
-  return methods.length > 0 ? methods : ["Unknown"];
-}
-
-/**
- * 解析 ADB 输入方式 bitmask
- *
- * 将 bitmask 数字转换为输入方式名称数组。
- *
- * @param {number} bitmask - 输入方式 bitmask
- * @returns {AdbInputMethod[]} 输入方式名称数组
- *
- * @example
- * parseAdbInputMethods(16); // ['EmulatorExtras']
- * parseAdbInputMethods(1 | 2); // ['AdbShell', 'MaaTouch']
- */
-export function parseAdbInputMethods(bitmask: number | bigint): AdbInputMethod[] {
-  const methods: AdbInputMethod[] = [];
-  const bigBitmask = typeof bitmask === "bigint" ? bitmask : BigInt(bitmask);
-  for (const [bit, name] of Object.entries(ADB_INPUT_METHOD_MAP)) {
-    if ((bigBitmask & BigInt(bit)) !== 0n) {
-      methods.push(name);
-    }
-  }
-  return methods.length > 0 ? methods : ["Unknown"];
-}
-
-/**
- * 解析 Win32 截图方式值
- *
- * 将数字值转换为截图方式名称。
- *
- * @param {number} value - 截图方式值
- * @returns {Win32ScreencapMethod} 截图方式名称
- *
- * @example
- * parseWin32ScreencapMethod(1); // 'FramePool'
- * parseWin32ScreencapMethod(2); // 'PrintWindow'
- */
-export function parseWin32ScreencapMethod(value: number): Win32ScreencapMethod {
-  return WIN32_SCREENCAP_METHOD_MAP[value] || "Unknown";
-}
-
-/**
- * 解析 Win32 输入方式值
- *
- * 将数字值转换为输入方式名称。
- *
- * @param {number} value - 输入方式值
- * @returns {Win32InputMethod} 输入方式名称
- *
- * @example
- * parseWin32InputMethod(1); // 'PostMessage'
- * parseWin32InputMethod(4); // 'Seize'
- */
-export function parseWin32InputMethod(value: number): Win32InputMethod {
-  return WIN32_INPUT_METHOD_MAP[value] || "Unknown";
 }
 
 /**

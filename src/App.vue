@@ -1,4 +1,6 @@
 <!--
+  @fileoverview MaaLogs 应用主组件
+
   MaaLogs - Maa 框架日志分析器
 
   本文件是应用程序的主组件，负责：
@@ -16,7 +18,7 @@
 /**
  * Vue 核心导入
  */
-import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
+import { ref, computed, watch } from "vue";
 import {
   NConfigProvider,
   NMessageProvider,
@@ -29,15 +31,6 @@ import {
  * Tauri API 导入
  */
 import { invoke } from "@tauri-apps/api/core";
-import { getCurrentWindow } from "@tauri-apps/api/window";
-import { appDataDir, appLogDir } from "@tauri-apps/api/path";
-
-/**
- * 更新检查
- */
-import { checkForUpdate } from "@/utils/updater";
-
-import { Store } from "@tauri-apps/plugin-store";
 
 /**
  * 虚拟滚动样式
@@ -66,6 +59,9 @@ import {
   useStatistics,
   useFileSelection,
   useRunComparison,
+  useCompareSlots,
+  useTauriIntegration,
+  useStorage,
 } from "@/composables";
 
 /**
@@ -91,13 +87,11 @@ import {
   splitMatch,
 } from "@/utils/format";
 import { extractCustomActionFromActionDetails } from "@/utils/parse";
-import { isTauriEnv, clearZipExtractCache, getFileType, applySelectedPaths } from "@/utils/file";
-import { createLogger, init, flushLogs, setLoggerContext } from "@/utils/logger";
-import { appConfig } from "@/config";
+import { isTauriEnv } from "@/utils/file";
+import { createLogger } from "@/utils/logger";
 import { setImportMaaBakLogGetter } from "@/config/file";
 import { getAIConfig, saveAIConfig, type AIConfig } from "@/utils/aiAnalyzer";
-import type { AuxLogEntry, SelectedFile } from "@/types/logTypes";
-import { buildParsedRunSnapshot } from "@/utils/diffDetection";
+import type { AuxLogEntry } from "@/types/logTypes";
 
 // ============================================
 // 日志记录器
@@ -113,14 +107,11 @@ const logger = createLogger("App");
 /** 当前视图模式：分析、搜索、统计 */
 const viewMode = ref<"analysis" | "search" | "statistics" | "compare">("analysis");
 
-/** 是否禁用 Tauri 拖拽处理 */
-const tauriDragDisabled = ref(false);
-
 /** 主题模式：light, dark, auto */
-const themeMode = ref<"light" | "dark" | "auto">("auto");
+const themeMode = useStorage<"light" | "dark" | "auto">("themeMode", "auto");
 
 /** 是否导入 maa.bak.log */
-const importMaaBakLog = ref(true);
+const importMaaBakLog = useStorage<boolean>("importMaaBakLog", true);
 
 /** 当前是否为暗色主题 */
 const isDark = computed(() => {
@@ -169,7 +160,8 @@ const selectedNodeId = ref<number | null>(null);
 const selectedAuxLevels = ref<string[]>(["error", "warn", "info", "debug", "other"]);
 
 /** 隐藏的调用者列表 */
-let hiddenCallers = ref<string[]>([]);
+const hiddenCallers = useStorage<string[]>("hiddenCallers", []);
+const searchHistoryStorage = useStorage<string[]>("searchHistory", []);
 
 /** 复制提示消息 */
 const copyMessage = ref("");
@@ -254,7 +246,7 @@ const visionDir = computed(() => {
  * 搜索器
  * 提供文本搜索功能
  */
-const searcher = useSearch();
+const searcher = useSearch({ searchHistoryRef: searchHistoryStorage });
 const {
   searchText,
   searchCaseSensitive,
@@ -267,6 +259,7 @@ const {
   resetSearch: searcherResetSearch,
   clearHistory,
 } = searcher;
+setImportMaaBakLogGetter(() => importMaaBakLog.value);
 
 /**
  * 统计器
@@ -284,16 +277,37 @@ const {
   compareResult,
   baselineTasks,
   candidateTasks,
-  matchedTaskNames,
   setBaselineSnapshot,
   setCandidateSnapshot,
   selectTaskA,
   selectTaskB,
-  quickMatchTask,
   clearBaselineSnapshot,
   clearCandidateSnapshot,
   useBaselineAsCandidate,
 } = runComparison;
+const {
+  handleSelectBaselineDir,
+  handleSelectBaselineZip,
+  handleSelectCandidateDir,
+  handleSelectCandidateZip,
+} = useCompareSlots({
+  selectedFiles,
+  parseState,
+  parseProgress,
+  statusMessage,
+  tasks,
+  rawLines,
+  auxLogs,
+  detectedProject,
+  selectedProcessId,
+  selectedThreadId,
+  nodeStatistics,
+  nodeSummary,
+  handleParse,
+  resetParseState,
+  setBaselineSnapshot,
+  setCandidateSnapshot,
+});
 
 // ============================================
 // 计算属性
@@ -482,8 +496,6 @@ watch(viewMode, () => {
   selectedNestedActionIndex.value = null;
   selectedRecognitionInActionIndex.value = null;
   
-  // compare 视图禁用 Tauri 拖拽
-  tauriDragDisabled.value = viewMode.value === "compare";
 });
 
 /**
@@ -587,130 +599,6 @@ function handleGlobalDrop(event: DragEvent): void {
   void handleDrop(event);
 }
 
-async function handleSelectBaselineDir(): Promise<void> {
-  const paths = await selectDirectory();
-  if (paths.length > 0) {
-    await processSlotPaths("baseline", paths);
-  }
-}
-
-async function handleSelectBaselineZip(): Promise<void> {
-  const paths = await selectZipFile();
-  if (paths.length > 0) {
-    await processSlotPaths("baseline", paths);
-  }
-}
-
-async function handleSelectCandidateDir(): Promise<void> {
-  const paths = await selectDirectory();
-  if (paths.length > 0) {
-    await processSlotPaths("candidate", paths);
-  }
-}
-
-async function handleSelectCandidateZip(): Promise<void> {
-  const paths = await selectZipFile();
-  if (paths.length > 0) {
-    await processSlotPaths("candidate", paths);
-  }
-}
-
-async function selectDirectory(): Promise<string[]> {
-  const { open } = await import("@tauri-apps/plugin-dialog");
-  const selected = await open({
-    multiple: false,
-    directory: true,
-  });
-  if (!selected) return [];
-  return Array.isArray(selected) ? selected : [selected];
-}
-
-async function selectZipFile(): Promise<string[]> {
-  const { open } = await import("@tauri-apps/plugin-dialog");
-  const selected = await open({
-    multiple: false,
-    filters: [{ name: "压缩包", extensions: ["zip"] }],
-  });
-  if (!selected) return [];
-  return Array.isArray(selected) ? selected : [selected];
-}
-
-async function processSlotFiles(slot: "baseline" | "candidate", parserFiles: SelectedFile[]): Promise<void> {
-  const previousParserFiles = selectedFiles.value;
-  const parserStateBackup = {
-    parseState: parseState.value,
-    parseProgress: parseProgress.value,
-    statusMessage: statusMessage.value,
-    tasks: tasks.value,
-    rawLines: rawLines.value,
-    auxLogs: auxLogs.value,
-    detectedProject: detectedProject.value,
-    selectedProcessId: selectedProcessId.value,
-    selectedThreadId: selectedThreadId.value,
-  };
-  try {
-    setSelectedFiles(parserFiles);
-    resetParseState();
-    await handleParse();
-    if (tasks.value.length === 0) {
-      logger.warn("对比槽位解析完成但任务为空", { slot, fileCount: parserFiles.length });
-      return;
-    }
-    const snapshot = buildParsedRunSnapshot({
-      tasks: [...tasks.value],
-      sourceName: parserFiles[0].name,
-      detectedProject: detectedProject.value,
-      label: slot === "baseline" ? "基准运行" : "当前运行",
-      nodeStatistics: [...nodeStatistics.value],
-      nodeSummary: nodeSummary.value
-        ? {
-            ...nodeSummary.value,
-            slowestNode: { ...nodeSummary.value.slowestNode },
-          }
-        : null,
-    });
-    if (slot === "baseline") {
-      setBaselineSnapshot(snapshot);
-    } else {
-      setCandidateSnapshot(snapshot);
-    }
-    logger.info("对比槽位加载完成", {
-      slot,
-      sourceName: snapshot.sourceName,
-      taskCount: snapshot.totalTaskCount,
-      failedTaskCount: snapshot.failedTaskCount,
-    });
-  } catch (error) {
-    logger.error("对比槽位加载失败", { slot, error: String(error) });
-  } finally {
-    setSelectedFiles(previousParserFiles);
-    parseState.value = parserStateBackup.parseState;
-    parseProgress.value = parserStateBackup.parseProgress;
-    statusMessage.value = parserStateBackup.statusMessage;
-    tasks.value = parserStateBackup.tasks;
-    rawLines.value = parserStateBackup.rawLines;
-    auxLogs.value = parserStateBackup.auxLogs;
-    detectedProject.value = parserStateBackup.detectedProject;
-    selectedProcessId.value = parserStateBackup.selectedProcessId;
-    selectedThreadId.value = parserStateBackup.selectedThreadId;
-  }
-}
-
-async function processSlotPaths(slot: "baseline" | "candidate", paths: string[]): Promise<void> {
-  const result = await applySelectedPaths(paths);
-  if (result.files.length === 0) {
-    logger.warn("对比槽位路径未解析到文件", { slot, pathCount: paths.length });
-    return;
-  }
-  const parserFiles = result.files.map((file) => ({
-    name: file.name,
-    size: file.size,
-    type: getFileType(file),
-    file,
-  }));
-  await processSlotFiles(slot, parserFiles);
-}
-
 /**
  * 打开开发者工具（仅 Tauri 环境）
  */
@@ -745,184 +633,12 @@ async function handleSaveAIConfig(config: AIConfig) {
   await saveAIConfig(config);
   aiConfig.value = config;
 }
-
-// ============================================
-// Tauri 拖拽事件监听器
-// ============================================
-
-/** 拖拽事件取消监听函数 */
-let unlistenDragDrop: (() => void) | null = null;
-
-/**
- * 解析日志路径
- * 优先使用应用日志目录，失败时使用应用数据目录
- */
-async function resolveLogPath() {
-  try {
-    return await appLogDir();
-  } catch {
-    return await appDataDir();
-  }
-}
-
-// ============================================
-// 生命周期钩子
-// ============================================
-
-/**
- * 组件挂载时初始化
- */
-onMounted(() => {
-  if (isTauriEnv()) {
-    const setup = async () => {
-      const traceId = (() => {
-        const cryptoObj = globalThis.crypto;
-        if (cryptoObj?.randomUUID) {
-          return cryptoObj.randomUUID();
-        }
-        if (cryptoObj?.getRandomValues) {
-          const bytes = new Uint8Array(8);
-          cryptoObj.getRandomValues(bytes);
-          const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
-          return `trace-${Date.now()}-${hex}`;
-        }
-        return `trace-${Date.now()}-0000000000000000`;
-      })();
-      setLoggerContext({ traceId });
-
-      // 清理 ZIP 解压缓存
-      await clearZipExtractCache();
-
-      // 初始化日志系统
-      try {
-        const logPath = await resolveLogPath();
-        await init({
-          logLevel: appConfig.log.level,
-          logPath,
-          rotationSize: appConfig.log.rotationSize,
-          rotationCount: appConfig.log.rotationCount,
-        });
-        logger.info("日志系统已初始化", { logPath });
-      } catch (error) {
-        logger.error("日志系统初始化失败", { error: String(error) });
-      }
-
-      // 监听 Tauri 拖拽事件
-      unlistenDragDrop = await getCurrentWindow().onDragDropEvent((event) => {
-        const payload = event.payload as { type: string; paths?: string[] };
-        
-        if (payload.type === "over") {
-          isDragging.value = true;
-          return;
-        }
-        if (payload.type === "drop") {
-          isDragging.value = false;
-          const paths = Array.isArray(payload.paths) ? payload.paths : [];
-          if (paths.length === 0) return;
-          
-          // compare 视图下，忽略拖拽（使用按钮选择）
-          if (viewMode.value === "compare") {
-            return;
-          }
-          
-          // 非 compare 视图，正常导入到文件列表
-          void handleTauriDrop(paths);
-          return;
-        }
-        isDragging.value = false;
-      });
-
-      // 初始化 Store 并加载保存的配置
-      const store = await Store.load("app-settings.json", {
-        defaults: {
-          hiddenCallers: [],
-          searchHistory: [],
-          themeMode: "auto",
-        },
-        autoSave: 500,
-      });
-      const savedHiddenCallers = await store.get<string[]>("hiddenCallers");
-      if (Array.isArray(savedHiddenCallers)) {
-        hiddenCallers.value = savedHiddenCallers;
-      }
-      const savedSearchHistory = await store.get<string[]>("searchHistory");
-      if (Array.isArray(savedSearchHistory)) {
-        searchHistory.value = savedSearchHistory;
-      }
-      const savedThemeMode = await store.get<"light" | "dark" | "auto">("themeMode");
-      if (savedThemeMode) {
-        themeMode.value = savedThemeMode;
-      }
-      const savedImportMaaBakLog = await store.get<boolean>("importMaaBakLog");
-      if (savedImportMaaBakLog !== null && savedImportMaaBakLog !== undefined) {
-        importMaaBakLog.value = savedImportMaaBakLog;
-      }
-      setImportMaaBakLogGetter(() => importMaaBakLog.value);
-
-      // 加载 AI 配置
-      await loadAIConfig();
-
-      // 监听 hiddenCallers 变化并保存
-      watch(
-        () => hiddenCallers.value,
-        async (newValue) => {
-          await store.set("hiddenCallers", newValue);
-          await store.save();
-        },
-        { deep: true }
-      );
-
-      // 监听 searchHistory 变化并保存
-      watch(
-        () => searchHistory.value,
-        async (newValue) => {
-          await store.set("searchHistory", newValue);
-          await store.save();
-        },
-        { deep: true }
-      );
-
-      // 监听 themeMode 变化并保存
-      watch(
-        () => themeMode.value,
-        async (newValue) => {
-          await store.set("themeMode", newValue);
-          await store.save();
-        }
-      );
-
-      // 监听 importMaaBakLog 变化并保存
-      watch(
-        () => importMaaBakLog.value,
-        async (newValue) => {
-          await store.set("importMaaBakLog", newValue);
-          await store.save();
-        }
-      );
-
-      // 监听系统主题变化（auto 模式下）
-      const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-      const handleSystemThemeChange = () => {
-        if (themeMode.value === "auto") {
-          // 触发 computed 重新计算
-          themeMode.value = "auto";
-        }
-      };
-      mediaQuery.addEventListener("change", handleSystemThemeChange);
-
-      // 检查更新
-      await checkForUpdate();
-    };
-    void setup();
-  }
-});
-
-/**
- * 组件卸载前清理
- */
-onBeforeUnmount(() => {
-  unlistenDragDrop?.();
-  void flushLogs();
+useTauriIntegration({
+  isDragging,
+  viewMode,
+  themeMode,
+  handleTauriDrop,
+  onLoadAIConfig: loadAIConfig,
 });
 </script>
 
