@@ -102,12 +102,22 @@
           class="diff-group"
           :class="`diff-group-${group.type}`"
         >
-          <div class="diff-group-header" @click="['a_only', 'b_only', 'diverged'].includes(group.type) ? toggleGroup(group.type) : void 0">
+          <div
+            class="diff-group-header"
+            @click="
+              ['a_only', 'b_only', 'diverged'].includes(group.type)
+                ? toggleGroup(group.type)
+                : void 0
+            "
+          >
             <span class="diff-group-icon">{{ group.icon }}</span>
             <span class="diff-group-label">{{ group.label }}</span>
             <span class="diff-group-count">({{ group.items.length }})</span>
-            <span v-if="['a_only', 'b_only', 'diverged'].includes(group.type)" class="collapse-icon">
-              {{ isCollapsed(group.type) ? '▶' : '▼' }}
+            <span
+              v-if="['a_only', 'b_only', 'diverged'].includes(group.type)"
+              class="collapse-icon"
+            >
+              {{ isCollapsed(group.type) ? "▶" : "▼" }}
             </span>
           </div>
 
@@ -121,7 +131,10 @@
               <div class="diff-path-preview">
                 <template v-if="item.context.before.length > 0">
                   <template v-for="(node, idx) in item.context.before" :key="'before-' + idx">
-                    <span class="path-node path-node-context path-node-clickable" @click.stop="showContextNodeDetail(node)">
+                    <span
+                      class="path-node path-node-context path-node-clickable"
+                      @click.stop="showContextNodeDetail(node)"
+                    >
                       {{ node }}
                     </span>
                     <span v-if="idx < item.context.before.length - 1" class="path-arrow">→</span>
@@ -134,7 +147,10 @@
                 <template v-if="item.context.after.length > 0">
                   <span class="path-arrow">→</span>
                   <template v-for="(node, idx) in item.context.after" :key="'after-' + idx">
-                    <span class="path-node path-node-context path-node-clickable" @click.stop="showContextNodeDetail(node)">
+                    <span
+                      class="path-node path-node-context path-node-clickable"
+                      @click.stop="showContextNodeDetail(node)"
+                    >
                       {{ node }}
                     </span>
                     <span v-if="idx < item.context.after.length - 1" class="path-arrow">→</span>
@@ -162,17 +178,18 @@
                 </div>
               </div>
 
-              <div v-else-if="item.type === 'a_only' || item.type === 'b_only'" class="diff-only-badge">
-                {{ item.type === 'a_only' ? '基准独有' : '本次独有' }}
+              <div
+                v-else-if="item.type === 'a_only' || item.type === 'b_only'"
+                class="diff-only-badge"
+              >
+                {{ item.type === "a_only" ? "基准独有" : "本次独有" }}
               </div>
             </div>
           </div>
         </div>
       </template>
 
-      <div v-if="diffGroups.length === 0" class="empty-hint">
-        两个任务的路线完全相同 ✓
-      </div>
+      <div v-if="diffGroups.length === 0" class="empty-hint">两个任务的路线完全相同 ✓</div>
     </div>
 
     <div v-else class="route-nodes">
@@ -231,23 +248,24 @@
           </div>
         </div>
 
-        <div v-if="alignedRows.length === 0" class="empty-hint">
-          两个任务的路线完全相同 ✓
-        </div>
+        <div v-if="alignedRows.length === 0" class="empty-hint">两个任务的路线完全相同 ✓</div>
       </div>
     </div>
 
-    <PathDetail
-      v-model:show="detailVisible"
-      :node="selectedNode"
-    />
+    <PathDetail v-model:show="detailVisible" :node="selectedNode" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import { NButton } from "naive-ui";
-import type { PathNode as PathNodeType, TaskInfo, CompareStatus, PathNodeStatus, DiffItem as DiffItemType } from "@/types/logTypes";
+import type {
+  PathNode as PathNodeType,
+  TaskInfo,
+  CompareStatus,
+  PathNodeStatus,
+  DiffItem as DiffItemType,
+} from "@/types/logTypes";
 import { buildPathComparison, buildDiffGroups } from "@/utils/pathBuilder";
 import PathDetail from "./PathDetail.vue";
 
@@ -488,7 +506,9 @@ function showDetailFor(_side: "a" | "b", node: ColumnNode) {
   border-radius: 8px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   min-width: 80px;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
 }
 
 .summary-item:hover {

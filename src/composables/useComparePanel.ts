@@ -53,7 +53,10 @@ const DIFF_TYPE_TEXT_MAP: Record<KeyDiff["type"], string> = {
 };
 
 /** 差异严重程度类型映射 */
-const DIFF_SEVERITY_TYPE_MAP: Record<KeyDiff["severity"], "error" | "warning" | "success" | "default"> = {
+const DIFF_SEVERITY_TYPE_MAP: Record<
+  KeyDiff["severity"],
+  "error" | "warning" | "success" | "default"
+> = {
   critical: "error",
   warning: "warning",
   info: "success",
@@ -141,7 +144,9 @@ export function useComparePanel(options: UseComparePanelOptions): UseComparePane
   /**
    * 获取差异严重程度类型
    */
-  function getDiffSeverityType(severity: KeyDiff["severity"]): "error" | "warning" | "success" | "default" {
+  function getDiffSeverityType(
+    severity: KeyDiff["severity"]
+  ): "error" | "warning" | "success" | "default" {
     return DIFF_SEVERITY_TYPE_MAP[severity] ?? "default";
   }
 
@@ -174,7 +179,7 @@ export function createTaskSelectHandler(
   eventName: string
 ): (taskKey: string | null) => void {
   return (taskKey: string | null) => {
-    const task = taskKey ? tasks.value.find((item) => item.key === taskKey) ?? null : null;
+    const task = taskKey ? (tasks.value.find((item) => item.key === taskKey) ?? null) : null;
     emit(eventName, task);
   };
 }

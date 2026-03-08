@@ -1,14 +1,5 @@
-/**
- * 对比面板组件
- *
- * 用于在主界面中显示运行对比功能，包括：
- * - 基准/候选运行快照选择
- * - 任务选择
- * - 差异摘要显示
- * - 节点对比列表
- *
- * @module components/ComparePanel
- */
+/** * 对比面板组件 * * 用于在主界面中显示运行对比功能，包括： * - 基准/候选运行快照选择 * - 任务选择
+* - 差异摘要显示 * - 节点对比列表 * * @module components/ComparePanel */
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { NButton, NCard, NSelect, NTag, NTabs, NTabPane, NEmpty } from "naive-ui";
@@ -51,12 +42,7 @@ const baselineTasksRef = computed(() => props.baselineTasks);
 const candidateTasksRef = computed(() => props.candidateTasks);
 const compareResultRef = computed(() => props.compareResult);
 
-const {
-  baselineOptions,
-  candidateOptions,
-  getDiffTypeText,
-  getNodeStatusType,
-} = useComparePanel({
+const { baselineOptions, candidateOptions, getDiffTypeText, getNodeStatusType } = useComparePanel({
   baselineTasks: baselineTasksRef,
   candidateTasks: candidateTasksRef,
   compareResult: compareResultRef,
@@ -67,12 +53,12 @@ const {
 // ============================================
 
 function handleSelectTaskA(taskKey: string | null): void {
-  const task = taskKey ? props.baselineTasks.find((item) => item.key === taskKey) ?? null : null;
+  const task = taskKey ? (props.baselineTasks.find((item) => item.key === taskKey) ?? null) : null;
   emit("select-task-a", task);
 }
 
 function handleSelectTaskB(taskKey: string | null): void {
-  const task = taskKey ? props.candidateTasks.find((item) => item.key === taskKey) ?? null : null;
+  const task = taskKey ? (props.candidateTasks.find((item) => item.key === taskKey) ?? null) : null;
   emit("select-task-b", task);
 }
 

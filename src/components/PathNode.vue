@@ -1,9 +1,5 @@
 <template>
-  <div
-    class="path-node"
-    :class="[statusClass, compareClass]"
-    @click="emit('click', node)"
-  >
+  <div class="path-node" :class="[statusClass, compareClass]" @click="emit('click', node)">
     <span class="node-icon">{{ icon }}</span>
     <span class="node-name">{{ node.name }}</span>
     <span v-if="node.loopCount && node.loopCount > 1" class="loop-count">

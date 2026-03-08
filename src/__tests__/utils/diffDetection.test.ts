@@ -116,15 +116,29 @@ describe("diffDetection", () => {
     });
     const diffs = detectFailedNodes(taskA.nodes, taskB.nodes);
 
-    expect(diffs.map((item: { description: string }) => item.description)).toEqual(expect.arrayContaining(["新增失败", "失败已修复"]));
+    expect(diffs.map((item: { description: string }) => item.description)).toEqual(
+      expect.arrayContaining(["新增失败", "失败已修复"])
+    );
   });
 
   it("detectDurationAnomalies should report significant node duration changes", () => {
     const taskA = createTask({
-      nodes: [createNode({ name: "NodeA", start_time: "2026-03-06 00:00:00.000", end_time: "2026-03-06 00:00:01.000" })],
+      nodes: [
+        createNode({
+          name: "NodeA",
+          start_time: "2026-03-06 00:00:00.000",
+          end_time: "2026-03-06 00:00:01.000",
+        }),
+      ],
     });
     const taskB = createTask({
-      nodes: [createNode({ name: "NodeA", start_time: "2026-03-06 00:00:00.000", end_time: "2026-03-06 00:00:03.000" })],
+      nodes: [
+        createNode({
+          name: "NodeA",
+          start_time: "2026-03-06 00:00:00.000",
+          end_time: "2026-03-06 00:00:03.000",
+        }),
+      ],
     });
     const diffs = detectDurationAnomalies(taskA, taskB);
 
@@ -166,7 +180,13 @@ describe("diffDetection", () => {
       nodes: [
         createNode({
           name: "NodeA",
-          reco_details: { reco_id: 1, algorithm: "TemplateMatch", box: null, detail: null, name: "NodeA" },
+          reco_details: {
+            reco_id: 1,
+            algorithm: "TemplateMatch",
+            box: null,
+            detail: null,
+            name: "NodeA",
+          },
           action_details: {
             action_id: 1,
             action: "Swipe",
@@ -204,13 +224,23 @@ describe("diffDetection", () => {
   it("detectKeyDiffs should return sorted combined diffs", () => {
     const taskA = createTask({
       nodes: [
-        createNode({ name: "NodeA", status: "success", start_time: "2026-03-06 00:00:00.000", end_time: "2026-03-06 00:00:01.000" }),
+        createNode({
+          name: "NodeA",
+          status: "success",
+          start_time: "2026-03-06 00:00:00.000",
+          end_time: "2026-03-06 00:00:01.000",
+        }),
       ],
     });
     const taskB = createTask({
       status: "failed",
       nodes: [
-        createNode({ name: "NodeA", status: "failed", start_time: "2026-03-06 00:00:00.000", end_time: "2026-03-06 00:00:03.000" }),
+        createNode({
+          name: "NodeA",
+          status: "failed",
+          start_time: "2026-03-06 00:00:00.000",
+          end_time: "2026-03-06 00:00:03.000",
+        }),
         createNode({ node_id: 2, name: "NodeB" }),
       ],
     });
@@ -231,8 +261,18 @@ describe("diffDetection", () => {
 
   it("should emit warning when timestamp parsing fails", () => {
     const overview = computeOverview(
-      createTask({ duration: undefined, start_time: "invalid-time", end_time: "invalid-time", nodes: [] }),
-      createTask({ duration: undefined, start_time: "invalid-time", end_time: "invalid-time", nodes: [] })
+      createTask({
+        duration: undefined,
+        start_time: "invalid-time",
+        end_time: "invalid-time",
+        nodes: [],
+      }),
+      createTask({
+        duration: undefined,
+        start_time: "invalid-time",
+        end_time: "invalid-time",
+        nodes: [],
+      })
     );
     expect(overview.baselineDuration).toBe(0);
     expect(testState.loggerWarn).toHaveBeenCalled();

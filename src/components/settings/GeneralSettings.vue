@@ -77,10 +77,7 @@ function handleImportMaaBakLogChange(value: boolean) {
           <div class="setting-title">导入 maa.bak.log</div>
           <div class="setting-desc">导入目录时同时导入 maa.bak.log，与 maa.log 拼接后解析</div>
         </div>
-        <n-switch
-          :value="props.importMaaBakLog"
-          @update:value="handleImportMaaBakLogChange"
-        />
+        <n-switch :value="props.importMaaBakLog" @update:value="handleImportMaaBakLogChange" />
       </div>
     </div>
   </div>
