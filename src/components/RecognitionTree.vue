@@ -1,10 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
 import { NTag, NImage, NImageGroup } from "naive-ui";
-import { convertFileSrc } from "@tauri-apps/api/core";
-import { readDir } from "@tauri-apps/plugin-fs";
-import { join } from "@tauri-apps/api/path";
 import type { RecognitionDetail } from "@/types/logTypes";
+import { getPlatform } from "@/platform";
 
 const props = withDefaults(
   defineProps<{
@@ -92,13 +90,22 @@ async function loadImage() {
   if (!props.node.name || !props.visionDir) return;
 
   try {
-    const entries = await readDir(props.visionDir);
+    const platform = await getPlatform();
+    const entries = await platform.vfs.list(props.visionDir);
     const matched: string[] = [];
 
     if (props.node.reco_id) {
-      const pattern = `_${props.node.name}_${props.node.reco_id}.jpg`;
+      const base = `_${props.node.name}_${props.node.reco_id}`;
       const recoMatched = entries
-        .filter((entry) => entry.name && entry.name.endsWith(pattern))
+        .filter((entry) => {
+          if (!entry.name) return false;
+          const n = entry.name.toLowerCase();
+          return (
+            n.endsWith(`${base}.jpg`.toLowerCase()) ||
+            n.endsWith(`${base}.jpeg`.toLowerCase()) ||
+            n.endsWith(`${base}.png`.toLowerCase())
+          );
+        })
         .map((entry) => entry.name!);
       matched.push(...recoMatched);
     }
@@ -108,8 +115,8 @@ async function loadImage() {
     if (matched.length > 0) {
       const urls = await Promise.all(
         matched.map(async (name) => {
-          const filePath = await join(props.visionDir!, name);
-          return convertFileSrc(filePath);
+          const filePath = await platform.vfs.join(props.visionDir!, name);
+          return platform.images.toURL(filePath);
         })
       );
       imageUrls.value = urls;

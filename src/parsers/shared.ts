@@ -22,8 +22,7 @@ import {
   parseWin32ScreencapMethod,
   parseWin32InputMethod,
 } from "@/utils/controllerParse";
-
-import { invoke } from "@tauri-apps/api/core";
+import { isTauriEnv } from "@/utils/env";
 export {
   parseAdbScreencapMethods,
   parseAdbInputMethods,
@@ -408,8 +407,12 @@ export function extractLogDirectory(lines: string[]): string | undefined {
 
 export async function parseOnErrorScreenshotsAsync(baseDir: string): Promise<OnErrorScreenshot[]> {
   const screenshots: OnErrorScreenshot[] = [];
+  if (!isTauriEnv()) {
+    return screenshots;
+  }
 
   try {
+    const { invoke } = await import("@tauri-apps/api/core");
     let pngFiles = await invoke<PngFileInfo[]>("list_png_files", { dirPath: baseDir });
 
     if (pngFiles.length === 0) {

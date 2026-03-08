@@ -18,13 +18,14 @@
  */
 
 import { ref, type Ref } from "vue";
-import { open } from "@tauri-apps/plugin-dialog";
 import type { SelectedFile } from "@/types/logTypes";
+import { getPlatform } from "@/platform";
 import {
   applySelectedFiles as applyFiles,
   expandSelectedFiles,
   applySelectedPaths,
   isFileDrag,
+  getFilesFromDragEvent,
 } from "@/utils/file";
 import { createLogger } from "@/utils/logger";
 
@@ -32,6 +33,47 @@ import { createLogger } from "@/utils/logger";
  * 应用日志记录器
  */
 const logger = createLogger("FileSelection");
+
+/**
+ * 浏览器环境目录选择对话框（回退方案）
+ *
+ * 通过创建 <input type="file" webkitdirectory> 元素来选择目录。
+ * 注意：该能力依赖 Chromium，Firefox/Safari 支持有限。
+ */
+async function pickDirectoryFilesInBrowser(): Promise<File[]> {
+  if (typeof document === "undefined") {
+    return [];
+  }
+  return new Promise((resolve) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.multiple = true;
+    input.setAttribute("webkitdirectory", "");
+    input.setAttribute("directory", "");
+    input.style.display = "none";
+
+    const cleanUp = () => {
+      input.onchange = null;
+      input.oncancel = null;
+      if (input.parentNode) {
+        input.parentNode.removeChild(input);
+      }
+    };
+
+    input.onchange = () => {
+      const files = Array.from(input.files ?? []);
+      cleanUp();
+      resolve(files);
+    };
+    input.oncancel = () => {
+      cleanUp();
+      resolve([]);
+    };
+
+    document.body.appendChild(input);
+    input.click();
+  });
+}
 
 /**
  * 文件选择器返回值
@@ -145,16 +187,37 @@ export function useFileSelection(
    *
    * @param {Event} event - 文件输入框的 change 事件
    */
+  /**
+   * 打开目录选择
+   *
+   * - 桌面环境：调用平台目录选择器，解析路径
+   * - 浏览器环境：使用 webkitdirectory 选择目录，过滤与展开日志/ZIP
+   */
   async function handleSelectDirectory(): Promise<void> {
-    const selected = await open({
-      directory: true,
-      multiple: false,
-    });
+    const platform = await getPlatform();
+    const selected = await platform.picker.selectDirectory();
+    if (selected) {
+      await handleTauriDrop([selected]);
+      return;
+    }
 
-    if (!selected) return;
-
-    const paths = Array.isArray(selected) ? selected : [selected];
-    await handleTauriDrop(paths);
+    const browserFiles = await pickDirectoryFilesInBrowser();
+    if (browserFiles.length === 0) {
+      return;
+    }
+    const logFiles = await expandSelectedFiles(browserFiles);
+    const hasVision =
+      browserFiles.some((f) => {
+        const rel = (f as any).webkitRelativePath || (f as any).__fullPath || "";
+        return String(rel).replace(/\\/g, "/").toLowerCase().includes("/vision/");
+      }) || false;
+    if (logFiles.length === 0) {
+      return;
+    }
+    if (hasVision) {
+      baseDir.value = "/selected";
+    }
+    applySelectedFiles(logFiles);
   }
 
   /**
@@ -165,15 +228,29 @@ export function useFileSelection(
    *
    * @param {DragEvent} event - 拖拽释放事件
    */
+  /**
+   * 处理拖拽释放
+   *
+   * - 支持从文件或目录拖拽
+   * - 目录通过 webkitGetAsEntry 递归展开
+   * - ZIP 文件在后续 expandSelectedFiles 中解包筛选
+   */
   async function handleDrop(event: DragEvent): Promise<void> {
     event.preventDefault();
     event.stopPropagation();
     isDragging.value = false;
 
-    const files = Array.from(event.dataTransfer?.files || []);
+    const files = await getFilesFromDragEvent(event);
+    const hasVision = files.some((f) => {
+      const rel = (f as any).webkitRelativePath || (f as any).__fullPath || "";
+      return String(rel).replace(/\\/g, "/").toLowerCase().includes("/vision/");
+    });
     const logFiles = await expandSelectedFiles(files);
     if (logFiles.length === 0) return;
 
+    if (hasVision) {
+      baseDir.value = "/selected";
+    }
     applySelectedFiles(logFiles);
   }
 
@@ -207,10 +284,13 @@ export function useFileSelection(
    *
    * @param {DragEvent} event - 拖拽离开事件
    */
+  /**
+   * 处理拖拽离开
+   *
+   * 任何离开当前可投放区域的行为都应关闭遮罩，避免状态残留。
+   */
   function handleDragLeave(event: DragEvent): void {
     event.stopPropagation();
-    // 确保是离开目标元素本身，而不是子元素
-    if (event.currentTarget !== event.target) return;
     isDragging.value = false;
   }
 

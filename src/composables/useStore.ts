@@ -16,10 +16,14 @@
  */
 
 import { ref, watch, Ref } from "vue";
-import { Store } from "@tauri-apps/plugin-store";
+import { getPlatform } from "@/platform";
 
-/** Store 实例缓存 */
-let store: Store | null = null;
+type StorageAdapter = {
+  get<T>(key: string, defaultValue: T): Promise<T>;
+  set<T>(key: string, value: T): Promise<void>;
+};
+
+let store: StorageAdapter | null = null;
 
 /**
  * 获取或创建 Store 实例
@@ -31,12 +35,10 @@ let store: Store | null = null;
  *
  * @returns {Promise<Store>} Store 实例
  */
-async function getStore(): Promise<Store> {
+async function getStore(): Promise<StorageAdapter> {
   if (!store) {
-    store = await Store.load("app-settings.json", {
-      autoSave: 500,
-      defaults: {},
-    });
+    const platform = await getPlatform();
+    store = platform.storage;
   }
   return store;
 }
@@ -80,10 +82,7 @@ export function useStorage<T>(key: string, defaultValue: T): Ref<T> {
   async function load() {
     try {
       const s = await getStore();
-      const value = await s.get<T>(key);
-      if (value !== null && value !== undefined) {
-        innerValue.value = value;
-      }
+        innerValue.value = await s.get<T>(key, defaultValue);
       isLoaded.value = true;
     } catch (e) {
       console.error(`Failed to load ${key} from store:`, e);

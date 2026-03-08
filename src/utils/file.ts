@@ -9,21 +9,12 @@
  * @license MIT
  */
 
-import { convertFileSrc } from "@tauri-apps/api/core";
-import {
-  readDir,
-  readTextFile,
-  readFile,
-  writeFile,
-  mkdir,
-  exists,
-  remove,
-} from "@tauri-apps/plugin-fs";
-import { join, appCacheDir } from "@tauri-apps/api/path";
 import { unzipSync } from "fflate";
 import type { SelectedFile, PipelineCustomActionInfo } from "@/types/logTypes";
 import { parsePipelineCustomActions } from "./parse";
 import { FILE_CONFIG } from "@/config/file";
+import { getPlatform } from "@/platform";
+import { isTauriEnv } from "@/utils/env";
 
 const LOG_FILE_PATTERN = FILE_CONFIG.logFilePattern;
 const MAX_ZIP_ENTRIES = FILE_CONFIG.maxZipEntries;
@@ -33,10 +24,6 @@ const MAX_BROWSER_FILE_BYTES = FILE_CONFIG.maxBrowserFileBytes;
 function isSupportedLogOrConfigFile(name: string): boolean {
   const lower = name.toLowerCase();
   return lower.endsWith(".log") || lower.endsWith(".json") || lower.endsWith(".jsonc");
-}
-
-function isPngFile(name: string): boolean {
-  return name.toLowerCase().endsWith(".png");
 }
 
 function extractZipFiles(
@@ -123,31 +110,6 @@ export function getParentDirectory(path: string): string {
   if (segments.length <= 1) return "";
   segments.pop();
   return segments.join("/");
-}
-
-/**
- * 判断是否处于 Tauri 桌面应用环境
- *
- * 通过检查全局对象中是否存在 Tauri 特有的属性来判断运行环境。
- * Tauri 应用会在 window 对象上注入 __TAURI__ 或 __TAURI_INTERNALS__。
- *
- * @returns {boolean} 如果是 Tauri 环境返回 true，否则返回 false
- *
- * @example
- * if (isTauriEnv()) {
- *   // 使用 Tauri 特有的文件系统 API
- *   const content = await readTextFile('/path/to/file');
- * } else {
- *   // 使用浏览器标准的 File API
- *   const content = await file.text();
- * }
- */
-export function isTauriEnv(): boolean {
-  const win = window as Window & {
-    __TAURI__?: unknown;
-    __TAURI_INTERNALS__?: unknown;
-  };
-  return !!win.__TAURI__ || !!win.__TAURI_INTERNALS__;
 }
 
 /**
@@ -240,6 +202,31 @@ export async function expandSelectedFiles(fileList: File[]): Promise<File[]> {
     }
   }
 
+  try {
+    if (!isTauriEnv()) {
+      const platform = await getPlatform();
+      const regs: { path: string; data: Uint8Array | File }[] = [];
+      for (const file of fileList) {
+        const rel =
+          (file as any).webkitRelativePath ||
+          (file as any).__fullPath ||
+          file.name;
+        const rp = String(rel).replace(/\\/g, "/").replace(/^\/+/, "");
+        const lower = rp.toLowerCase();
+        if (lower.includes("/vision/") && (lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".png"))) {
+          const joined = await platform.vfs.join("/selected", rp);
+          regs.push({ path: joined, data: file });
+        }
+      }
+      const win = typeof window !== "undefined" ? (window as any) : null;
+      if (regs.length > 0 && win && typeof win.__maalogs_registerMemoryFiles === "function") {
+        await win.__maalogs_registerMemoryFiles(regs);
+      }
+    }
+  } catch {
+    // ignore
+  }
+
   return outFiles;
 }
 
@@ -288,6 +275,7 @@ export async function applySelectedPaths(paths: string[]): Promise<{
     return false;
   };
 
+  const platform = await getPlatform();
   const decoder = new TextDecoder("utf-8");
   const outFiles: File[] = [];
   const errors: string[] = [];
@@ -298,25 +286,21 @@ export async function applySelectedPaths(paths: string[]): Promise<{
    * @param {string} dirPath - 文件夹路径
    * @returns {Promise<boolean>} 是否成功读取文件夹
    */
-  async function walkDir(current: string): Promise<void> {
-    const entries = await readDir(current);
-    for (const entry of entries) {
-      if (entry.isDirectory) {
-        const next = await join(current, entry.name);
-        await walkDir(next);
-      } else if (entry.isFile && allowDirectoryFile(entry.name)) {
-        const filePath = await join(current, entry.name);
-        const text = await readTextFile(filePath);
-        outFiles.push(new File([text], entry.name, { type: "text/plain" }));
-      }
-    }
-  }
-
   async function collectDir(dirPath: string): Promise<boolean> {
     try {
-      await readDir(dirPath);
+      const stat = await platform.vfs.stat(dirPath);
+      if (stat.type !== "dir") {
+        return false;
+      }
       hasDirectory = true;
-      await walkDir(dirPath);
+      const entries = await platform.vfs.list(dirPath, { recursive: true, caseInsensitive: true });
+      for (const entry of entries) {
+        if (entry.type !== "file" || !allowDirectoryFile(entry.name)) {
+          continue;
+        }
+        const text = await platform.vfs.readText(entry.path);
+        outFiles.push(new File([text], entry.name, { type: "text/plain" }));
+      }
       return true;
     } catch (error) {
       if (error) errors.push(String(error));
@@ -334,29 +318,30 @@ export async function applySelectedPaths(paths: string[]): Promise<{
     for (const [entryName, data] of Object.entries(zip)) {
       if (!(data instanceof Uint8Array)) continue;
       const entryBaseName = getFileNameFromPath(entryName);
-      if (isPngFile(entryBaseName)) {
+      const lower = entryBaseName.toLowerCase();
+      if (lower.endsWith(".png") || lower.endsWith(".jpg") || lower.endsWith(".jpeg")) {
         pngEntries.push({ path: entryName, data });
       }
     }
 
     if (pngEntries.length === 0) return null;
 
-    const cacheDir = await appCacheDir();
-    const tempDir = await join(cacheDir, ZIP_EXTRACT_DIR_NAME, zipName);
+    const cacheDir = await platform.vfs.appCacheDir();
+    const tempDir = await platform.vfs.join(cacheDir, ZIP_EXTRACT_DIR_NAME, zipName);
 
-    const dirExists = await exists(tempDir);
+    const dirExists = await platform.vfs.exists(tempDir);
     if (!dirExists) {
-      await mkdir(tempDir, { recursive: true });
+      await platform.vfs.mkdir(tempDir, { recursive: true });
     }
 
     for (const { path: entryPath, data } of pngEntries) {
-      const pngPath = await join(tempDir, entryPath);
+      const pngPath = await platform.vfs.join(tempDir, entryPath);
       const pngDir = getParentDirectory(pngPath);
-      const pngDirExists = await exists(pngDir);
+      const pngDirExists = await platform.vfs.exists(pngDir);
       if (!pngDirExists) {
-        await mkdir(pngDir, { recursive: true });
+        await platform.vfs.mkdir(pngDir, { recursive: true });
       }
-      await writeFile(pngPath, data);
+      await platform.vfs.writeBinary(pngPath, data);
     }
 
     return tempDir;
@@ -366,7 +351,7 @@ export async function applySelectedPaths(paths: string[]): Promise<{
     const name = getFileNameFromPath(filePath);
     if (!name.toLowerCase().endsWith(".zip")) return false;
     try {
-      const buf = await readFile(filePath);
+      const buf = await platform.vfs.readBinary(filePath);
       const zip = unzipSync(buf);
       outFiles.push(...extractZipFiles(zip, allowDirectoryFile, decoder));
 
@@ -387,13 +372,13 @@ export async function applySelectedPaths(paths: string[]): Promise<{
     const name = getFileNameFromPath(filePath);
     if (!allowFile(name)) return false;
     try {
-      const text = await readTextFile(filePath);
+      const text = await platform.vfs.readText(filePath);
       outFiles.push(new File([text], name, { type: "text/plain" }));
       return true;
     } catch (error) {
       if (error) errors.push(String(error));
       try {
-        const url = convertFileSrc(filePath);
+        const url = await platform.vfs.getImageURL(filePath);
         const response = await fetch(url);
         const blob = await response.blob();
         outFiles.push(new File([blob], name, { type: "text/plain" }));
@@ -418,7 +403,36 @@ export async function applySelectedPaths(paths: string[]): Promise<{
     }
   }
 
-  const baseDir = extractedPngDir || (paths.length > 0 ? paths[0] : "");
+  let baseDir = extractedPngDir || (paths.length > 0 ? paths[0] : "");
+  if (extractedPngDir) {
+    try {
+      const visionDirect = await platform.vfs.exists(
+        await platform.vfs.join(extractedPngDir, "vision")
+      );
+      if (visionDirect) {
+        baseDir = extractedPngDir;
+      } else {
+        const debugVision = await platform.vfs.exists(
+          await platform.vfs.join(extractedPngDir, "debug", "vision")
+        );
+        if (debugVision) {
+          baseDir = await platform.vfs.join(extractedPngDir, "debug");
+        } else {
+          const entries = await platform.vfs.list(extractedPngDir);
+          for (const entry of entries) {
+            if (entry.type !== "dir") continue;
+            const candidate = await platform.vfs.join(extractedPngDir, entry.name);
+            if (await platform.vfs.exists(await platform.vfs.join(candidate, "vision"))) {
+              baseDir = candidate;
+              break;
+            }
+          }
+        }
+      }
+    } catch {
+      // noop
+    }
+  }
 
   return { files: outFiles, errors, hasDirectory, baseDir };
 }
@@ -441,8 +455,119 @@ export async function applySelectedPaths(paths: string[]): Promise<{
  * });
  */
 export function isFileDrag(event: DragEvent): boolean {
-  const types = Array.from(event.dataTransfer?.types || []);
-  return types.includes("Files");
+  const dataTransfer = event.dataTransfer;
+  if (!dataTransfer) return false;
+  if ((dataTransfer.files?.length ?? 0) > 0) return true;
+  const hasFileItem = Array.from(dataTransfer.items || []).some((item) => item.kind === "file");
+  if (hasFileItem) return true;
+  const types = Array.from(dataTransfer.types || []);
+  return types.includes("Files") || types.includes("application/x-moz-file");
+}
+
+/**
+ * 拖拽目录解析相关的最小类型定义（基于 WebKit FileSystem Entry）
+ */
+type FileSystemEntryLike = {
+  isFile: boolean;
+  isDirectory: boolean;
+  fullPath?: string;
+  name?: string;
+};
+
+type FileSystemFileEntryLike = FileSystemEntryLike & {
+  isFile: true;
+  isDirectory: false;
+  file: (callback: (file: File) => void) => void;
+};
+
+type FileSystemDirectoryReaderLike = {
+  readEntries: (callback: (entries: FileSystemEntryLike[]) => void) => void;
+};
+
+type FileSystemDirectoryEntryLike = FileSystemEntryLike & {
+  isFile: false;
+  isDirectory: true;
+  createReader: () => FileSystemDirectoryReaderLike;
+};
+
+type DataTransferItemWithEntry = DataTransferItem & {
+  webkitGetAsEntry?: () => FileSystemEntryLike | null;
+};
+
+/**
+ * 读取目录条目（DirectoryEntry），递归收集内部所有文件
+ *
+ * 兼容 Chrome/Edge 的拖拽目录解析能力。通过 FileSystemDirectoryEntry 接口
+ * 使用 createReader() 分批读取目录内容，逐层下钻收集文件。
+ */
+async function traverseDirectoryEntry(entry: FileSystemDirectoryEntryLike): Promise<File[]> {
+  const reader = entry.createReader();
+  const out: File[] = [];
+  async function readAll(): Promise<FileSystemEntryLike[]> {
+    return new Promise((resolve) => {
+      reader.readEntries((entries: FileSystemEntryLike[]) => resolve(entries));
+    });
+  }
+  // 分批读取，直到返回空数组为止
+  // 使用 for(;;) 避免常量条件警告
+  for (;;) {
+    const batch = (await readAll()) || [];
+    if (batch.length === 0) break;
+    for (const e of batch) {
+      out.push(...(await traverseEntry(e)));
+    }
+  }
+  return out;
+}
+
+/**
+ * 读取文件或目录条目
+ *
+ * - 文件条目：转为 File 返回
+ * - 目录条目：递归收集内部文件
+ */
+async function traverseEntry(entry: FileSystemEntryLike): Promise<File[]> {
+  if (entry.isFile && !entry.isDirectory) {
+    return new Promise((resolve) => {
+      (entry as FileSystemFileEntryLike).file((file: File) => {
+        try {
+          (file as any).__fullPath = (entry as any).fullPath || (entry as any).name || file.name;
+        } catch {}
+        resolve([file]);
+      });
+    });
+  }
+  if (!entry.isFile && entry.isDirectory) {
+    return traverseDirectoryEntry(entry as FileSystemDirectoryEntryLike);
+  }
+  return [];
+}
+
+/**
+ * 从拖拽事件中收集所有文件
+ *
+ * - 优先收集 dataTransfer.files 中的文件
+ * - 同时解析 dataTransfer.items 中带有 webkitGetAsEntry 的目录
+ * - 目录将被递归展开，返回其内部所有文件
+ */
+export async function getFilesFromDragEvent(event: DragEvent): Promise<File[]> {
+  const dt = event.dataTransfer;
+  if (!dt) return [];
+  const files = Array.from(dt.files || []);
+  const items = Array.from(dt.items || []);
+  const dirEntries: FileSystemDirectoryEntryLike[] = [];
+  for (const item of items) {
+    const itemWithEntry = item as DataTransferItemWithEntry;
+    if (typeof itemWithEntry.webkitGetAsEntry === "function") {
+      const entry = itemWithEntry.webkitGetAsEntry();
+      if (entry && entry.isDirectory) dirEntries.push(entry as unknown as FileSystemDirectoryEntryLike);
+    }
+  }
+  const dirFiles: File[] = [];
+  for (const entry of dirEntries) {
+    dirFiles.push(...(await traverseEntry(entry)));
+  }
+  return [...files, ...dirFiles];
 }
 
 /**
@@ -625,11 +750,12 @@ const ZIP_EXTRACT_DIR_NAME = "maalogs-zip-extract";
 
 export async function clearZipExtractCache(): Promise<void> {
   try {
-    const cacheDir = await appCacheDir();
-    const extractDir = await join(cacheDir, ZIP_EXTRACT_DIR_NAME);
-    const dirExists = await exists(extractDir);
+    const platform = await getPlatform();
+    const cacheDir = await platform.vfs.appCacheDir();
+    const extractDir = await platform.vfs.join(cacheDir, ZIP_EXTRACT_DIR_NAME);
+    const dirExists = await platform.vfs.exists(extractDir);
     if (dirExists) {
-      await remove(extractDir, { recursive: true });
+      await platform.vfs.remove(extractDir, { recursive: true });
     }
   } catch {
     // 忽略清理错误

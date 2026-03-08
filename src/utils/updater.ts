@@ -9,11 +9,10 @@
  * @license MIT
  */
 
-import { check } from "@tauri-apps/plugin-updater";
-import { relaunch } from "@tauri-apps/plugin-process";
-import { getVersion } from "@tauri-apps/api/app";
 import { createDiscreteApi, NCard, NScrollbar, NText, NButton } from "naive-ui";
 import { h } from "vue";
+import { isTauriEnv } from "@/utils/env";
+import type { Update } from "@tauri-apps/plugin-updater";
 
 /**
  * 简单 Markdown 转 HTML
@@ -146,7 +145,11 @@ function createUpdateDialogContent(
  * await checkForUpdate(true);
  */
 export async function checkForUpdate(showNoUpdate = false): Promise<boolean> {
+  if (!isTauriEnv()) {
+    return false;
+  }
   try {
+    const { check } = await import("@tauri-apps/plugin-updater");
     const update = await check();
 
     if (!update) {
@@ -156,7 +159,7 @@ export async function checkForUpdate(showNoUpdate = false): Promise<boolean> {
       return false;
     }
 
-    const currentVersion = await getVersion();
+    const currentVersion = await getCurrentVersion();
     const changelog = update.body || "暂无更新内容信息";
 
     $dialog.info({
@@ -186,7 +189,7 @@ export async function checkForUpdate(showNoUpdate = false): Promise<boolean> {
  * 下载并安装更新
  * 显示下载进度，下载完成后自动安装并重启应用
  */
-async function downloadAndInstall(update: Awaited<ReturnType<typeof check>>): Promise<void> {
+async function downloadAndInstall(update: Update | null): Promise<void> {
   if (!update) return;
 
   const loadingMsg = $message.loading("正在下载更新...", { duration: 0 });
@@ -198,10 +201,10 @@ async function downloadAndInstall(update: Awaited<ReturnType<typeof check>>): Pr
     await update.downloadAndInstall((event) => {
       switch (event.event) {
         case "Started":
-          contentLength = event.data.contentLength ?? 0;
+          contentLength = event.data?.contentLength ?? 0;
           break;
         case "Progress":
-          downloaded += event.data.chunkLength;
+          downloaded += event.data?.chunkLength ?? 0;
           if (contentLength > 0) {
             const percent = Math.round((downloaded / contentLength) * 100);
             loadingMsg.content = `正在下载更新... ${percent}%`;
@@ -215,6 +218,7 @@ async function downloadAndInstall(update: Awaited<ReturnType<typeof check>>): Pr
 
     loadingMsg.destroy();
     $message.success("更新完成，正在重启...");
+    const { relaunch } = await import("@tauri-apps/plugin-process");
     await relaunch();
   } catch (err) {
     loadingMsg.destroy();
@@ -232,7 +236,11 @@ async function downloadAndInstall(update: Awaited<ReturnType<typeof check>>): Pr
  * const version = await getCurrentVersion();
  */
 export async function getCurrentVersion(): Promise<string> {
+  if (!isTauriEnv()) {
+    return "web";
+  }
   try {
+    const { getVersion } = await import("@tauri-apps/api/app");
     return await getVersion();
   } catch {
     return "unknown";

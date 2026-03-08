@@ -87,8 +87,8 @@ import {
 import { PictureFilled, SearchOutlined } from "@vicons/antd";
 import { DynamicScroller, DynamicScrollerItem } from "vue-virtual-scroller";
 import { ref, watch, onMounted, onUnmounted, computed } from "vue";
-import { convertFileSrc } from "@tauri-apps/api/core";
 import { useStorage, useInPageSearch } from "@/composables";
+import { getPlatform } from "@/platform";
 import type {
   NodeInfo,
   NextListItem,
@@ -400,45 +400,88 @@ function getAuxLogSourceLabel(result: InPageSearchResult): string | null {
   return lastSeparator >= 0 ? rawSource.slice(lastSeparator + 1) : rawSource;
 }
 
-function getSearchResultMetaParts(result: InPageSearchResult): string[] {
+function getTaskMetaParts(result: InPageSearchResult): string[] {
   const parts: string[] = [];
-
-  if (result.type === "auxlog") {
-    if (result.taskName) {
-      parts.push(`任务：${result.taskName}`);
-    }
-
-    const level = typeof result.extra?.level === "string" ? result.extra.level.toUpperCase() : null;
-    const sourceLabel = getAuxLogSourceLabel(result);
-    if (level) {
-      parts.push(level);
-    }
-    if (sourceLabel) {
-      parts.push(sourceLabel);
-    }
-    if (typeof result.logLineNumber === "number") {
-      parts.push(`第 ${result.logLineNumber} 行`);
-    }
-    return parts;
+  parts.push(`任务 ID：${result.taskId}`);
+  if (result.extra?.status) {
+    parts.push(`状态：${String(result.extra.status)}`);
   }
-
-  if (result.type === "task") {
-    parts.push(`任务 ID：${result.taskId}`);
-    if (result.extra?.status) {
-      parts.push(`状态：${String(result.extra.status)}`);
-    }
-    if (result.extra?.processId) {
-      parts.push(`进程：${String(result.extra.processId)}`);
-    }
-    if (result.extra?.threadId) {
-      parts.push(`线程：${String(result.extra.threadId)}`);
-    }
-    return parts;
+  if (result.extra?.processId) {
+    parts.push(`进程：${String(result.extra.processId)}`);
   }
+  if (result.extra?.threadId) {
+    parts.push(`线程：${String(result.extra.threadId)}`);
+  }
+  return parts;
+}
 
+function getAuxlogMetaParts(result: InPageSearchResult): string[] {
+  const parts: string[] = [];
   if (result.taskName) {
     parts.push(`任务：${result.taskName}`);
   }
+  const level = typeof result.extra?.level === "string" ? result.extra.level.toUpperCase() : null;
+  const sourceLabel = getAuxLogSourceLabel(result);
+  if (level) {
+    parts.push(level);
+  }
+  if (sourceLabel) {
+    parts.push(sourceLabel);
+  }
+  if (typeof result.logLineNumber === "number") {
+    parts.push(`第 ${result.logLineNumber} 行`);
+  }
+  return parts;
+}
+
+function pushCommonMetaParts(parts: string[], result: InPageSearchResult): void {
+  if (result.taskName) {
+    parts.push(`任务：${result.taskName}`);
+  }
+  if (result.nodeName) {
+    parts.push(`节点：${result.nodeName}`);
+  }
+}
+
+function pushRecognitionMeta(parts: string[], result: InPageSearchResult): void {
+  const recoName = typeof result.extra?.recoName === "string" ? result.extra.recoName : null;
+  const algorithm = typeof result.extra?.algorithm === "string" ? result.extra.algorithm : null;
+  if (recoName && result.field !== "name") {
+    parts.push(`识别：${recoName}`);
+  }
+  if (typeof result.recoId === "number") {
+    parts.push(`识别 ID：${result.recoId}`);
+  }
+  if (algorithm) {
+    parts.push(`算法：${algorithm}`);
+  }
+  if (result.extra?.status) {
+    parts.push(`状态：${String(result.extra.status)}`);
+  }
+}
+
+function pushActionMeta(parts: string[], result: InPageSearchResult): void {
+  const actionType = typeof result.extra?.actionType === "string" ? result.extra.actionType : null;
+  if (typeof result.actionId === "number") {
+    parts.push(`动作 ID：${result.actionId}`);
+  }
+  if (actionType) {
+    parts.push(`类型：${actionType}`);
+  }
+  if (result.extra?.status) {
+    parts.push(`状态：${String(result.extra.status)}`);
+  }
+}
+
+function getSearchResultMetaParts(result: InPageSearchResult): string[] {
+  if (result.type === "auxlog") {
+    return getAuxlogMetaParts(result);
+  }
+  if (result.type === "task") {
+    return getTaskMetaParts(result);
+  }
+  const parts: string[] = [];
+  pushCommonMetaParts(parts, result);
 
   if (result.type === "node") {
     if (typeof result.nodeId === "number") {
@@ -450,40 +493,13 @@ function getSearchResultMetaParts(result: InPageSearchResult): string[] {
     return parts;
   }
 
-  if (result.nodeName) {
-    parts.push(`节点：${result.nodeName}`);
-  }
-
   if (result.type === "recognition") {
-    const recoName = typeof result.extra?.recoName === "string" ? result.extra.recoName : null;
-    const algorithm = typeof result.extra?.algorithm === "string" ? result.extra.algorithm : null;
-    if (recoName && result.field !== "name") {
-      parts.push(`识别：${recoName}`);
-    }
-    if (typeof result.recoId === "number") {
-      parts.push(`识别 ID：${result.recoId}`);
-    }
-    if (algorithm) {
-      parts.push(`算法：${algorithm}`);
-    }
-    if (result.extra?.status) {
-      parts.push(`状态：${String(result.extra.status)}`);
-    }
+    pushRecognitionMeta(parts, result);
     return parts;
   }
 
   if (result.type === "action") {
-    const actionType =
-      typeof result.extra?.actionType === "string" ? result.extra.actionType : null;
-    if (typeof result.actionId === "number") {
-      parts.push(`动作 ID：${result.actionId}`);
-    }
-    if (actionType) {
-      parts.push(`类型：${actionType}`);
-    }
-    if (result.extra?.status) {
-      parts.push(`状态：${String(result.extra.status)}`);
-    }
+    pushActionMeta(parts, result);
     return parts;
   }
 
@@ -495,6 +511,7 @@ function getSearchResultMetaParts(result: InPageSearchResult): string[] {
 }
 
 const hasErrorScreenshot = computed(() => !!props.selectedNode?.error_screenshot);
+const errorScreenshotSrc = ref("");
 
 const screenshotExpanded = ref<string[]>([]);
 
@@ -695,6 +712,7 @@ const props = withDefaults(
     selectedAuxLevels: () => ["error", "warn", "info", "debug", "other"],
     hiddenCallers: () => [],
     selectedNodeFocusLogs: () => ({ recognition: [], action: [] }),
+    searchableAuxLogs: () => new Map<string, AuxLogEntry[]>(),
     visionDir: undefined,
     jsonExpandDepth: 5,
   }
@@ -724,6 +742,19 @@ watch(
   () => props.selectedNodeId,
   () => {
     screenshotExpanded.value = hasErrorScreenshot.value ? ["screenshot"] : [];
+  },
+  { immediate: true }
+);
+
+watch(
+  () => props.selectedNode?.error_screenshot,
+  async (path) => {
+    if (!path) {
+      errorScreenshotSrc.value = "";
+      return;
+    }
+    const platform = await getPlatform();
+    errorScreenshotSrc.value = await platform.images.toURL(path);
   },
   { immediate: true }
 );
@@ -770,8 +801,9 @@ const handleNodeSelect = (nodeId: number) => {
   emit("select-node", nodeId);
 };
 
-function openScreenshot(filePath: string): void {
-  screenshotSrc.value = convertFileSrc(filePath);
+async function openScreenshot(filePath: string): Promise<void> {
+  const platform = await getPlatform();
+  screenshotSrc.value = await platform.images.toURL(filePath);
   showScreenshot.value = true;
 }
 </script>
@@ -1042,7 +1074,7 @@ function openScreenshot(filePath: string): void {
               </template>
               <n-image
                 v-if="hasErrorScreenshot"
-                :src="convertFileSrc(selectedNode!.error_screenshot!)"
+                :src="errorScreenshotSrc"
                 object-fit="contain"
                 class="error-screenshot-image"
                 preview-disabled

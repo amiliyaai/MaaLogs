@@ -30,7 +30,6 @@ import {
 /**
  * Tauri API 导入
  */
-import { invoke } from "@tauri-apps/api/core";
 
 /**
  * 虚拟滚动样式
@@ -63,6 +62,7 @@ import {
   useTauriIntegration,
   useStorage,
 } from "@/composables";
+import { getPlatform } from "@/platform";
 
 /**
  * 工具函数导入
@@ -87,7 +87,7 @@ import {
   splitMatch,
 } from "@/utils/format";
 import { extractCustomActionFromActionDetails } from "@/utils/parse";
-import { isTauriEnv } from "@/utils/file";
+import { isTauriEnv } from "@/utils/env";
 import { createLogger } from "@/utils/logger";
 import { setImportMaaBakLogGetter } from "@/config/file";
 import { getAIConfig, saveAIConfig, type AIConfig } from "@/utils/aiAnalyzer";
@@ -607,7 +607,8 @@ function handleGlobalDrop(event: DragEvent): void {
 async function openDevtools() {
   if (!isTauriEnv()) return;
   try {
-    await invoke("open_devtools");
+    const platform = await getPlatform();
+    await platform.updater.openDevtools();
   } catch (error) {
     logger.warn("打开开发者工具失败", { error: String(error) });
   }
@@ -648,7 +649,7 @@ useTauriIntegration({
   <n-config-provider :theme="currentTheme">
     <n-message-provider>
       <n-dialog-provider>
-        <div class="app" @dragover.prevent @drop.prevent="handleGlobalDrop">
+        <div class="app" @dragover.prevent @drop.prevent="handleGlobalDrop" @dragleave="handleDragLeave">
           <!-- 顶部导航栏 -->
           <AppTopBar
             :view-mode="viewMode"
@@ -660,14 +661,15 @@ useTauriIntegration({
             @open-settings="openSettings"
           />
 
-          <!-- 拖拽遮罩层 -->
+          <!-- 拖拽遮罩层：监听 dragover / drop / dragleave，确保拖拽取消时遮罩也能及时关闭 -->
           <div
             v-if="isDragging && viewMode !== 'compare'"
             class="drop-mask"
             @drop="handleGlobalDrop"
             @dragover="handleDragOver"
+            @dragleave="handleDragLeave"
           >
-            松手导入日志/配置文件
+            松手导入日志
           </div>
 
           <!-- 复制提示 -->

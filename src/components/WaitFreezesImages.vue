@@ -1,9 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from "vue";
 import { NImage, NImageGroup, NCollapse, NCollapseItem } from "naive-ui";
-import { convertFileSrc } from "@tauri-apps/api/core";
-import { readDir } from "@tauri-apps/plugin-fs";
-import { join } from "@tauri-apps/api/path";
+import { getPlatform } from "@/platform";
 import { createLogger } from "@/utils/logger";
 
 const logger = createLogger("WaitFreezesImages");
@@ -37,26 +35,36 @@ async function loadImages() {
   }
 
   try {
-    const entries = await readDir(props.visionDir);
-    const pattern = `_${props.nodeName}_wait_freezes.jpg`;
+    const platform = await getPlatform();
+    const entries = await platform.vfs.list(props.visionDir);
+    const base = `_${props.nodeName}_wait_freezes`;
 
     const startMs = props.startTime ? parseTimestampToMs(props.startTime) : -Infinity;
     const endMs = props.endTime ? parseTimestampToMs(props.endTime) : Infinity;
 
     const matched = entries
       .filter((entry) => {
-        if (!entry.name || !entry.name.endsWith(pattern)) return false;
+        if (!entry.name) return false;
+        const n = entry.name.toLowerCase();
+        if (
+          !(
+            n.endsWith(`${base}.jpg`) ||
+            n.endsWith(`${base}.jpeg`) ||
+            n.endsWith(`${base}.png`)
+          )
+        )
+          return false;
         const fileMs = parseFileTimeToMs(entry.name);
         if (fileMs === null) return false;
         return fileMs >= startMs && fileMs <= endMs;
       })
-      .map((entry) => entry.name!)
+      .map((entry) => entry.name)
       .sort();
 
     const urls = await Promise.all(
       matched.map(async (name) => {
-        const filePath = await join(props.visionDir, name);
-        return convertFileSrc(filePath);
+        const filePath = await platform.vfs.join(props.visionDir, name);
+        return platform.images.toURL(filePath);
       })
     );
     imageUrls.value = urls;

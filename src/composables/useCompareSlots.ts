@@ -13,9 +13,10 @@ import type {
 } from "@/types/logTypes";
 import type { ParseState } from "@/composables/useLogParser";
 import { setSelectedFiles } from "@/composables/useLogParser";
-import { applySelectedPaths, getFileType } from "@/utils/file";
+import { applySelectedPaths, expandSelectedFiles, getFileType } from "@/utils/file";
 import { buildParsedRunSnapshot } from "@/utils/diffDetection";
 import { createLogger } from "@/utils/logger";
+import { isTauriEnv } from "@/utils/env";
 
 type CompareSlot = "baseline" | "candidate";
 
@@ -52,6 +53,57 @@ type ParserStateBackup = {
 
 const logger = createLogger("CompareSlots");
 
+type BrowserPickMode = "directory" | "zip";
+
+/**
+ * 浏览器环境文件/目录选择（回退方案）
+ *
+ * - directory: 通过 <input type="file" webkitdirectory> 选择整个目录，返回其中文件
+ * - zip: 通过 accept 过滤选择单个 zip 文件
+ *
+ * 注意：该能力依赖 Chromium 的 webkitdirectory，Firefox/Safari 支持有限。
+ */
+async function pickFilesInBrowser(mode: BrowserPickMode): Promise<File[]> {
+  if (typeof document === "undefined") {
+    return [];
+  }
+  return new Promise((resolve) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.style.display = "none";
+
+    if (mode === "directory") {
+      input.multiple = true;
+      input.setAttribute("webkitdirectory", "");
+      input.setAttribute("directory", "");
+    } else {
+      input.multiple = false;
+      input.accept = ".zip,application/zip";
+    }
+
+    const cleanUp = () => {
+      input.onchange = null;
+      input.oncancel = null;
+      if (input.parentNode) {
+        input.parentNode.removeChild(input);
+      }
+    };
+
+    input.onchange = () => {
+      const files = Array.from(input.files ?? []);
+      cleanUp();
+      resolve(files);
+    };
+    input.oncancel = () => {
+      cleanUp();
+      resolve([]);
+    };
+
+    document.body.appendChild(input);
+    input.click();
+  });
+}
+
 function cloneNodeSummary(
   summary: ParsedRunSnapshot["nodeSummary"]
 ): ParsedRunSnapshot["nodeSummary"] {
@@ -69,34 +121,66 @@ function cloneNodeSummary(
  */
 export function useCompareSlots(options: UseCompareSlotsOptions) {
   async function handleSelectBaselineDir(): Promise<void> {
-    const paths = await selectDirectory();
-    if (paths.length > 0) {
-      await processSlotPaths("baseline", paths);
+    if (isTauriEnv()) {
+      const paths = await selectDirectory();
+      if (paths.length > 0) {
+        await processSlotPaths("baseline", paths);
+      }
+      return;
+    }
+    const files = await pickFilesInBrowser("directory");
+    if (files.length > 0) {
+      await processSlotBrowserFiles("baseline", files);
     }
   }
 
   async function handleSelectBaselineZip(): Promise<void> {
-    const paths = await selectZipFile();
-    if (paths.length > 0) {
-      await processSlotPaths("baseline", paths);
+    if (isTauriEnv()) {
+      const paths = await selectZipFile();
+      if (paths.length > 0) {
+        await processSlotPaths("baseline", paths);
+      }
+      return;
+    }
+    const files = await pickFilesInBrowser("zip");
+    if (files.length > 0) {
+      await processSlotBrowserFiles("baseline", files);
     }
   }
 
   async function handleSelectCandidateDir(): Promise<void> {
-    const paths = await selectDirectory();
-    if (paths.length > 0) {
-      await processSlotPaths("candidate", paths);
+    if (isTauriEnv()) {
+      const paths = await selectDirectory();
+      if (paths.length > 0) {
+        await processSlotPaths("candidate", paths);
+      }
+      return;
+    }
+    const files = await pickFilesInBrowser("directory");
+    if (files.length > 0) {
+      await processSlotBrowserFiles("candidate", files);
     }
   }
 
   async function handleSelectCandidateZip(): Promise<void> {
-    const paths = await selectZipFile();
-    if (paths.length > 0) {
-      await processSlotPaths("candidate", paths);
+    if (isTauriEnv()) {
+      const paths = await selectZipFile();
+      if (paths.length > 0) {
+        await processSlotPaths("candidate", paths);
+      }
+      return;
+    }
+    const files = await pickFilesInBrowser("zip");
+    if (files.length > 0) {
+      await processSlotBrowserFiles("candidate", files);
     }
   }
 
   async function selectDirectory(): Promise<string[]> {
+    if (!isTauriEnv()) {
+      logger.warn("当前平台不支持目录选择对话框");
+      return [];
+    }
     const { open } = await import("@tauri-apps/plugin-dialog");
     const selected = await open({
       multiple: false,
@@ -107,6 +191,10 @@ export function useCompareSlots(options: UseCompareSlotsOptions) {
   }
 
   async function selectZipFile(): Promise<string[]> {
+    if (!isTauriEnv()) {
+      logger.warn("当前平台不支持 ZIP 文件路径选择");
+      return [];
+    }
     const { open } = await import("@tauri-apps/plugin-dialog");
     const selected = await open({
       multiple: false,
@@ -179,6 +267,27 @@ export function useCompareSlots(options: UseCompareSlotsOptions) {
       return;
     }
     const parserFiles = result.files.map((file) => ({
+      name: file.name,
+      size: file.size,
+      type: getFileType(file),
+      file,
+    }));
+    await processSlotFiles(slot, parserFiles);
+  }
+
+  /**
+   * 处理浏览器导入的文件（目录/zip）
+   *
+   * - 目录：通过 expandSelectedFiles 过滤支持的日志与从 zip 中提取的日志
+   * - zip：直接传入 expandSelectedFiles 展开并筛选内部日志
+   */
+  async function processSlotBrowserFiles(slot: CompareSlot, files: File[]): Promise<void> {
+    const expandedFiles = await expandSelectedFiles(files);
+    if (expandedFiles.length === 0) {
+      logger.warn("对比槽位浏览器导入未解析到文件", { slot, fileCount: files.length });
+      return;
+    }
+    const parserFiles = expandedFiles.map((file) => ({
       name: file.name,
       size: file.size,
       type: getFileType(file),

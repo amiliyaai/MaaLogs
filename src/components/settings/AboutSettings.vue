@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { NSpace, NText, NButton, NTag } from "naive-ui";
 import { ref, onMounted } from "vue";
-import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
+import { getPlatform } from "@/platform";
 import { checkForUpdate, getCurrentVersion } from "@/utils/updater";
 import { getLogPath } from "@/utils/logger";
 
@@ -19,17 +19,20 @@ async function handleCheckUpdate() {
 }
 
 async function openGitHub() {
-  await openUrl("https://github.com/amiliyaai/MaaLogs");
+  const platform = await getPlatform();
+  await platform.updater.openExternal("https://github.com/amiliyaai/MaaLogs");
 }
 
 async function openIssues() {
-  await openUrl("https://github.com/amiliyaai/MaaLogs/issues");
+  const platform = await getPlatform();
+  await platform.updater.openExternal("https://github.com/amiliyaai/MaaLogs/issues");
 }
 
 async function openLogDir() {
   const logPath = getLogPath();
   if (logPath) {
-    await revealItemInDir(logPath);
+    const platform = await getPlatform();
+    await platform.updater.revealItem(logPath);
   }
 }
 </script>

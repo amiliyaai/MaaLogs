@@ -4,11 +4,10 @@
  * 负责初始化日志系统、拖拽监听、主题同步、更新检查等。
  */
 import { onBeforeUnmount, onMounted, type Ref } from "vue";
-import { getCurrentWindow } from "@tauri-apps/api/window";
-import { appDataDir, appLogDir } from "@tauri-apps/api/path";
-import { checkForUpdate } from "@/utils/updater";
+import { getPlatform } from "@/platform";
 import { appConfig } from "@/config";
-import { clearZipExtractCache, isTauriEnv } from "@/utils/file";
+import { clearZipExtractCache } from "@/utils/file";
+import { isTauriEnv } from "@/utils/env";
 import { createLogger, flushLogs, init, setLoggerContext } from "@/utils/logger";
 
 /**
@@ -40,10 +39,11 @@ export function useTauriIntegration(options: UseTauriIntegrationOptions): void {
   }
 
   async function resolveLogPath(): Promise<string> {
+    const platform = await getPlatform();
     try {
-      return await appLogDir();
+      return await platform.vfs.appLogDir();
     } catch {
-      return await appDataDir();
+      return await platform.vfs.appDataDir();
     }
   }
 
@@ -81,25 +81,22 @@ export function useTauriIntegration(options: UseTauriIntegrationOptions): void {
         logger.error("日志系统初始化失败", { error: String(error) });
       }
 
-      unlistenDragDrop = await getCurrentWindow().onDragDropEvent((event) => {
-        const payload = event.payload as { type: string; paths?: string[] };
-
-        if (payload.type === "over") {
-          options.isDragging.value = true;
-          return;
-        }
-        if (payload.type === "drop") {
+      const platform = await getPlatform();
+      unlistenDragDrop = await platform.dragDrop.onDrop(
+        (paths) => {
           options.isDragging.value = false;
-          const paths = Array.isArray(payload.paths) ? payload.paths : [];
-          if (paths.length === 0) return;
-          if (options.viewMode.value === "compare") {
+          if (paths.length === 0 || options.viewMode.value === "compare") {
             return;
           }
           options.handleTauriDrop(paths).catch(handleDropError);
-          return;
+        },
+        () => {
+          options.isDragging.value = true;
+        },
+        () => {
+          options.isDragging.value = false;
         }
-        options.isDragging.value = false;
-      });
+      );
 
       await options.onLoadAIConfig();
 
@@ -112,7 +109,7 @@ export function useTauriIntegration(options: UseTauriIntegrationOptions): void {
       mediaQuery.addEventListener("change", handleSystemThemeChange);
       removeMediaListener = () => mediaQuery.removeEventListener("change", handleSystemThemeChange);
 
-      await checkForUpdate();
+      await platform.updater.checkForUpdate();
     };
     setup().catch(handleSetupError);
   });

@@ -13,8 +13,47 @@
  * @license MIT
  */
 
-import { writeTextFile, rename, exists, mkdir, readTextFile } from "@tauri-apps/plugin-fs";
-import { appDataDir, join } from "@tauri-apps/api/path";
+import { isTauriEnv } from "@/utils/env";
+
+type FsApi = {
+  writeTextFile: typeof import("@tauri-apps/plugin-fs")["writeTextFile"];
+  rename: typeof import("@tauri-apps/plugin-fs")["rename"];
+  exists: typeof import("@tauri-apps/plugin-fs")["exists"];
+  mkdir: typeof import("@tauri-apps/plugin-fs")["mkdir"];
+  readTextFile: typeof import("@tauri-apps/plugin-fs")["readTextFile"];
+};
+
+type PathApi = {
+  appDataDir: typeof import("@tauri-apps/api/path")["appDataDir"];
+  join: typeof import("@tauri-apps/api/path")["join"];
+};
+
+let fsApi: FsApi | null = null;
+let pathApi: PathApi | null = null;
+
+async function getApis(): Promise<{ fs: FsApi; path: PathApi } | null> {
+  if (!isTauriEnv()) {
+    return null;
+  }
+  if (!fsApi) {
+    const fs = await import("@tauri-apps/plugin-fs");
+    fsApi = {
+      writeTextFile: fs.writeTextFile,
+      rename: fs.rename,
+      exists: fs.exists,
+      mkdir: fs.mkdir,
+      readTextFile: fs.readTextFile,
+    };
+  }
+  if (!pathApi) {
+    const path = await import("@tauri-apps/api/path");
+    pathApi = {
+      appDataDir: path.appDataDir,
+      join: path.join,
+    };
+  }
+  return { fs: fsApi, path: pathApi };
+}
 
 /**
  * 日志级别枚举
@@ -140,12 +179,16 @@ function formatEntry(entry: LogEntry) {
  * @param {string} logPath - 日志目录路径
  */
 async function prepareLogPath(logPath: string) {
-  if (!(await exists(logPath))) {
-    await mkdir(logPath, { recursive: true });
+  const apis = await getApis();
+  if (!apis) {
+    return;
   }
-  const logFile = await join(logPath, "app.log");
-  if (await exists(logFile)) {
-    const content = await readTextFile(logFile);
+  if (!(await apis.fs.exists(logPath))) {
+    await apis.fs.mkdir(logPath, { recursive: true });
+  }
+  const logFile = await apis.path.join(logPath, "app.log");
+  if (await apis.fs.exists(logFile)) {
+    const content = await apis.fs.readTextFile(logFile);
     currentLogSize = new Blob([content]).size;
   } else {
     currentLogSize = 0;
@@ -174,13 +217,21 @@ async function prepareLogPath(logPath: string) {
  * });
  */
 export async function init(cfg: LoggerConfig) {
+  if (!isTauriEnv()) {
+    config = null;
+    return;
+  }
   config = cfg;
   try {
     await prepareLogPath(config.logPath);
   } catch {
     // 尝试使用后备路径
     try {
-      const fallbackPath = await join(await appDataDir(), "logs");
+      const apis = await getApis();
+      if (!apis) {
+        return;
+      }
+      const fallbackPath = await apis.path.join(await apis.path.appDataDir(), "logs");
       config = { ...cfg, logPath: fallbackPath };
       await prepareLogPath(fallbackPath);
       console.warn("日志目录不可写，已切换到应用数据目录:", fallbackPath);
@@ -201,21 +252,25 @@ export async function init(cfg: LoggerConfig) {
 async function rotateLogFiles() {
   if (!config) return;
   try {
-    const logFile = await join(config.logPath, "app.log");
-    if (!(await exists(logFile))) return;
+    const apis = await getApis();
+    if (!apis) {
+      return;
+    }
+    const logFile = await apis.path.join(config.logPath, "app.log");
+    if (!(await apis.fs.exists(logFile))) return;
 
     // 后移现有的轮转日志
     for (let i = config.rotationCount - 1; i >= 1; i--) {
-      const current = await join(config.logPath, `app.${i}.log`);
-      const next = await join(config.logPath, `app.${i + 1}.log`);
-      if (await exists(current)) {
-        await rename(current, next);
+      const current = await apis.path.join(config.logPath, `app.${i}.log`);
+      const next = await apis.path.join(config.logPath, `app.${i + 1}.log`);
+      if (await apis.fs.exists(current)) {
+        await apis.fs.rename(current, next);
       }
     }
 
     // 将当前日志重命名为 .1.log
-    const firstRotation = await join(config.logPath, "app.1.log");
-    await rename(logFile, firstRotation);
+    const firstRotation = await apis.path.join(config.logPath, "app.1.log");
+    await apis.fs.rename(logFile, firstRotation);
 
     currentLogSize = 0;
   } catch (e) {
@@ -233,7 +288,11 @@ async function rotateLogFiles() {
 async function writeToFile(lines: string[]) {
   if (!config) return;
   try {
-    const logFile = await join(config.logPath, "app.log");
+    const apis = await getApis();
+    if (!apis) {
+      return;
+    }
+    const logFile = await apis.path.join(config.logPath, "app.log");
     const content = lines.join("\n") + "\n";
     const size = new Blob([content]).size;
 
@@ -242,7 +301,7 @@ async function writeToFile(lines: string[]) {
       await rotateLogFiles();
     }
 
-    await writeTextFile(logFile, content, { append: true });
+    await apis.fs.writeTextFile(logFile, content, { append: true });
     currentLogSize += size;
   } catch (e) {
     console.error("写入日志文件失败:", e);

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { NButton, NSwitch, NInputNumber } from "naive-ui";
-import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
+import { getPlatform } from "@/platform";
 
 type ThemeMode = "light" | "dark" | "auto";
 
@@ -23,9 +23,8 @@ const themeOptions: { label: string; icon: string; value: ThemeMode }[] = [
 ];
 
 async function resetWindowLayout() {
-  const window = getCurrentWindow();
-  await window.setSize(new LogicalSize(1280, 720));
-  await window.center();
+  const platform = await getPlatform();
+  await platform.updater.resetWindowLayout();
 }
 
 function selectTheme(value: ThemeMode) {
