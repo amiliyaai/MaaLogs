@@ -13,6 +13,7 @@ const props = defineProps<{
   themeMode: ThemeMode;
   aiConfig: AIConfig | null;
   importMaaBakLog: boolean;
+  jsonExpandDepth: number;
 }>();
 
 const emit = defineEmits<{
@@ -21,6 +22,7 @@ const emit = defineEmits<{
   (e: "update:ai-config", value: AIConfig): void;
   (e: "save-ai-config", value: AIConfig): void;
   (e: "update:import-maa-bak-log", value: boolean): void;
+  (e: "update:json-expand-depth", value: number): void;
 }>();
 
 const contentRef = ref<HTMLElement | null>(null);
@@ -88,6 +90,10 @@ function handleImportMaaBakLogChange(value: boolean) {
   emit("update:import-maa-bak-log", value);
 }
 
+function handleJsonExpandDepthChange(value: number) {
+  emit("update:json-expand-depth", value);
+}
+
 onMounted(() => {
   nextTick(() => {
     if (contentRef.value) {
@@ -126,8 +132,10 @@ onMounted(() => {
           <GeneralSettings
             :theme-mode="props.themeMode"
             :import-maa-bak-log="props.importMaaBakLog"
+            :json-expand-depth="props.jsonExpandDepth"
             @update:theme-mode="handleThemeChange"
             @update:import-maa-bak-log="handleImportMaaBakLogChange"
+            @update:json-expand-depth="handleJsonExpandDepthChange"
           />
         </section>
 

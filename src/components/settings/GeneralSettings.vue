@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { NButton, NSwitch } from "naive-ui";
+import { NButton, NSwitch, NInputNumber } from "naive-ui";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 
 type ThemeMode = "light" | "dark" | "auto";
@@ -7,11 +7,13 @@ type ThemeMode = "light" | "dark" | "auto";
 const props = defineProps<{
   themeMode: ThemeMode;
   importMaaBakLog: boolean;
+  jsonExpandDepth: number;
 }>();
 
 const emit = defineEmits<{
   (e: "update:themeMode", value: ThemeMode): void;
   (e: "update:importMaaBakLog", value: boolean): void;
+  (e: "update:jsonExpandDepth", value: number): void;
 }>();
 
 const themeOptions: { label: string; icon: string; value: ThemeMode }[] = [
@@ -32,6 +34,10 @@ function selectTheme(value: ThemeMode) {
 
 function handleImportMaaBakLogChange(value: boolean) {
   emit("update:importMaaBakLog", value);
+}
+
+function handleJsonExpandDepthChange(value: number | null) {
+  emit("update:jsonExpandDepth", value ?? 5);
 }
 </script>
 
@@ -78,6 +84,24 @@ function handleImportMaaBakLogChange(value: boolean) {
           <div class="setting-desc">导入目录时同时导入 maa.bak.log，与 maa.log 拼接后解析</div>
         </div>
         <n-switch :value="props.importMaaBakLog" @update:value="handleImportMaaBakLogChange" />
+      </div>
+    </div>
+
+    <div class="setting-card">
+      <div class="setting-row">
+        <div class="setting-icon">📋</div>
+        <div class="setting-info">
+          <div class="setting-title">JSON 展开层级</div>
+          <div class="setting-desc">JSON 数据默认展开的层级</div>
+        </div>
+        <n-input-number
+          :value="props.jsonExpandDepth"
+          :min="1"
+          :max="20"
+          :step="1"
+          class="depth-input"
+          @update:value="handleJsonExpandDepthChange"
+        />
       </div>
     </div>
   </div>
@@ -179,5 +203,9 @@ function handleImportMaaBakLogChange(value: boolean) {
 
 .reset-btn {
   flex-shrink: 0;
+}
+
+.depth-input {
+  width: 100px;
 }
 </style>

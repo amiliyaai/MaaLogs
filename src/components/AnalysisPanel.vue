@@ -689,12 +689,14 @@ const props = withDefaults(
     hiddenCallers?: string[];
     callerOptions: { label: string; value: string }[];
     visionDir?: string;
+    jsonExpandDepth?: number;
   }>(),
   {
     selectedAuxLevels: () => ["error", "warn", "info", "debug", "other"],
     hiddenCallers: () => [],
     selectedNodeFocusLogs: () => ({ recognition: [], action: [] }),
     visionDir: undefined,
+    jsonExpandDepth: 5,
   }
 );
 
@@ -1356,7 +1358,7 @@ function openScreenshot(filePath: string): void {
                           <n-collapse-item name="raw-data" title="原始数据">
                             <json-viewer
                               :value="attempt.reco_details"
-                              :expand-depth="5"
+                              :expand-depth="props.jsonExpandDepth"
                               copyable
                             />
                           </n-collapse-item>

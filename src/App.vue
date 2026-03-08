@@ -113,6 +113,9 @@ const themeMode = useStorage<"light" | "dark" | "auto">("themeMode", "auto");
 /** 是否导入 maa.bak.log */
 const importMaaBakLog = useStorage<boolean>("importMaaBakLog", true);
 
+/** JSON 展开层级 */
+const jsonExpandDepth = useStorage<number>("jsonExpandDepth", 5);
+
 /** 当前是否为暗色主题 */
 const isDark = computed(() => {
   if (themeMode.value === "auto") {
@@ -740,6 +743,7 @@ useTauriIntegration({
               :hidden-callers="hiddenCallers"
               :caller-options="callerOptions"
               :vision-dir="visionDir"
+              :json-expand-depth="jsonExpandDepth"
               @select-task="
                 ({ taskKey, nodeId }) => {
                   selectedTaskKey = taskKey;
@@ -815,10 +819,12 @@ useTauriIntegration({
           :theme-mode="themeMode"
           :ai-config="aiConfig"
           :import-maa-bak-log="importMaaBakLog"
+          :json-expand-depth="jsonExpandDepth"
           @update:theme-mode="themeMode = $event"
           @update:ai-config="aiConfig = $event"
           @save-ai-config="handleSaveAIConfig"
           @update:import-maa-bak-log="importMaaBakLog = $event"
+          @update:json-expand-depth="jsonExpandDepth = $event"
         />
       </n-dialog-provider>
     </n-message-provider>
