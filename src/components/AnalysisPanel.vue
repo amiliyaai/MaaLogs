@@ -108,6 +108,7 @@ import AIResultCard from "./AIResultCard.vue";
 import ControllerInfoCard from "./ControllerInfoCard.vue";
 import CustomLogPanel from "./CustomLogPanel.vue";
 import RecognitionTree from "./RecognitionTree.vue";
+import JsonViewer from "vue-json-viewer";
 import WaitFreezesImages from "./WaitFreezesImages.vue";
 
 /**
@@ -1249,7 +1250,7 @@ function openScreenshot(filePath: string): void {
                   <div v-if="selectedNode.start_time">开始时间: {{ selectedNode.start_time }}</div>
                   <div>完成时间: {{ selectedNode.end_time || selectedNode.timestamp }}</div>
                   <div>
-                    状态
+                    状态：
                     <n-tag
                       size="small"
                       :type="selectedNode.status === 'success' ? 'success' : 'error'"
@@ -1257,7 +1258,7 @@ function openScreenshot(filePath: string): void {
                       {{ formatResultStatus(selectedNode.status) }}
                     </n-tag>
                   </div>
-                  <div>任务: {{ selectedNode.task_id }}</div>
+                  <div>任务ID: {{ selectedNode.task_id }}</div>
                   <div>节点ID: {{ selectedNode.node_id }}</div>
                 </div>
               </n-collapse-item>
@@ -1345,6 +1346,15 @@ function openScreenshot(filePath: string): void {
                             vision-only
                           />
                         </div>
+                        <n-collapse class="raw-data-collapse">
+                          <n-collapse-item name="raw-data" title="原始数据">
+                            <json-viewer
+                              :value="attempt.reco_details"
+                              :expand-depth="5"
+                              copyable
+                            />
+                          </n-collapse-item>
+                        </n-collapse>
                       </div>
                       <div v-else class="empty">无识别详情</div>
                       <!-- 嵌套节点 -->
@@ -2125,5 +2135,129 @@ function openScreenshot(filePath: string): void {
     background: transparent;
     box-shadow: none;
   }
+}
+
+.attempt-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--n-border-color);
+  border-radius: 6px;
+  background: var(--n-color-modal);
+}
+
+.attempt-detail-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 4px;
+}
+
+.attempt-detail-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--n-border-color);
+}
+
+.attempt-detail-row:last-child {
+  border-bottom: none;
+}
+
+.attempt-label {
+  color: var(--n-text-color-3);
+  flex-shrink: 0;
+  min-width: 60px;
+}
+
+.raw-data-collapse {
+  margin-top: 8px;
+  margin-left: 0;
+  padding-left: 0;
+}
+
+.raw-data-collapse :deep(.n-collapse-item) {
+  margin-left: 0;
+  padding-left: 0;
+}
+
+.raw-data-collapse :deep(.n-collapse-item__content-inner) {
+  padding: 0;
+  margin: 0;
+}
+
+.raw-data-collapse :deep(.n-collapse-item__content) {
+  padding: 0 !important;
+  margin: 0;
+}
+
+.raw-data-collapse :deep(.jv-container) {
+  margin: 0;
+  padding: 8px 12px;
+  background: transparent !important;
+}
+
+.raw-data-collapse :deep(.jv-code) {
+  padding: 0;
+  border: none;
+  margin: 0;
+}
+
+.raw-data-collapse :deep(.jv-node) {
+  position: relative;
+}
+
+.raw-data-collapse :deep(.jv-node .jv-node) {
+  border-left: 1px dashed rgba(128, 128, 128, 0.5);
+  margin-left: 5px !important;
+  padding-left: 15px;
+}
+
+.raw-data-collapse :deep(.jv-more) {
+  padding-left: 12px;
+}
+
+.raw-data-collapse :deep(.jv-container.jv-light) {
+  background: transparent !important;
+  color: var(--n-text-color);
+}
+
+.raw-data-collapse :deep(.jv-container.jv-light .jv-key) {
+  color: var(--n-text-color);
+}
+
+.raw-data-collapse :deep(.jv-container.jv-light .jv-item.jv-array),
+.raw-data-collapse :deep(.jv-container.jv-light .jv-item.jv-object) {
+  color: var(--n-text-color);
+}
+
+.raw-data-collapse :deep(.jv-container.jv-light .jv-item.jv-string) {
+  color: #98c379;
+}
+
+.raw-data-collapse :deep(.jv-container.jv-light .jv-item.jv-number) {
+  color: #d19a66;
+}
+
+.raw-data-collapse :deep(.jv-container.jv-light .jv-item.jv-boolean) {
+  color: #c678dd;
+}
+
+.raw-data-collapse :deep(.jv-container.jv-light .jv-ellipsis) {
+  background: var(--n-color-modal);
+  color: #49b3ff;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.raw-data-collapse :deep(.jv-container.jv-light .jv-ellipsis:hover) {
+  background: #49b3ff;
+  color: white;
+}
+
+.raw-data-collapse :deep(.jv-container.jv-light .jv-button) {
+  color: var(--n-primary-color);
 }
 </style>

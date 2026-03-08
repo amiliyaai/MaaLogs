@@ -147,22 +147,8 @@ onMounted(() => {
     <span v-else class="no-vision">无此id截图或目录里没有vision文件夹</span>
   </div>
 
-  <template v-else-if="isRoot && hasChildren">
-    <template
-      v-for="(child, idx) in node.detail"
-      :key="`${depth}-${idx}-${(child as RecognitionDetail)?.reco_id || idx}`"
-    >
-      <RecognitionTree
-        v-if="child && typeof child === 'object'"
-        :node="child as RecognitionDetail"
-        :depth="depth"
-        :vision-dir="visionDir"
-      />
-    </template>
-  </template>
-
   <div
-    v-else-if="node.name || node.reco_id"
+    v-if="node.name || node.reco_id"
     class="recognition-tree"
     :style="{ paddingLeft: `${depth * 16}px` }"
   >
@@ -251,6 +237,17 @@ onMounted(() => {
 .children {
   border-left: 1px dashed #ddd;
   margin-left: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-left: 4px;
+}
+.children > :deep(.recognition-tree) {
+  border-bottom: 1px solid var(--n-border-color);
+  padding-bottom: 4px;
+}
+.children > :deep(.recognition-tree:last-child) {
+  border-bottom: none;
 }
 .no-vision {
   color: #999;
