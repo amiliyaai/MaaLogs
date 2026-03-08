@@ -556,7 +556,12 @@ async function doAIAnalyze() {
 }
 
 function hasNestedRecognition(detail: unknown): boolean {
-  return Array.isArray(detail) && detail.length > 0;
+  if (Array.isArray(detail) && detail.length > 0) return true;
+  if (detail && typeof detail === "object") {
+    const d = detail as Record<string, unknown>;
+    if (Array.isArray(d.detail) && d.detail.length > 0) return true;
+  }
+  return false;
 }
 
 function getRecognitionScores(detail: unknown): number[] {
@@ -1326,25 +1331,26 @@ function openScreenshot(filePath: string): void {
                           <span>{{ formatRecognitionScores(attempt.reco_details.detail) }}</span>
                         </div>
                         <div
-                          v-if="hasNestedRecognition(attempt.reco_details.detail)"
+                          v-if="hasNestedRecognition(attempt.reco_details.detail) || (attempt.nested_nodes && attempt.nested_nodes.length > 0)"
                           class="attempt-detail-row"
                         >
                           <span class="attempt-label">嵌套识别：</span>
-                          <RecognitionTree
-                            :node="attempt.reco_details"
-                            :depth="0"
-                            :vision-dir="visionDir"
-                            is-root
-                          />
-                        </div>
-                        <div v-else class="attempt-detail-row">
-                          <span class="attempt-label">Vision：</span>
-                          <RecognitionTree
-                            :node="attempt.reco_details"
-                            :depth="0"
-                            :vision-dir="visionDir"
-                            vision-only
-                          />
+                          <div class="nested-recognition-list">
+                            <RecognitionTree
+                              v-if="hasNestedRecognition(attempt.reco_details.detail)"
+                              :node="attempt.reco_details"
+                              :depth="0"
+                              :vision-dir="visionDir"
+                              is-root
+                            />
+                            <RecognitionTree
+                              v-for="(nested, idx) in attempt.nested_nodes"
+                              :key="`nested-${idx}`"
+                              :node="nested.reco_details!"
+                              :depth="0"
+                              :vision-dir="visionDir"
+                            />
+                          </div>
                         </div>
                         <n-collapse class="raw-data-collapse">
                           <n-collapse-item name="raw-data" title="原始数据">
@@ -1355,61 +1361,20 @@ function openScreenshot(filePath: string): void {
                             />
                           </n-collapse-item>
                         </n-collapse>
+                        <div
+                          v-if="!hasNestedRecognition(attempt.reco_details.detail)"
+                          class="attempt-detail-row vision-row"
+                        >
+                          <span class="attempt-label">Vision：</span>
+                          <RecognitionTree
+                            :node="attempt.reco_details"
+                            :depth="0"
+                            :vision-dir="visionDir"
+                            vision-only
+                          />
+                        </div>
                       </div>
                       <div v-else class="empty">无识别详情</div>
-                      <!-- 嵌套节点 -->
-                      <div v-if="(attempt.nested_nodes || []).length > 0" class="nested-attempts">
-                        <div class="nested-title">
-                          <n-tag type="info" size="small"
-                            >嵌套识别 ({{ attempt.nested_nodes?.length }})</n-tag
-                          >
-                        </div>
-                        <n-collapse>
-                          <n-collapse-item
-                            v-for="(nested, nestedIndex) in attempt.nested_nodes"
-                            :key="`${selectedNode.node_id}-${index}-nested-${nestedIndex}`"
-                            :title="`${nested.name || 'Nested'}`"
-                            :name="`nested-${nestedIndex}`"
-                          >
-                            <template #header-extra>
-                              <n-tag
-                                :type="
-                                  nested.status === 'success'
-                                    ? 'success'
-                                    : nested.status === 'disabled'
-                                      ? 'warning'
-                                      : 'error'
-                                "
-                                size="tiny"
-                              >
-                                {{ formatResultStatus(nested.status) }}
-                              </n-tag>
-                            </template>
-                            <div v-if="nested.reco_details" class="attempt-details">
-                              <div class="attempt-detail-actions">
-                                <n-button size="tiny" @click="copyJson(nested.reco_details)">
-                                  复制
-                                </n-button>
-                              </div>
-                              <div v-if="nested.reco_details.algorithm" class="attempt-detail-row">
-                                <span class="attempt-label">算法:</span>
-                                <n-tag size="small" type="info">
-                                  {{ nested.reco_details.algorithm }}
-                                </n-tag>
-                              </div>
-                              <div v-if="nested.reco_details.detail" class="attempt-detail-row">
-                                <span class="attempt-label">结果:</span>
-                                <n-code
-                                  :code="JSON.stringify(nested.reco_details.detail, null, 2)"
-                                  language="json"
-                                  word-wrap
-                                  class="detail-code"
-                                />
-                              </div>
-                            </div>
-                          </n-collapse-item>
-                        </n-collapse>
-                      </div>
                     </n-collapse-item>
                   </n-collapse>
                 </div>
@@ -2170,6 +2135,19 @@ function openScreenshot(filePath: string): void {
   color: var(--n-text-color-3);
   flex-shrink: 0;
   min-width: 60px;
+}
+
+.vision-row {
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--n-border-color);
+  border-bottom: none;
+}
+
+.nested-recognition-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .raw-data-collapse {

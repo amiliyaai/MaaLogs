@@ -148,7 +148,7 @@ onMounted(() => {
   </div>
 
   <div
-    v-if="node.name || node.reco_id"
+    v-else-if="node.name || node.reco_id"
     class="recognition-tree"
     :style="{ paddingLeft: `${depth * 16}px` }"
   >
@@ -210,6 +210,7 @@ onMounted(() => {
   flex-wrap: wrap;
   gap: 6px;
   padding: 4px 0;
+  border-bottom: 1px solid var(--n-border-color);
 }
 .toggle {
   width: 16px;
