@@ -1501,6 +1501,13 @@ function updateNestedRecognitionNode(
   const recoDetails = details.reco_details as RecognitionDetail | undefined;
   const recoId = coerceId(recoDetails?.reco_id ?? details.node_id ?? details.nodeId);
   const nodeName = coerceString(details.name);
+
+  // 去重：跳过已存在的 nested node
+  if (context.nestedNodes.some((n) => n.reco_id === recoId)) {
+    context.recognitionsByTaskId.delete(eventTaskId);
+    return;
+  }
+
   context.nestedNodes.push({
     reco_id: recoId,
     name: context.stringPool.intern(nodeName),
