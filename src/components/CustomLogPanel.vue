@@ -6,12 +6,8 @@ import {
   NCheckbox,
   NSpace,
   NSelect,
-  NButton,
-  NModal,
-  NInput,
 } from "naive-ui";
 import { DynamicScroller, DynamicScrollerItem } from "vue-virtual-scroller";
-import { useStorage } from "@/composables";
 import type { AuxLogEntry, PipelineCustomActionInfo } from "@/types/logTypes";
 
 const props = defineProps<{
@@ -39,13 +35,6 @@ const auxLevelOptions = [
   { label: "Other", value: "other" },
 ];
 
-const DEFAULT_HIDDEN_CALLERS_KEY = "maa-logs-default-hidden-callers";
-const DEFAULT_HIDDEN_CALLERS_INITIAL = ["main.go", "register.go", "checker.go"];
-const showDefaultHiddenModal = ref(false);
-const defaultHiddenCallers = useStorage<string[]>(DEFAULT_HIDDEN_CALLERS_KEY, [
-  ...DEFAULT_HIDDEN_CALLERS_INITIAL,
-]);
-const newHiddenCallerInput = ref("");
 const auxLogScrollerRef = ref<InstanceType<typeof DynamicScroller> | null>(null);
 
 watch(
@@ -63,29 +52,6 @@ watch(
   },
   { deep: true }
 );
-
-function addDefaultHiddenCaller() {
-  const value = newHiddenCallerInput.value.trim();
-  if (value && !defaultHiddenCallers.value.includes(value)) {
-    defaultHiddenCallers.value.push(value);
-  }
-  newHiddenCallerInput.value = "";
-}
-
-function removeDefaultHiddenCaller(index: number) {
-  defaultHiddenCallers.value.splice(index, 1);
-}
-
-function applyDefaultHiddenCallers() {
-  const currentHidden = [...props.hiddenCallers];
-  for (const caller of defaultHiddenCallers.value) {
-    if (!currentHidden.includes(caller)) {
-      currentHidden.push(caller);
-    }
-  }
-  emit("update:hiddenCallers", currentHidden);
-  showDefaultHiddenModal.value = false;
-}
 </script>
 
 <template>
@@ -120,42 +86,7 @@ function applyDefaultHiddenCallers() {
         style="flex: 1; max-width: 400px"
         @update:value="emit('update:hiddenCallers', $event as string[])"
       />
-      <n-button size="small" @click="showDefaultHiddenModal = true"> 默认设置 </n-button>
     </div>
-
-    <n-modal
-      v-model:show="showDefaultHiddenModal"
-      preset="card"
-      title="默认隐藏来源"
-      style="width: 400px"
-    >
-      <div class="default-hidden-callers-modal">
-        <div class="default-hidden-callers-list">
-          <div
-            v-for="(caller, index) in defaultHiddenCallers"
-            :key="index"
-            class="default-hidden-caller-item"
-          >
-            <span>{{ caller }}</span>
-            <n-button size="tiny" type="error" @click="removeDefaultHiddenCaller(index)">
-              删除
-            </n-button>
-          </div>
-          <div v-if="defaultHiddenCallers.length === 0" class="empty">暂无默认隐藏来源</div>
-        </div>
-        <div class="default-hidden-callers-add">
-          <n-input
-            v-model:value="newHiddenCallerInput"
-            placeholder="输入来源文件名（如 actions.go）"
-            @keyup.enter="addDefaultHiddenCaller"
-          />
-          <n-button size="small" type="primary" @click="addDefaultHiddenCaller"> 添加 </n-button>
-        </div>
-        <div class="default-hidden-callers-actions">
-          <n-button type="primary" @click="applyDefaultHiddenCallers"> 应用并关闭 </n-button>
-        </div>
-      </div>
-    </n-modal>
 
     <div v-if="customActions.length > 0" class="detail-tag-list">
       <n-tag
@@ -232,39 +163,6 @@ function applyDefaultHiddenCallers() {
 
 .aux-log-scroller {
   max-height: 200px;
-}
-
-.default-hidden-callers-modal {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.default-hidden-callers-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 200px;
-  overflow-y: auto;
-}
-
-.default-hidden-caller-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px;
-  background: var(--n-color-modal);
-  border-radius: 6px;
-}
-
-.default-hidden-callers-add {
-  display: flex;
-  gap: 8px;
-}
-
-.default-hidden-callers-actions {
-  display: flex;
-  justify-content: flex-end;
 }
 
 .detail-tag-list {

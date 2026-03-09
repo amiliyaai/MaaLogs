@@ -91,6 +91,7 @@ import { isTauriEnv } from "@/utils/env";
 import { createLogger } from "@/utils/logger";
 import { setImportMaaBakLogGetter } from "@/config/file";
 import { getAIConfig, saveAIConfig, type AIConfig } from "@/utils/aiAnalyzer";
+import { DEFAULT_HIDDEN_CALLERS } from "@/config/constants";
 import type { AuxLogEntry } from "@/types/logTypes";
 
 // ============================================
@@ -163,7 +164,7 @@ const selectedNodeId = ref<number | null>(null);
 const selectedAuxLevels = ref<string[]>(["error", "warn", "info", "debug", "other"]);
 
 /** 隐藏的调用者列表 */
-const hiddenCallers = useStorage<string[]>("hiddenCallers", []);
+const hiddenCallers = useStorage<string[]>("hiddenCallers", [...DEFAULT_HIDDEN_CALLERS]);
 const searchHistoryStorage = useStorage<string[]>("searchHistory", []);
 
 /** 复制提示消息 */

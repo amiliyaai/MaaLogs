@@ -61,6 +61,8 @@ export const LOG_SOURCES = {
   CUSTOM: "custom",
 } as const;
 
+export const DEFAULT_HIDDEN_CALLERS = ["main.go", "register.go", "checker.go"] as const;
+
 export type LogFileName = (typeof LOG_FILE_NAMES)[keyof typeof LOG_FILE_NAMES];
 export type FileExtension = (typeof FILE_EXTENSIONS)[keyof typeof FILE_EXTENSIONS];
 export type LogLevel = (typeof LOG_LEVELS)[keyof typeof LOG_LEVELS];
