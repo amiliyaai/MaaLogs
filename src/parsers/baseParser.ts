@@ -89,8 +89,21 @@ export function detectProjectFromLine(line: string): ProjectType | null {
   if (!line.includes("Working")) return null;
 
   const upperLine = line.toUpperCase();
+  const workIdx = upperLine.indexOf("WORKING");
+  if (workIdx === -1) return null;
+  const afterWorking = upperLine.slice(workIdx);
+
   for (const { keyword, project } of PROJECT_PATTERNS) {
-    if (upperLine.includes(keyword.toUpperCase())) {
+    const upperKeyword = keyword.toUpperCase();
+    const idx = afterWorking.indexOf(upperKeyword);
+    if (idx === -1) continue;
+    const beforeIdx = idx - 1;
+    const afterIdx = idx + upperKeyword.length;
+    const beforeChar = beforeIdx >= 0 ? afterWorking[beforeIdx] : undefined;
+    const nextChar = afterWorking[afterIdx];
+    const isPathStart = beforeChar === "/" || beforeChar === "\\";
+    const isPathEnd = nextChar === undefined || nextChar === "/" || nextChar === "\\";
+    if (isPathStart && isPathEnd) {
       return project;
     }
   }
@@ -375,13 +388,6 @@ export function handleMainLogLine(
   fileName: string,
   lineNumber: number
 ): void {
-  if (context.detectedProject === "unknown") {
-    const project = detectProjectFromLine(rawLine);
-    if (project) {
-      context.detectedProject = project;
-    }
-  }
-
   if (!parsed) {
     updateIdentifier(context, rawLine);
     return;

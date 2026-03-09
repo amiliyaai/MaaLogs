@@ -20,7 +20,7 @@
 import { ref, triggerRef } from "vue";
 import type { TaskInfo, AuxLogEntry } from "@/types/logTypes";
 import { projectParserRegistry, correlateAuxLogs } from "@/parsers";
-import { parseBracketLine, handleMainLogLine, createMainLogContext, type MainLogParseContext } from "@/parsers/baseParser";
+import { parseBracketLine, handleMainLogLine, createMainLogContext, type MainLogParseContext, type ProjectType } from "@/parsers/baseParser";
 import { buildTasks, StringPool } from "@/utils/parse";
 import { useFileWatcher, type FileChange } from "./useFileWatcher";
 import { useTaskCache } from "./useTaskCache";
@@ -63,7 +63,7 @@ function useLogWatcher() {
   /** 当前监控目录 */
   const dirPath = ref("");
   /** 当前项目类型 */
-  const projectType = ref("");
+  const projectType = ref<ProjectType>("unknown");
 
   /** 文件监控器实例 */
   const fileWatcher = useFileWatcher();
@@ -262,7 +262,7 @@ function useLogWatcher() {
    * @param newDirPath - 日志目录路径
    * @param newProjectType - 项目类型（m9a / maaend / unknown）
    */
-  async function init(newDirPath: string, newProjectType: string): Promise<void> {
+  async function init(newDirPath: string, newProjectType: ProjectType): Promise<void> {
     logger.info(`Initializing log watcher: dir=${newDirPath}, project=${newProjectType}`);
     isInitializing.value = true;
 
@@ -338,7 +338,7 @@ function useLogWatcher() {
     taskCache.resetReturnedKeys();
     fileWatcher.reset();
     dirPath.value = "";
-    projectType.value = "";
+    projectType.value = "unknown";
     logger.info("Log watcher reset");
   }
 

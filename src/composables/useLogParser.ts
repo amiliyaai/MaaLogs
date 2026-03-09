@@ -578,6 +578,7 @@ export function useLogParser(_config: LogParserConfig = {}): LogParserResult {
     tasks.value = [];
     rawLines.value = [];
     auxLogs.value = [];
+    detectedProject.value = "unknown";
     selectedProcessId.value = "all";
     selectedThreadId.value = "all";
     parseProgress.value = 0;

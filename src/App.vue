@@ -548,17 +548,14 @@ watch(
 );
 
 /**
- * 文件选择后初始化日志监控器
- * 预先初始化以便显示自动刷新开关
+ * 文件选择后重置日志监控器
+ * 目录变化时清空旧状态，等待 detectedProject 变化后重新初始化
  */
 watch(
   fileSelector.baseDir,
-  async (dir) => {
-    if (dir && selectedFiles.value.length > 0) {
-      const project = detectedProject.value;
-      if (project && project !== "unknown") {
-        await initLogWatcher(dir, project);
-      }
+  (dir, oldDir) => {
+    if (dir !== oldDir) {
+      resetLogWatcher();
     }
   }
 );
