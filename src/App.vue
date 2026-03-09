@@ -551,31 +551,25 @@ watch(
  * 文件选择后重置日志监控器
  * 目录变化时清空旧状态，等待 detectedProject 变化后重新初始化
  */
-watch(
-  fileSelector.baseDir,
-  (dir, oldDir) => {
-    if (dir !== oldDir) {
-      resetLogWatcher();
-    }
+watch(fileSelector.baseDir, (dir, oldDir) => {
+  if (dir !== oldDir) {
+    resetLogWatcher();
   }
-);
+});
 
 /**
  * 检测到项目类型后初始化日志监控器
  */
-watch(
-  detectedProject,
-  async (project) => {
-    if (!isTauriEnv()) return;
-    const dir = fileSelector.baseDir.value;
-    if (dir && project && project !== "unknown") {
-      await initLogWatcher(dir, project);
-      if (autoRefreshCache.value) {
-        startAutoRefresh();
-      }
+watch(detectedProject, async (project) => {
+  if (!isTauriEnv()) return;
+  const dir = fileSelector.baseDir.value;
+  if (dir && project && project !== "unknown") {
+    await initLogWatcher(dir, project);
+    if (autoRefreshCache.value) {
+      startAutoRefresh();
     }
   }
-);
+});
 
 /**
  * 文件列表从空变为有内容时，恢复实时监控
@@ -603,16 +597,13 @@ watch(
 /**
  * 文件列表清空时重置日志监控器
  */
-watch(
-  selectedFiles,
-  (files) => {
-    if (!isTauriEnv()) return;
-    if (files.length === 0) {
-      autoRefreshCache.value = isAutoRefresh.value;
-      resetLogWatcher();
-    }
+watch(selectedFiles, (files) => {
+  if (!isTauriEnv()) return;
+  if (files.length === 0) {
+    autoRefreshCache.value = isAutoRefresh.value;
+    resetLogWatcher();
   }
-);
+});
 
 /**
  * 监控任务更新
@@ -621,7 +612,9 @@ watch(
 watch(
   () => completedTasks.value,
   (newTasks, oldTasks) => {
-    logger.debug(`completedTasks 变化，新: ${newTasks?.length ?? 'undefined'}, 旧: ${oldTasks?.length ?? 'undefined'}`);
+    logger.debug(
+      `completedTasks 变化，新: ${newTasks?.length ?? "undefined"}, 旧: ${oldTasks?.length ?? "undefined"}`
+    );
     if (newTasks && newTasks.length > 0) {
       const existingKeys = new Set(tasks.value.map((t) => t.key));
       logger.debug(`现有任务keys: ${JSON.stringify([...existingKeys])}`);
@@ -791,7 +784,12 @@ useTauriIntegration({
   <n-config-provider :theme="currentTheme">
     <n-message-provider>
       <n-dialog-provider>
-        <div class="app" @dragover.prevent @drop.prevent="handleGlobalDrop" @dragleave="handleDragLeave">
+        <div
+          class="app"
+          @dragover.prevent
+          @drop.prevent="handleGlobalDrop"
+          @dragleave="handleDragLeave"
+        >
           <!-- 顶部导航栏 -->
           <AppTopBar
             :view-mode="viewMode"

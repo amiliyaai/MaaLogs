@@ -82,7 +82,7 @@ export function useStorage<T>(key: string, defaultValue: T): Ref<T> {
   async function load() {
     try {
       const s = await getStore();
-        innerValue.value = await s.get<T>(key, defaultValue);
+      innerValue.value = await s.get<T>(key, defaultValue);
       isLoaded.value = true;
     } catch (e) {
       console.error(`Failed to load ${key} from store:`, e);

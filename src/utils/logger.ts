@@ -16,16 +16,16 @@
 import { isTauriEnv } from "@/utils/env";
 
 type FsApi = {
-  writeTextFile: typeof import("@tauri-apps/plugin-fs")["writeTextFile"];
-  rename: typeof import("@tauri-apps/plugin-fs")["rename"];
-  exists: typeof import("@tauri-apps/plugin-fs")["exists"];
-  mkdir: typeof import("@tauri-apps/plugin-fs")["mkdir"];
-  readTextFile: typeof import("@tauri-apps/plugin-fs")["readTextFile"];
+  writeTextFile: (typeof import("@tauri-apps/plugin-fs"))["writeTextFile"];
+  rename: (typeof import("@tauri-apps/plugin-fs"))["rename"];
+  exists: (typeof import("@tauri-apps/plugin-fs"))["exists"];
+  mkdir: (typeof import("@tauri-apps/plugin-fs"))["mkdir"];
+  readTextFile: (typeof import("@tauri-apps/plugin-fs"))["readTextFile"];
 };
 
 type PathApi = {
-  appDataDir: typeof import("@tauri-apps/api/path")["appDataDir"];
-  join: typeof import("@tauri-apps/api/path")["join"];
+  appDataDir: (typeof import("@tauri-apps/api/path"))["appDataDir"];
+  join: (typeof import("@tauri-apps/api/path"))["join"];
 };
 
 let fsApi: FsApi | null = null;

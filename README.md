@@ -34,7 +34,7 @@
 | 功能                   | 描述                                                  |
 | :--------------------- | :---------------------------------------------------- |
 | 📊 **多项目日志解析**  | 支持 MaaEnd、M9A 等多种项目的custom日志格式，统一分析 |
-| 🔄 **实时监控**        | 开启后自动检测日志目录中的新任务，无需手动刷新         |
+| 🔄 **实时监控**        | 开启后自动检测日志目录中的新任务，无需手动刷新        |
 | 🌲 **任务流程可视化**  | 树形图展示任务执行全过程，节点状态一目了然            |
 | 🔄 **任务对比分析**    | 对比两次运行差异，识别失败节点、耗时异常、路径分歧    |
 | 🔍 **页面内搜索**      | 支持任务、节点、识别、动作的搜索，模糊匹配，高亮跳转  |
@@ -59,16 +59,17 @@
 ---
 
 ## 📥 下载安装
-前往 [Releases](https://github.com/amiliyaai/MaaLogs/releases/latest) 页面下载对应平台的安装包：
----
+
+## 前往 [Releases](https://github.com/amiliyaai/MaaLogs/releases/latest) 页面下载对应平台的安装包：
+
 非开发人员请不要下载预发布版本，一般来说bug非常多
-| 平台                    | 文件                              | 说明                         |
+| 平台 | 文件 | 说明 |
 | :---------------------- | :-------------------------------- | :--------------------------- |
-| **Windows x64**         | `MaaLogs-win-x86_64-*-setup.exe`  | Intel/AMD 64位处理器         |
-| **Windows ARM64**       | `MaaLogs-win-aarch64-*-setup.exe` | ARM 处理器（如骁龙 X Elite） |
-| **macOS Intel**         | `MaaLogs-macos-x86_64-*.dmg`      | Intel 芯片 Mac               |
-| **macOS Apple Silicon** | `MaaLogs-macos-aarch64-*.dmg`     | M1/M2/M3 芯片 Mac            |
-| **Linux x64**           | `MaaLogs-linux-x86_64-*.AppImage` | 通用 Linux 安装包            |
+| **Windows x64** | `MaaLogs-win-x86_64-*-setup.exe` | Intel/AMD 64位处理器 |
+| **Windows ARM64** | `MaaLogs-win-aarch64-*-setup.exe` | ARM 处理器（如骁龙 X Elite） |
+| **macOS Intel** | `MaaLogs-macos-x86_64-*.dmg` | Intel 芯片 Mac |
+| **macOS Apple Silicon** | `MaaLogs-macos-aarch64-*.dmg` | M1/M2/M3 芯片 Mac |
+| **Linux x64** | `MaaLogs-linux-x86_64-*.AppImage` | 通用 Linux 安装包 |
 
 ---
 
@@ -135,10 +136,10 @@
 
 ## 🛠️ Custom 日志项目支持
 
-| 项目 | 状态 | 说明 |
-| :--: | :--: | :-- |
-|  MaaEnd | ✅ | 明日方舟：终末地 |
-|  M9A | ✅ | 重返未来：1999 |
+|  项目  | 状态 | 说明             |
+| :----: | :--: | :--------------- |
+| MaaEnd |  ✅  | 明日方舟：终末地 |
+|  M9A   |  ✅  | 重返未来：1999   |
 
 如需支持新的项目请提 issue 或者提交 PR
 

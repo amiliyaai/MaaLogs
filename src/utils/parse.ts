@@ -1157,7 +1157,7 @@ export function buildTasks(
   const getIdentifierForEventIndex = createIdentifierLookup(identifierRanges);
   const buildTaskKey = (taskId: number, uuid: string, processId: string) =>
     `${processId || "proc"}:${uuid || "uuid"}:${taskId}`;
-  /** 
+  /**
    * 解析进程信息
    * 优先使用 taskProcessMap（按 taskId 存储），然后使用 fallback（当前事件的进程信息）
    */
