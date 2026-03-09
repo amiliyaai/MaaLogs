@@ -32,7 +32,7 @@
 -->
 
 <script setup lang="ts">
-import { NButton, NCard, NProgress } from "naive-ui";
+import { NButton, NCard, NProgress, NSwitch, NTooltip } from "naive-ui";
 import type { SelectedFile } from "@/types/logTypes";
 
 type ParseState = "idle" | "ready" | "parsing" | "done";
@@ -45,6 +45,10 @@ defineProps<{
   statusMessage: string;
   isDragging: boolean;
   formatSize: (value: number) => string;
+  isAutoRefresh?: boolean;
+  autoRefreshProject?: string;
+  autoRefreshDir?: string;
+  showAutoRefresh?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -53,6 +57,7 @@ const emit = defineEmits<{
   (e: "drag-enter", event: DragEvent): void;
   (e: "drag-leave", event: DragEvent): void;
   (e: "drop", event: DragEvent): void;
+  (e: "toggle-auto-refresh"): void;
 }>();
 </script>
 
@@ -76,6 +81,22 @@ const emit = defineEmits<{
       <div class="actions">
         <!-- 目录选择按钮 -->
         <NButton size="small" @click="emit('select-directory')">📂 选择日志目录</NButton>
+        <!-- 自动刷新开关 - 常驻显示 -->
+        <div v-if="showAutoRefresh" class="auto-refresh-toggle">
+          <NSwitch
+            :value="isAutoRefresh"
+            size="small"
+            :disabled="!autoRefreshDir"
+            @update:value="emit('toggle-auto-refresh')"
+          />
+          <NTooltip trigger="hover">
+            <template #trigger>
+              <span class="auto-refresh-label">实时监控</span>
+            </template>
+            开启后自动检测日志目录中的新任务，无需手动刷新，扫描间隔为 10 秒
+          </NTooltip>
+          <span v-if="autoRefreshDir && autoRefreshProject !== 'unknown'" class="auto-refresh-info">({{ autoRefreshProject }}: {{ autoRefreshDir }})</span>
+        </div>
       </div>
       <!-- 提示 -->
       <div class="drag-hint">
@@ -142,6 +163,24 @@ const emit = defineEmits<{
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+  align-items: center;
+}
+
+.auto-refresh-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--n-text-color-2);
+}
+
+.auto-refresh-label {
+  font-weight: 500;
+}
+
+.auto-refresh-info {
+  color: var(--n-text-color-3);
+  font-size: 11px;
 }
 
 .drag-hint {

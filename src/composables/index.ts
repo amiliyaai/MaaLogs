@@ -42,3 +42,11 @@ export { useRunComparison } from "./useRunComparison";
 export type { RunComparisonAPI } from "./useRunComparison";
 export { useCompareSlots } from "./useCompareSlots";
 export { useTauriIntegration } from "./useTauriIntegration";
+
+export { useFileWatcher } from "./useFileWatcher";
+export type { FileWatcherResult, WatchedFile, FileChange } from "./useFileWatcher";
+
+export { useTaskCache } from "./useTaskCache";
+export type { TaskCacheResult, CachedTask } from "./useTaskCache";
+
+export { useLogWatcher } from "./useLogWatcher";

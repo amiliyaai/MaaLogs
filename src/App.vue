@@ -61,6 +61,7 @@ import {
   useCompareSlots,
   useTauriIntegration,
   useStorage,
+  useLogWatcher,
 } from "@/composables";
 import { getPlatform } from "@/platform";
 
@@ -92,7 +93,7 @@ import { createLogger } from "@/utils/logger";
 import { setImportMaaBakLogGetter } from "@/config/file";
 import { getAIConfig, saveAIConfig, type AIConfig } from "@/utils/aiAnalyzer";
 import { DEFAULT_HIDDEN_CALLERS } from "@/config/constants";
-import type { AuxLogEntry } from "@/types/logTypes";
+import type { AuxLogEntry, TaskInfo } from "@/types/logTypes";
 
 // ============================================
 // 日志记录器
@@ -247,9 +248,28 @@ const visionDir = computed(() => {
 });
 
 /**
- * 搜索器
- * 提供文本搜索功能
+ * 日志监控器
+ * 提供实时日志监控和自动刷新功能
  */
+const logWatcher = useLogWatcher();
+const {
+  isWatching: isAutoRefresh,
+  completedTasks: watchedTasks,
+  dirPath: logWatcherDir,
+  projectType: logWatcherProject,
+  init: initLogWatcher,
+  startWatching: startAutoRefresh,
+  stopWatching: stopAutoRefresh,
+  reset: resetLogWatcher,
+} = logWatcher;
+
+/** 是否启用自动刷新 */
+const isAutoRefreshEnabled = computed(() => isAutoRefresh.value);
+
+/** 自动刷新状态缓存 - 用于重新选择目录后恢复（持久化） */
+const autoRefreshCache = useStorage<boolean>("autoRefreshEnabled", false);
+
+/** 搜索器 */
 const searcher = useSearch({ searchHistoryRef: searchHistoryStorage });
 const {
   searchText,
@@ -527,6 +547,102 @@ watch(
   { deep: true }
 );
 
+/**
+ * 文件选择后初始化日志监控器
+ * 预先初始化以便显示自动刷新开关
+ */
+watch(
+  fileSelector.baseDir,
+  async (dir) => {
+    if (dir && selectedFiles.value.length > 0) {
+      const project = detectedProject.value;
+      if (project && project !== "unknown") {
+        await initLogWatcher(dir, project);
+      }
+    }
+  }
+);
+
+/**
+ * 检测到项目类型后初始化日志监控器
+ */
+watch(
+  detectedProject,
+  async (project) => {
+    if (!isTauriEnv()) return;
+    const dir = fileSelector.baseDir.value;
+    if (dir && project && project !== "unknown") {
+      await initLogWatcher(dir, project);
+      if (autoRefreshCache.value) {
+        startAutoRefresh();
+      }
+    }
+  }
+);
+
+/**
+ * 文件列表从空变为有内容时，恢复实时监控
+ */
+let wasEmpty = true;
+watch(
+  selectedFiles,
+  async (files) => {
+    if (!isTauriEnv()) return;
+    if (wasEmpty && files.length > 0) {
+      const project = detectedProject.value;
+      const dir = fileSelector.baseDir.value;
+      if (dir && project && project !== "unknown") {
+        await initLogWatcher(dir, project);
+        if (autoRefreshCache.value) {
+          startAutoRefresh();
+        }
+      }
+    }
+    wasEmpty = files.length === 0;
+  },
+  { immediate: true }
+);
+
+/**
+ * 文件列表清空时重置日志监控器
+ */
+watch(
+  selectedFiles,
+  (files) => {
+    if (!isTauriEnv()) return;
+    if (files.length === 0) {
+      autoRefreshCache.value = isAutoRefresh.value;
+      resetLogWatcher();
+    }
+  }
+);
+
+/**
+ * 监控任务更新
+ * 当自动刷新检测到新任务时，同步到主任务列表
+ */
+watch(
+  watchedTasks,
+  (newTasks) => {
+    if (newTasks.length > 0) {
+      const existingKeys = new Set(tasks.value.map((t) => t.key));
+      const newTasksList: TaskInfo[] = [];
+      const watched = newTasks as unknown as TaskInfo[];
+      for (let i = 0; i < watched.length; i++) {
+        const t = watched[i];
+        if (!existingKeys.has(t.key)) {
+          newTasksList.push(t);
+        }
+      }
+      if (newTasksList.length > 0) {
+        tasks.value = [...tasks.value, ...newTasksList];
+        logger.info(`Auto-refresh: added ${newTasksList.length} new tasks`);
+      }
+    }
+  },
+  { deep: true }
+);
+
 // ============================================
 // 详情面板选择状态
 // ============================================
@@ -600,6 +716,25 @@ function handleGlobalDrop(event: DragEvent): void {
     return;
   }
   void handleDrop(event);
+}
+
+/**
+ * 切换实时监控
+ */
+async function handleToggleAutoRefresh() {
+  if (isAutoRefreshEnabled.value) {
+    stopAutoRefresh();
+  } else {
+    if (!fileSelector.baseDir.value) {
+      const project = detectedProject.value;
+      if (project && project !== "unknown") {
+        await initLogWatcher(logWatcherDir.value || fileSelector.baseDir.value, project);
+      } else {
+        return;
+      }
+    }
+    startAutoRefresh();
+  }
 }
 
 /**
@@ -688,11 +823,16 @@ useTauriIntegration({
             :status-message="statusMessage"
             :is-dragging="isDragging"
             :format-size="formatSize"
+            :is-auto-refresh="isAutoRefreshEnabled"
+            :auto-refresh-project="logWatcherProject"
+            :auto-refresh-dir="logWatcherDir"
+            :show-auto-refresh="isTauriEnv()"
             @select-directory="handleSelectDirectory"
             @drag-over="handleDragOver"
             @drag-enter="handleDragOver"
             @drag-leave="handleDragLeave"
             @drop="handleDrop"
+            @toggle-auto-refresh="handleToggleAutoRefresh"
           />
 
           <div class="main-content">

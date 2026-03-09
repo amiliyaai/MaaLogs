@@ -54,7 +54,7 @@ const emitView = (value: ViewMode) => {
   <header class="topbar">
     <!-- 品牌区域 -->
     <div class="brand">
-      <span class="brand-subtitle">MaaFramework 日志分析工具 - 多项目 | 流程可视 | AI 智能</span>
+      <span class="brand-subtitle">让我康康你的日志——咕咕嘎嘎！咕嘎！</span>
     </div>
     <!-- 操作区域 -->
     <div class="top-actions">

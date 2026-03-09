@@ -37,7 +37,7 @@ import { createLogger } from "@/utils/logger";
 
 const logger = createLogger("BaseParser");
 
-export { extractLogDirectory };
+export { extractLogDirectory, parseBracketLine };
 
 /** 项目类型 */
 export type ProjectType = "m9a" | "maaend" | "unknown";
