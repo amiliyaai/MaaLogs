@@ -36,6 +36,33 @@ export const PROJECT_PATTERNS: { keyword: string; project: ProjectType }[] = [
 ];
 
 /**
+ * 根据项目类型获取对应的 parser ID
+ *
+ * @param projectType - 项目类型
+ * @returns parser ID，未知项目类型返回 null
+ *
+ * @example
+ * getProjectParserId("m9a");     // returns "m9a"
+ * getProjectParserId("maaend");  // returns "maaend"
+ * getProjectParserId("unknown"); // returns null
+ */
+export function getProjectParserId(projectType: ProjectType): string | null {
+  if (projectType === "unknown") return null;
+  if (projectType === "m9a") return "m9a";
+  return "maaend";
+}
+
+/**
+ * 辅助日志文件匹配模式配置
+ *
+ * 每个项目类型对应一个正则表达式，用于匹配该项目的辅助日志文件
+ */
+export const AUX_LOG_PATTERNS: Record<string, RegExp> = {
+  m9a: /^(\d{4}-\d{2}-\d{2})\.log$/i,
+  maaend: /^go-service\.log$/i,
+};
+
+/**
  * 日志关联配置接口
  *
  * 控制 Custom 辅助日志（如 go-service 日志）与主任务日志的关联行为

@@ -70,6 +70,8 @@ export interface FileWatcherResult {
   startWatching: () => void;
   /** 停止监控 */
   stopWatching: () => void;
+  /** 更新文件位置 */
+  updateFilePositions: () => void;
   /** 获取变更并清除缓存 */
   getChanges: () => FileChange[];
   /** 重置监控状态 */
@@ -101,6 +103,7 @@ export function useFileWatcher(): FileWatcherResult {
    *
    * 扫描目录，识别需要监控的日志文件
    * 对于大文件（> MAX_INITIAL_READ_SIZE），只读取最后一部分
+   * 初始化时会读取从 initialPosition 到文件末尾的内容
    *
    * @param dirPath - 日志目录路径
    * @param projectType - 项目类型（m9a / maaend）
@@ -112,6 +115,7 @@ export function useFileWatcher(): FileWatcherResult {
     const entries = await platform.vfs.list(dirPath);
 
     const files: WatchedFile[] = [];
+    const changes: FileChange[] = [];
 
     for (const entry of entries) {
       if (entry.type !== "file") continue;
@@ -132,14 +136,34 @@ export function useFileWatcher(): FileWatcherResult {
           logger.debug(`Large file detected ${filename}: ${fileSize} bytes, starting from position ${initialPosition}`);
         }
 
-        files.push({
+        /** 读取从 initialPosition 到文件末尾的内容 */
+        let initialContent = "";
+        if (fileSize > 0 && initialPosition < fileSize) {
+          initialContent = await readFileContent(filePath, initialPosition, fileSize);
+        }
+
+        const watchedFile: WatchedFile = {
           path: filePath,
           filename,
           mtime: stat.mtime ?? 0,
-          position: initialPosition,
+          position: fileSize,
           size: fileSize,
-          lastReadTime: 0,
-        });
+          lastReadTime: Date.now(),
+        };
+        files.push(watchedFile);
+
+        /** 如果有初始内容，添加到变更列表 */
+        if (initialContent.trim()) {
+          const isMain = isMainLogFile(filename);
+          const lines = initialContent.split(/\r?\n/).length;
+          changes.push({
+            file: watchedFile,
+            newContent: initialContent,
+            isMainLog: isMain,
+          });
+          logger.debug(`Initial content for ${filename}: ${lines} lines, isMainLog: ${isMain}`);
+        }
+
         logger.debug(`Found file to watch: ${filename}, size: ${fileSize}, start position: ${initialPosition}`);
       } catch (err) {
         logger.warn(`Failed to stat file ${filename}: ${err}`);
@@ -147,34 +171,50 @@ export function useFileWatcher(): FileWatcherResult {
     }
 
     watchedFiles.value = files;
-    fileChanges.value = [];
-    logger.info(`File watcher initialized with ${files.length} files`);
+    fileChanges.value = changes;
+    logger.info(`File watcher initialized with ${files.length} files, ${changes.length} initial changes`);
   }
 
   /**
    * 读取文件内容（支持增量读取）
    *
+   * 使用二进制读取来正确处理字节位置，避免 UTF-8 编码问题
+   *
    * @param filePath - 文件路径
-   * @param startPosition - 起始位置
-   * @param _expectedSize - 预期文件大小（保留参数）
+   * @param startPosition - 起始位置（字节）
+   * @param _expectedSize - 预期文件大小（字节），保留参数
    * @returns 文件新增内容
    */
   async function readFileContent(filePath: string, startPosition: number, _expectedSize: number): Promise<string> {
     const platform = await getPlatform();
     
-    const fullContent = await platform.vfs.readText(filePath);
-    
     if (startPosition === 0) {
-      return fullContent;
+      return platform.vfs.readText(filePath);
     }
 
-    /** 找到第一个完整行，避免读取不完整的行 */
-    const newlineIndex = fullContent.indexOf("\n", startPosition);
-    if (newlineIndex === -1) {
-      return fullContent.slice(startPosition);
+    /** 使用二进制读取，从指定字节位置开始 */
+    const binaryData = await platform.vfs.readBinary(filePath);
+    const totalBytes = binaryData.length;
+    
+    if (startPosition >= totalBytes) {
+      return "";
     }
     
-    return fullContent.slice(newlineIndex + 1);
+    /** 找到第一个完整行，避免读取不完整的行 */
+    let newlineOffset = startPosition;
+    while (newlineOffset < totalBytes && binaryData[newlineOffset] !== 10) {
+      newlineOffset++;
+    }
+    
+    /** 如果找到换行符，从换行符后开始读取 */
+    const startOffset = newlineOffset < totalBytes ? newlineOffset + 1 : startPosition;
+    
+    /** 提取新增内容的字节数组 */
+    const newContentBytes = binaryData.slice(startOffset);
+    
+    /** 将字节数组转换为字符串 */
+    const decoder = new TextDecoder("utf-8", { fatal: false });
+    return decoder.decode(newContentBytes);
   }
 
   /**
@@ -258,6 +298,18 @@ export function useFileWatcher(): FileWatcherResult {
   }
 
   /**
+   * 更新所有监控文件的当前位置
+   *
+   * 在初始加载完成后调用，避免重复读取已处理的内容
+   */
+  function updateFilePositions(): void {
+    for (const watched of watchedFiles.value) {
+      watched.position = watched.size;
+    }
+    logger.debug("Updated file positions after initial load");
+  }
+
+  /**
    * 获取文件变更
    *
    * @returns 自上次获取后的所有文件变更
@@ -286,6 +338,7 @@ export function useFileWatcher(): FileWatcherResult {
     init,
     startWatching,
     stopWatching,
+    updateFilePositions,
     getChanges,
     reset,
   };

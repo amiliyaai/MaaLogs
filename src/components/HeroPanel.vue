@@ -93,7 +93,7 @@ const emit = defineEmits<{
             <template #trigger>
               <span class="auto-refresh-label">实时监控</span>
             </template>
-            开启后自动检测日志目录中的新任务，无需手动刷新，扫描间隔为 10 秒
+            开启后自动检测日志目录中的新任务，无需手动刷新。
           </NTooltip>
           <span v-if="autoRefreshDir && autoRefreshProject !== 'unknown'" class="auto-refresh-info">({{ autoRefreshProject }}: {{ autoRefreshDir }})</span>
         </div>
@@ -101,7 +101,7 @@ const emit = defineEmits<{
       <!-- 提示 -->
       <div class="drag-hint">
         <div class="hint-line" style="font-weight: bold">
-          💡 请选择日志根目录，以便导入 maa.log、Custom 日志、错误截图！！！
+          💡 请选择日志根目录，以便导入 maa.log、Custom 日志、vision目录、on_error目录！！！
         </div>
         <div class="hint-line">📂 支持拖拽导入（日志压缩包或日志目录），选择后自动解析</div>
       </div>

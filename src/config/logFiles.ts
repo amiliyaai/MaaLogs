@@ -11,6 +11,8 @@
  * @module config/logFiles
  */
 
+import { AUX_LOG_PATTERNS } from "./parser";
+
 /** 主日志文件名 */
 export const MAIN_LOG_FILE = "maa.log";
 
@@ -31,7 +33,7 @@ export const MAIN_LOG_FILE = "maa.log";
  */
 export const LOG_WATCHER_CONFIG = {
   MAX_INITIAL_READ_SIZE: 1024 * 1024 * 10,
-  POLL_INTERVAL_MS: 10000,
+  POLL_INTERVAL_MS: 2000,
   MAX_LINE_LENGTH: 4096,
 } as const;
 
@@ -65,14 +67,13 @@ export function getTodayDate(): string {
  * getAuxLogPattern("maaend");
  */
 export function getAuxLogPattern(projectType: string): RegExp | null {
-  switch (projectType) {
-    case "m9a":
-      return new RegExp(`^${getTodayDate()}\\.log$`, "i");
-    case "maaend":
-      return /^go-service\.log$/i;
-    default:
-      return null;
+  const pattern = AUX_LOG_PATTERNS[projectType];
+  if (!pattern) return null;
+
+  if (projectType === "m9a") {
+    return new RegExp(`^${getTodayDate()}\\.log$`, "i");
   }
+  return pattern;
 }
 
 /**

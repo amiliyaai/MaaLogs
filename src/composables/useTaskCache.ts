@@ -8,7 +8,7 @@
  *
  * 工作原理：
  * 1. 接收 Tasker.Task.Starting 事件创建新任务
- * 2. 接收 Tasker.Task.Stopped 事件标记任务完成
+ * 2. 接收 Tasker.Task.Succeeded/Failed 事件标记任务完成
  * 3. 通过 addAuxEntry 累积辅助日志条目
  * 4. getCompletedTasks 返回已完成任务，getAuxEntries 返回关联后的辅助日志
  *
@@ -50,22 +50,30 @@ export interface CachedTask {
  * 任务缓存结果接口
  */
 export interface TaskCacheResult {
-  /** 任务缓存（Map<taskId, CachedTask>） */
-  taskCache: ReturnType<typeof ref<Map<number, CachedTask>>>;
+  /** 任务缓存（Map<cacheKey, CachedTask>），cacheKey = uuid:taskId */
+  taskCache: ReturnType<typeof ref<Map<string, CachedTask>>>;
   /** 辅助日志条目缓存 */
   auxCache: ReturnType<typeof ref<AuxLogEntry[]>>;
   /** 添加事件通知 */
   addEvent: (event: EventNotification) => void;
   /** 添加辅助日志条目 */
   addAuxEntry: (entry: AuxLogEntry) => void;
-  /** 获取已完成任务（消费性调用，返回后清空内部缓存） */
+  /** 获取已完成任务（去重后的新任务） */
   getCompletedTasks: () => TaskInfo[];
+  /** 清理已完成任务缓存 */
+  clearCompletedTasks: () => void;
+  /** 重置返回标记（初始化时调用） */
+  resetReturnedKeys: () => void;
+  /** 获取所有事件（用于构建节点） */
+  getAllEvents: () => EventNotification[];
   /** 获取辅助日志条目（消费性调用，返回后清空内部缓存） */
   getAuxEntries: () => AuxLogEntry[];
   /** 清空辅助日志缓存 */
   clearAuxCache: () => void;
   /** 清空所有缓存 */
   clear: () => void;
+  /** 获取缓存大小（调试用） */
+  getCacheSize: () => number;
 }
 
 /**
@@ -86,7 +94,7 @@ export interface TaskCacheResult {
  * const completed = cache.getCompletedTasks();
  */
 export function useTaskCache(): TaskCacheResult {
-  const taskCache = ref<Map<number, CachedTask>>(new Map());
+  const taskCache = ref<Map<string, CachedTask>>(new Map());
   const auxCache = ref<AuxLogEntry[]>([]);
 
   /**
@@ -94,7 +102,7 @@ export function useTaskCache(): TaskCacheResult {
    *
    * 支持的事件类型：
    * - Tasker.Task.Starting：任务开始
-   * - Tasker.Task.Stopped：任务结束
+   * - Tasker.Task.Succeeded/Failed：任务结束
    * - 其他事件：追加到任务的 events 列表
    *
    * @param event - 事件通知
@@ -106,10 +114,20 @@ export function useTaskCache(): TaskCacheResult {
     /** 任务开始事件 */
     if (message === "Tasker.Task.Starting") {
       const taskId = details.task_id as number;
+      const uuid = (details.uuid as string) || "";
+      const cacheKey = `${uuid}:${taskId}`;
+      
+      /** 如果任务已存在，保留第一个事件的进程信息（Agent Client），只追加事件 */
+      const existing = taskCache.value.get(cacheKey);
+      if (existing) {
+        existing.events.push(event);
+        return;
+      }
+      
       const task: CachedTask = {
         taskId,
         entry: details.entry as string,
-        uuid: details.uuid as string,
+        uuid: uuid,
         hash: details.hash as string,
         processId: event.processId,
         threadId: event.threadId,
@@ -117,31 +135,49 @@ export function useTaskCache(): TaskCacheResult {
         events: [event],
         status: "running",
       };
-      taskCache.value.set(taskId, task);
-      logger.debug(`Task started: ${taskId}, entry: ${task.entry}`);
+      taskCache.value.set(cacheKey, task);
       return;
     }
 
     /** 任务结束事件 */
-    if (message === "Tasker.Task.Stopped") {
+    if (message === "Tasker.Task.Succeeded" || message === "Tasker.Task.Failed") {
       const taskId = details.task_id as number;
-      const cached = taskCache.value.get(taskId);
+      const uuid = (details.uuid as string) || "";
+      const cacheKey = `${uuid}:${taskId}`;
+      
+      let cached = taskCache.value.get(cacheKey);
+      
+      if (!cached) {
+        for (const [, task] of taskCache.value) {
+          if (task.status === "running" && 
+              (task.uuid === uuid || task.taskId === taskId)) {
+            cached = task;
+            break;
+          }
+        }
+      }
+      
       if (cached) {
         cached.events.push(event);
-        
-        /** 判断任务成功或失败 */
-        const success = details.success as boolean;
-        cached.status = success ? "succeeded" : "failed";
-        logger.debug(`Task stopped: ${taskId}, status: ${cached.status}`);
+        cached.status = message === "Tasker.Task.Succeeded" ? "succeeded" : "failed";
       }
       return;
     }
 
     /** 其他事件：追加到对应任务 */
     const taskId = details.task_id as number;
-    const cached = taskCache.value.get(taskId);
+    const uuid = (details.uuid as string) || "";
+    const cacheKey = `${uuid}:${taskId}`;
+    const cached = taskCache.value.get(cacheKey);
     if (cached) {
       cached.events.push(event);
+    } else if (!uuid && taskId) {
+      for (const [, task] of taskCache.value) {
+        if (task.taskId === taskId) {
+          task.events.push(event);
+          break;
+        }
+      }
     }
   }
 
@@ -164,14 +200,21 @@ export function useTaskCache(): TaskCacheResult {
    *
    * @returns 已完成的任务列表
    */
+  /** 已返回的任务key集合（用于去重） */
+  const returnedKeys = new Set<string>();
+
+  /**
+   * 获取已完成的任务（不删除缓存）
+   * 只会返回尚未返回过的任务
+   */
   function getCompletedTasks(): TaskInfo[] {
     const completed: TaskInfo[] = [];
-    const tasksToRemove: number[] = [];
 
-    /** 遍历所有任务，找出已完成的 */
-    for (const [taskId, cached] of taskCache.value) {
-      if (cached.status !== "running") {
-        /** 转换为 TaskInfo 格式 */
+    /** 遍历所有任务，找出已完成的且未返回的 */
+    for (const [cacheKey, cached] of taskCache.value) {
+      if (cached.status !== "running" && !returnedKeys.has(cacheKey)) {
+        returnedKeys.add(cacheKey);
+
         completed.push({
           key: `${cached.uuid}-${cached.taskId}`,
           fileName: "",
@@ -186,19 +229,33 @@ export function useTaskCache(): TaskCacheResult {
           processId: cached.processId,
           threadId: cached.threadId,
         });
-        tasksToRemove.push(taskId);
       }
     }
-
-    /** 从缓存中移除已完成的任务 */
-    for (const taskId of tasksToRemove) {
-      taskCache.value.delete(taskId);
-    }
-
-    if (completed.length > 0) {
-      logger.debug(`Returning ${completed.length} completed tasks`);
-    }
     return completed;
+  }
+
+  /**
+   * 清理已完成的任务缓存
+   * 只清理已返回的任务，保留事件用于后续构建节点
+   */
+  function clearCompletedTasks(): void {
+    const tasksToRemove: string[] = [];
+    for (const [cacheKey, cached] of taskCache.value) {
+      if (cached.status !== "running") {
+        tasksToRemove.push(cacheKey);
+      }
+    }
+    for (const cacheKey of tasksToRemove) {
+      taskCache.value.delete(cacheKey);
+      returnedKeys.delete(cacheKey);
+    }
+  }
+
+  /**
+   * 重置返回标记（初始化时调用）
+   */
+  function resetReturnedKeys(): void {
+    returnedKeys.clear();
   }
 
   /**
@@ -215,6 +272,17 @@ export function useTaskCache(): TaskCacheResult {
   }
 
   /**
+   * 获取所有事件（用于构建节点）
+   */
+  function getAllEvents(): EventNotification[] {
+    const allEvents: EventNotification[] = [];
+    for (const [, cached] of taskCache.value) {
+      allEvents.push(...cached.events);
+    }
+    return allEvents;
+  }
+
+  /**
    * 清空辅助日志缓存
    */
   function clearAuxCache(): void {
@@ -227,7 +295,15 @@ export function useTaskCache(): TaskCacheResult {
   function clear(): void {
     taskCache.value.clear();
     auxCache.value = [];
+    returnedKeys.clear();
     logger.debug("Cache cleared");
+  }
+
+  /**
+   * 获取缓存大小
+   */
+  function getCacheSize(): number {
+    return taskCache.value.size;
   }
 
   return {
@@ -236,8 +312,12 @@ export function useTaskCache(): TaskCacheResult {
     addEvent,
     addAuxEntry,
     getCompletedTasks,
+    clearCompletedTasks,
+    resetReturnedKeys,
+    getAllEvents,
     getAuxEntries,
     clearAuxCache,
     clear,
+    getCacheSize,
   };
 }

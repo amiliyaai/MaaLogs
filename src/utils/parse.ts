@@ -1152,17 +1152,20 @@ export function buildTasks(
   const tasks: TaskInfo[] = [];
   const runningTaskMap = new Map<string, TaskInfo>();
   const taskProcessMap = new Map<number, { processId: string; threadId: string }>();
-  const taskUuidMap = new Map<string, { processId: string; threadId: string }>();
   const firstSeenIndexMap = new Map<number, number>();
   let taskKeyCounter = 0;
   const getIdentifierForEventIndex = createIdentifierLookup(identifierRanges);
   const buildTaskKey = (taskId: number, uuid: string, processId: string) =>
     `${processId || "proc"}:${uuid || "uuid"}:${taskId}`;
+  /** 
+   * 解析进程信息
+   * 优先使用 taskProcessMap（按 taskId 存储），然后使用 fallback（当前事件的进程信息）
+   */
   const resolveProcessInfo = (
     taskId: number,
-    uuid: string,
+    _uuid: string,
     fallback: { processId: string; threadId: string }
-  ) => (uuid && taskUuidMap.get(uuid)) || taskProcessMap.get(taskId) || fallback;
+  ) => taskProcessMap.get(taskId) || fallback;
   const normalizeTaskId = (details?: Record<string, JsonValue>) =>
     normalizeId(details?.task_id ?? details?.taskId);
   const nextTaskKey = () => `task-${taskKeyCounter++}`;
@@ -1274,14 +1277,13 @@ export function buildTasks(
     const processThread = { processId: event.processId, threadId: event.threadId };
 
     if (eventTaskId !== undefined) {
-      taskProcessMap.set(eventTaskId, processThread);
+      /** 只在第一次遇到任务ID时设置进程信息，避免被后续事件覆盖 */
+      if (!taskProcessMap.has(eventTaskId)) {
+        taskProcessMap.set(eventTaskId, processThread);
+      }
       if (!firstSeenIndexMap.has(eventTaskId)) {
         firstSeenIndexMap.set(eventTaskId, i);
       }
-    }
-
-    if (typeof details.uuid === "string") {
-      taskUuidMap.set(details.uuid, processThread);
     }
 
     if (message === "Tasker.Task.Starting") {

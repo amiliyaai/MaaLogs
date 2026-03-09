@@ -147,11 +147,16 @@ export function parseOnEventNotify(
 
   const { message, params } = parsed;
 
-  if (!message.includes("!!!OnEventNotify!!!")) return null;
+  if (!message.includes("!!!OnEventNotify!!!")) {
+    return null;
+  }
 
   const msg = asString(params["msg"]);
+  if (!msg) {
+    return null;
+  }
+
   const detailsValue = params["details"];
-  if (!msg) return null;
 
   return createEventNotification(
     parsed,

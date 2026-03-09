@@ -254,7 +254,7 @@ const visionDir = computed(() => {
 const logWatcher = useLogWatcher();
 const {
   isWatching: isAutoRefresh,
-  completedTasks: watchedTasks,
+  completedTasks,
   dirPath: logWatcherDir,
   projectType: logWatcherProject,
   init: initLogWatcher,
@@ -622,22 +622,31 @@ watch(
  * 当自动刷新检测到新任务时，同步到主任务列表
  */
 watch(
-  watchedTasks,
-  (newTasks) => {
-    if (newTasks.length > 0) {
+  () => completedTasks.value,
+  (newTasks, oldTasks) => {
+    logger.debug(`completedTasks 变化，新: ${newTasks?.length ?? 'undefined'}, 旧: ${oldTasks?.length ?? 'undefined'}`);
+    if (newTasks && newTasks.length > 0) {
       const existingKeys = new Set(tasks.value.map((t) => t.key));
+      logger.debug(`现有任务keys: ${JSON.stringify([...existingKeys])}`);
       const newTasksList: TaskInfo[] = [];
       const watched = newTasks as unknown as TaskInfo[];
       for (let i = 0; i < watched.length; i++) {
         const t = watched[i];
+        logger.debug(`检查任务: key=${t.key}, entry=${t.entry}`);
         if (!existingKeys.has(t.key)) {
           newTasksList.push(t);
+        } else {
+          logger.debug(`任务 ${t.key} 已存在，跳过`);
         }
       }
       if (newTasksList.length > 0) {
         tasks.value = [...tasks.value, ...newTasksList];
         logger.info(`Auto-refresh: added ${newTasksList.length} new tasks`);
+      } else {
+        logger.debug(`没有新任务需要添加`);
       }
+    } else {
+      logger.debug(`completedTasks 没有新任务，不处理`);
     }
   },
   { deep: true }

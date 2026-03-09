@@ -17,10 +17,11 @@
  * @module composables/useLogWatcher
  */
 
-import { ref } from "vue";
+import { ref, triggerRef } from "vue";
 import type { TaskInfo, AuxLogEntry } from "@/types/logTypes";
 import { projectParserRegistry, correlateAuxLogs } from "@/parsers";
 import { parseBracketLine, handleMainLogLine, createMainLogContext, type MainLogParseContext } from "@/parsers/baseParser";
+import { buildTasks, StringPool } from "@/utils/parse";
 import { useFileWatcher, type FileChange } from "./useFileWatcher";
 import { useTaskCache } from "./useTaskCache";
 import { LOG_WATCHER_CONFIG } from "@/config/logFiles";
@@ -89,7 +90,7 @@ function useLogWatcher() {
    */
   async function processChanges(changes: FileChange[]): Promise<void> {
     const changeCount = changes.length;
-    logger.debug(`Processing ${changeCount} file changes`);
+    logger.debug(`正在处理 ${changeCount} 个文件变更`);
 
     /** 创建解析上下文（复用比每次创建更高效） */
     const mainLogContext: MainLogParseContext = createMainLogContext();
@@ -115,7 +116,7 @@ function useLogWatcher() {
       const lines = content.split(NEWLINE_REGEX);
       const lineCount = lines.length;
       
-      logger.debug(`Processing ${lineCount} lines from ${change.file.filename}, isMainLog: ${change.isMainLog}`);
+      logger.debug(`正在处理 ${lineCount} 行 from ${change.file.filename}, isMainLog: ${change.isMainLog}`);
 
       /** 处理主日志 */
       if (change.isMainLog) {
@@ -132,21 +133,26 @@ function useLogWatcher() {
             parsedCount++;
           }
         }
-        logger.debug(`Parsed ${parsedCount} main log lines`);
+        logger.debug(`已解析 ${parsedCount} 行主日志`);
         
         /** 批量添加事件到缓存 */
         const eventCount = mainLogContext.events.length;
+        logger.debug(`解析到 ${eventCount} 个事件`);
+        
         for (let i = 0; i < eventCount; i++) {
-          taskCache.addEvent(mainLogContext.events[i]);
+          const event = mainLogContext.events[i];
+          if (event) {
+            taskCache.addEvent(event);
+          }
         }
       } 
-      /** 处理辅助日志 */
-      else if (parser) {
+      /** 处理辅助日志（只在项目类型已知时处理） */
+      else if (parser && projectTypeValue && projectTypeValue !== "unknown") {
         try {
           const result = parser.parseAuxLog(lines, {
             fileName: change.file.filename,
           });
-          logger.debug(`Parsed aux log: ${result.entries.length} entries`);
+          logger.debug(`已解析辅助日志: ${result.entries.length} 条`);
           
           /** 批量添加辅助日志条目 */
           const entryCount = result.entries.length;
@@ -159,18 +165,62 @@ function useLogWatcher() {
       }
     }
 
-    /** 获取已完成的任务 */
+    /** 获取所有事件 */
+    const allEvents = taskCache.getAllEvents();
+    
+    /** 获取已完成的任务（不删除缓存） */
     const newCompleted = taskCache.getCompletedTasks();
     const newCompletedCount = newCompleted.length;
-    
+
     if (newCompletedCount > 0) {
-      /** 使用 for 循环替代 forEach */
-      for (let i = 0; i < newCompletedCount; i++) {
-        completedTasksList.push(newCompleted[i]);
+      /** 构建节点 */
+      const stringPool = new StringPool();
+      const builtTasks = buildTasks(allEvents, stringPool);
+
+      /** 构建任务映射（按 taskId 索引） */
+      const builtTaskMap = new Map<number, TaskInfo[]>();
+      for (const task of builtTasks) {
+        const existing = builtTaskMap.get(task.task_id) || [];
+        existing.push(task);
+        builtTaskMap.set(task.task_id, existing);
       }
-      /** 更新缓存副本 */
+
+      /** 合并任务：使用 builtTask 的节点 + origTask 的 processId/threadId */
+      for (let i = 0; i < newCompletedCount; i++) {
+        const origTask = newCompleted[i];
+        const builtList = builtTaskMap.get(origTask.task_id);
+        const builtTask = builtList?.[0];
+
+        if (builtTask) {
+          /** 合并：使用 origTask 的 key 和 builtTask 的节点和耗时，但使用 origTask 的 processId 和 threadId */
+          const mergedTask: TaskInfo = {
+            ...builtTask,
+            key: origTask.key,
+            processId: origTask.processId || builtTask.processId,
+            threadId: origTask.threadId || builtTask.threadId,
+          };
+          completedTasksList.push(mergedTask);
+        } else {
+          /** 使用 origTask 的 key */
+          const mergedTask: TaskInfo = {
+            ...origTask,
+          };
+          completedTasksList.push(mergedTask);
+        }
+      }
+
+      /** 触发响应式更新 */
+      completedTasks.value = [...completedTasksList];
+      triggerRef(completedTasks);
       cachedTasks = completedTasksList.slice();
-      logger.info(`Added ${newCompletedCount} completed tasks, total: ${completedTasksList.length}`);
+      logger.info(`Added ${newCompletedCount} completed tasks with nodes, total: ${completedTasksList.length}`);
+
+      /** 清理已完成任务的缓存 */
+      taskCache.clearCompletedTasks();
+    } else {
+      /** 即使没有新任务，也强制触发响应式更新以确保UI同步 */
+      completedTasks.value = [...completedTasksList];
+      triggerRef(completedTasks);
     }
 
     /** 获取新的辅助日志条目并关联 */
@@ -182,7 +232,9 @@ function useLogWatcher() {
       for (let i = 0; i < correlated.length; i++) {
         auxEntriesList.push(correlated[i]);
       }
-      logger.debug(`Added ${correlated.length} aux entries, total: ${auxEntriesList.length}`);
+      /** 触发响应式更新 */
+      auxEntries.value = [...auxEntriesList];
+      logger.debug(`已添加 ${correlated.length} 条辅助日志，总计: ${auxEntriesList.length}`);
     }
   }
 
@@ -197,6 +249,7 @@ function useLogWatcher() {
     const changes = fileWatcher.getChanges();
     if (changes.length > 0) {
       await processChanges(changes);
+      fileWatcher.updateFilePositions();
     }
   }
 
@@ -222,6 +275,7 @@ function useLogWatcher() {
     auxEntriesList.length = 0;
     cachedTasks = [];
     taskCache.clear();
+    taskCache.resetReturnedKeys();
 
     /** 初始化文件监控 */
     await fileWatcher.init(newDirPath, newProjectType);
@@ -233,6 +287,7 @@ function useLogWatcher() {
     }
 
     isInitializing.value = false;
+    fileWatcher.updateFilePositions();
     logger.info(`Log watcher initialized, initial tasks: ${completedTasksList.length}`);
   }
 
@@ -244,6 +299,7 @@ function useLogWatcher() {
   function startWatching(): void {
     if (isWatching.value) return;
 
+    fileWatcher.startWatching();
     isWatching.value = true;
     watchInterval = setInterval(watchLoop, LOG_WATCHER_CONFIG.POLL_INTERVAL_MS);
     logger.info("Log watching started");
@@ -279,6 +335,7 @@ function useLogWatcher() {
     cachedTasks = [];
     lastParser = null;
     taskCache.clear();
+    taskCache.resetReturnedKeys();
     fileWatcher.reset();
     dirPath.value = "";
     projectType.value = "";

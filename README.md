@@ -61,7 +61,7 @@
 ## 📥 下载安装
 前往 [Releases](https://github.com/amiliyaai/MaaLogs/releases/latest) 页面下载对应平台的安装包：
 ---
-<font color='red'> 非开发人员请不要下载预发布版本，一般来说bug非常多</font>
+非开发人员请不要下载预发布版本，一般来说bug非常多
 | 平台                    | 文件                              | 说明                         |
 | :---------------------- | :-------------------------------- | :--------------------------- |
 | **Windows x64**         | `MaaLogs-win-x86_64-*-setup.exe`  | Intel/AMD 64位处理器         |

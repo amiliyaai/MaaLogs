@@ -39,6 +39,7 @@ import {
 } from "@/parsers/shared";
 import { isMainLog, isMaaBakLog } from "@/utils/file";
 import { LOG_FILE_NAMES } from "@/config/constants";
+import { getProjectParserId } from "@/config/parser";
 import { createLogger, setLoggerContext } from "@/utils/logger";
 import { parseTimestampToMs } from "@/utils/parse";
 
@@ -193,7 +194,6 @@ async function parseMainLogFile(
 ): Promise<ProjectType> {
   const detected = detectProject(lines);
   logger.info("开始解析主日志文件", { fileName, detected });
-  console.log("检测到项目类型：" + detected);
 
   // 大文件（超过 5MB）使用流式解析
   const STREAM_THRESHOLD_BYTES = 5 * 1024 * 1024; // 5MB
@@ -241,7 +241,11 @@ function parseAuxLogFile(
   fileName: string,
   detectedProjectType: ProjectType
 ): void {
-  const parserId = detectedProjectType === "m9a" ? "m9a" : "maaend";
+  if (detectedProjectType === "unknown") return;
+
+  const parserId = getProjectParserId(detectedProjectType);
+  if (!parserId) return;
+
   const projectParser = getProjectParser(parserId);
   if (!projectParser) return;
   const result = projectParser.parseAuxLog(lines, { fileName });
