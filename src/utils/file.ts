@@ -13,6 +13,7 @@ import { unzipSync } from "fflate";
 import type { SelectedFile, PipelineCustomActionInfo } from "@/types/logTypes";
 import { parsePipelineCustomActions } from "./parse";
 import { FILE_CONFIG } from "@/config/file";
+import { LOG_FILE_NAMES, FILE_EXTENSIONS } from "@/config/constants";
 import { getPlatform } from "@/platform";
 import { isTauriEnv } from "@/utils/env";
 
@@ -21,9 +22,51 @@ const MAX_ZIP_ENTRIES = FILE_CONFIG.maxZipEntries;
 const MAX_ZIP_UNCOMPRESSED_BYTES = FILE_CONFIG.maxZipUncompressedBytes;
 const MAX_BROWSER_FILE_BYTES = FILE_CONFIG.maxBrowserFileBytes;
 
+type BrowserRelativeFile = File & {
+  webkitRelativePath?: string;
+  __fullPath?: string;
+};
+
+type MemoryRegisterItem = {
+  path: string;
+  data: Uint8Array | File;
+};
+
+/**
+ * 获取浏览器文件对象中的相对路径信息
+ */
+function getBrowserRelativePath(file: File): string {
+  const f = file as BrowserRelativeFile;
+  return f.webkitRelativePath || f.__fullPath || file.name;
+}
+
+/**
+ * 从任意路径中提取以 vision/ 开头的子路径
+ */
+function getVisionSuffixPath(path: string): string | null {
+  const normalized = path.replace(/\\/g, "/").replace(/^\/+/, "");
+  const lower = normalized.toLowerCase();
+  if (!(lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".png"))) {
+    return null;
+  }
+  const marker = "/vision/";
+  const idx = lower.indexOf(marker);
+  if (idx >= 0) {
+    return normalized.slice(idx + 1);
+  }
+  if (lower.startsWith("vision/")) {
+    return normalized;
+  }
+  return null;
+}
+
 function isSupportedLogOrConfigFile(name: string): boolean {
   const lower = name.toLowerCase();
-  return lower.endsWith(".log") || lower.endsWith(".json") || lower.endsWith(".jsonc");
+  return (
+    lower.endsWith(FILE_EXTENSIONS.LOG) ||
+    lower.endsWith(FILE_EXTENSIONS.JSON) ||
+    lower.endsWith(FILE_EXTENSIONS.JSONC)
+  );
 }
 
 function extractZipFiles(
@@ -132,10 +175,7 @@ export function getParentDirectory(path: string): string {
  * filterLogFiles(files); // 返回 maa.log 和 config.json
  */
 export function filterLogFiles(fileList: File[]): File[] {
-  return fileList.filter((file) => {
-    const lower = file.name.toLowerCase();
-    return lower.endsWith(".log") || lower.endsWith(".json") || lower.endsWith(".jsonc");
-  });
+  return fileList.filter((file) => isSupportedLogOrConfigFile(file.name));
 }
 
 /**
@@ -158,25 +198,34 @@ export function filterLogFiles(fileList: File[]): File[] {
  * ]);
  * // 返回 ZIP 中提取的日志文件 + config.json
  */
+
+function isImportableLogFile(name: string): boolean {
+  if (isSupportedLogFile(name)) return true;
+  if (FILE_CONFIG.getImportMaaBakLog() && name.toLowerCase() === LOG_FILE_NAMES.MAA_BAK_LOG) return true;
+  return false;
+}
+
 export async function expandSelectedFiles(fileList: File[]): Promise<File[]> {
   /**
-   * 判断文件是否为支持的日志/配置文件
+   * 判断文件是否为需要导入的日志文件
+   * 支持: maa.log, maa.bak.log, go-service.log, YYYY-MM-DD.log 格式
    * @param {string} name - 文件名
-   * @returns {boolean} 是否支持
+   * @returns {boolean} 是否需要导入
    */
-  const allowFile = (name: string): boolean => isSupportedLogOrConfigFile(name);
+  const allowFile = isImportableLogFile;
 
   /**
    * 判断 ZIP 条目是否为需要提取的日志文件
-   * 支持: maa.log, go-service.log, YYYY-MM-DD.log 格式
+   * 支持: maa.log, maa.bak.log, go-service.log, YYYY-MM-DD.log 格式
    * @param {string} name - ZIP 条目名称
    * @returns {boolean} 是否需要提取
    */
-  const allowZipEntry = (name: string): boolean => {
-    return isSupportedLogFile(name);
-  };
+  const allowZipEntry = isImportableLogFile;
 
   const outFiles: File[] = [];
+  const webVisionRegs: MemoryRegisterItem[] = [];
+  const shouldCollectWebVision = !isTauriEnv();
+  const platform = shouldCollectWebVision ? await getPlatform() : null;
 
   for (const file of fileList) {
     const lowerName = file.name.toLowerCase();
@@ -188,6 +237,15 @@ export async function expandSelectedFiles(fileList: File[]): Promise<File[]> {
         const zip = unzipSync(buf);
         const decoder = new TextDecoder("utf-8");
         outFiles.push(...extractZipFiles(zip, allowZipEntry, decoder));
+        if (shouldCollectWebVision && platform) {
+          for (const [entryName, data] of Object.entries(zip)) {
+            if (!(data instanceof Uint8Array)) continue;
+            const suffix = getVisionSuffixPath(entryName);
+            if (!suffix) continue;
+            const joined = await platform.vfs.join("/selected", suffix);
+            webVisionRegs.push({ path: joined, data });
+          }
+        }
       } catch {
         // ZIP 解析失败，跳过此文件
         continue;
@@ -200,31 +258,27 @@ export async function expandSelectedFiles(fileList: File[]): Promise<File[]> {
       if (file.size > MAX_BROWSER_FILE_BYTES) continue;
       outFiles.push(file);
     }
+
+    if (shouldCollectWebVision && platform) {
+      const suffix = getVisionSuffixPath(getBrowserRelativePath(file));
+      if (suffix) {
+        const joined = await platform.vfs.join("/selected", suffix);
+        webVisionRegs.push({ path: joined, data: file });
+      }
+    }
   }
 
   try {
-    if (!isTauriEnv()) {
-      const platform = await getPlatform();
-      const regs: { path: string; data: Uint8Array | File }[] = [];
-      for (const file of fileList) {
-        const rel =
-          (file as any).webkitRelativePath ||
-          (file as any).__fullPath ||
-          file.name;
-        const rp = String(rel).replace(/\\/g, "/").replace(/^\/+/, "");
-        const lower = rp.toLowerCase();
-        if (lower.includes("/vision/") && (lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".png"))) {
-          const joined = await platform.vfs.join("/selected", rp);
-          regs.push({ path: joined, data: file });
-        }
-      }
-      const win = typeof window !== "undefined" ? (window as any) : null;
-      if (regs.length > 0 && win && typeof win.__maalogs_registerMemoryFiles === "function") {
-        await win.__maalogs_registerMemoryFiles(regs);
+    if (webVisionRegs.length > 0) {
+      const win = typeof window !== "undefined" ? (window as Window & {
+        __maalogs_registerMemoryFiles?: (items: MemoryRegisterItem[]) => Promise<void>;
+      }) : null;
+      if (win && typeof win.__maalogs_registerMemoryFiles === "function") {
+        await win.__maalogs_registerMemoryFiles(webVisionRegs);
       }
     }
   } catch {
-    // ignore
+    return outFiles;
   }
 
   return outFiles;
@@ -269,11 +323,7 @@ export async function applySelectedPaths(paths: string[]): Promise<{
    * @param {string} name - 文件名
    * @returns {boolean} 是否需要提取
    */
-  const allowDirectoryFile = (name: string): boolean => {
-    if (isSupportedLogFile(name)) return true;
-    if (FILE_CONFIG.getImportMaaBakLog() && name.toLowerCase() === "maa.bak.log") return true;
-    return false;
-  };
+  const allowDirectoryFile = isImportableLogFile;
 
   const platform = await getPlatform();
   const decoder = new TextDecoder("utf-8");
@@ -530,10 +580,10 @@ async function traverseEntry(entry: FileSystemEntryLike): Promise<File[]> {
   if (entry.isFile && !entry.isDirectory) {
     return new Promise((resolve) => {
       (entry as FileSystemFileEntryLike).file((file: File) => {
-        try {
-          (file as any).__fullPath = (entry as any).fullPath || (entry as any).name || file.name;
-        } catch {}
-        resolve([file]);
+        const fileWithPath = file as BrowserRelativeFile;
+        const fullPath = entry.fullPath || entry.name || file.name;
+        fileWithPath.__fullPath = fullPath;
+        resolve([fileWithPath]);
       });
     });
   }
@@ -692,8 +742,8 @@ export function parsePipelineFile(
  */
 export function isGoServiceLog(fileName: string): boolean {
   const lowerName = fileName.toLowerCase();
-  if (lowerName.includes("maa.log") || lowerName === "maa.log") return false;
-  if (lowerName.endsWith(".json") || lowerName.endsWith(".jsonc")) return false;
+  if (lowerName.includes(LOG_FILE_NAMES.MAA_LOG) || lowerName === LOG_FILE_NAMES.MAA_LOG) return false;
+  if (lowerName.endsWith(FILE_EXTENSIONS.JSON) || lowerName.endsWith(FILE_EXTENSIONS.JSONC)) return false;
   return true;
 }
 
@@ -714,16 +764,16 @@ export function isGoServiceLog(fileName: string): boolean {
 export function isMainLog(fileName: string): boolean {
   const lowerName = fileName.toLowerCase();
   return (
-    lowerName === "maa.log" || lowerName.endsWith("/maa.log") || lowerName.endsWith("\\maa.log")
+    lowerName === LOG_FILE_NAMES.MAA_LOG || lowerName.endsWith("/" + LOG_FILE_NAMES.MAA_LOG) || lowerName.endsWith("\\" + LOG_FILE_NAMES.MAA_LOG)
   );
 }
 
 export function isMaaBakLog(fileName: string): boolean {
   const lowerName = fileName.toLowerCase();
   return (
-    lowerName === "maa.bak.log" ||
-    lowerName.endsWith("/maa.bak.log") ||
-    lowerName.endsWith("\\maa.bak.log")
+    lowerName === LOG_FILE_NAMES.MAA_BAK_LOG ||
+    lowerName.endsWith("/" + LOG_FILE_NAMES.MAA_BAK_LOG) ||
+    lowerName.endsWith("\\" + LOG_FILE_NAMES.MAA_BAK_LOG)
   );
 }
 

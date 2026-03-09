@@ -21,6 +21,7 @@ import type {
   AuxLogParserInfo,
 } from "@/types/parserTypes";
 import { parseMainLogWithLogDir } from "@/parsers/baseParser";
+import { LOG_SOURCES } from "@/config/constants";
 
 function splitCustomLine(
   line: string
@@ -64,7 +65,7 @@ function parseM9aCustomLine(
 
   return {
     key: `${fileName}-${lineNumber}`,
-    source: "m9a",
+    source: LOG_SOURCES.M9A,
     timestamp,
     timestampMs: Number.isNaN(timestampMs) ? undefined : timestampMs,
     level: level.toUpperCase(),

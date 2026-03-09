@@ -34,6 +34,21 @@ import { createLogger } from "@/utils/logger";
  */
 const logger = createLogger("FileSelection");
 
+type BrowserRelativeFile = File & {
+  webkitRelativePath?: string;
+  __fullPath?: string;
+};
+
+/**
+ * 判断文件是否位于 vision 目录
+ */
+function hasVisionPath(file: File): boolean {
+  const f = file as BrowserRelativeFile;
+  const rel = f.webkitRelativePath || f.__fullPath || "";
+  const normalized = String(rel).replace(/\\/g, "/").toLowerCase();
+  return /(^|\/)vision\//.test(normalized);
+}
+
 /**
  * 浏览器环境目录选择对话框（回退方案）
  *
@@ -206,15 +221,12 @@ export function useFileSelection(
       return;
     }
     const logFiles = await expandSelectedFiles(browserFiles);
-    const hasVision =
-      browserFiles.some((f) => {
-        const rel = (f as any).webkitRelativePath || (f as any).__fullPath || "";
-        return String(rel).replace(/\\/g, "/").toLowerCase().includes("/vision/");
-      }) || false;
+    const hasVision = browserFiles.some((f) => hasVisionPath(f));
+    const hasVisionInMemory = await platform.vfs.exists("/selected/vision");
     if (logFiles.length === 0) {
       return;
     }
-    if (hasVision) {
+    if (hasVision || hasVisionInMemory) {
       baseDir.value = "/selected";
     }
     applySelectedFiles(logFiles);
@@ -241,14 +253,13 @@ export function useFileSelection(
     isDragging.value = false;
 
     const files = await getFilesFromDragEvent(event);
-    const hasVision = files.some((f) => {
-      const rel = (f as any).webkitRelativePath || (f as any).__fullPath || "";
-      return String(rel).replace(/\\/g, "/").toLowerCase().includes("/vision/");
-    });
+    const hasVision = files.some((f) => hasVisionPath(f));
     const logFiles = await expandSelectedFiles(files);
+    const platform = await getPlatform();
+    const hasVisionInMemory = await platform.vfs.exists("/selected/vision");
     if (logFiles.length === 0) return;
 
-    if (hasVision) {
+    if (hasVision || hasVisionInMemory) {
       baseDir.value = "/selected";
     }
     applySelectedFiles(logFiles);

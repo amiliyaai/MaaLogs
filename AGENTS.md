@@ -1,294 +1,351 @@
-# MaaLogs AI Agent 编码指南
+# MaaLogs AI Agent Coding Guide
 
-欢迎参与 MaaLogs 的开发！本指南旨在帮助 AI Agent 快速理解项目结构及编码规范，以提供更高质量的代码建议。
+Welcome to MaaLogs development! This guide helps AI Agents quickly understand the project structure and coding standards.
 
-## 项目概览
+## Project Overview
 
-**MaaLogs** 是一个 MaaFramework 日志分析工具，基于 Tauri + Vue 3 + TypeScript 构建。
+**MaaLogs** is a MaaFramework log analysis tool built with Tauri + Vue 3 + TypeScript.
 
-- **主体流程**：用户选择日志文件，解析器提取任务和节点信息，以可视化方式展示任务执行流程。
-- **解析器架构**：采用可扩展的解析器架构，每个项目解析器封装该项目的日志解析逻辑，位于 `src/parsers/projects`。
-- **复杂逻辑**：对于嵌套识别、多线程日志交错等复杂场景，需在解析器中特殊处理。
-- **配置入口**：解析器通过 `project-registry.ts` 注册，用户选择的解析器 ID 通过 `useStorage` 持久化。
-- **配置集中管理**：应用配置集中在 `src/config/` 目录，方便统一修改。
-- **搜索功能**：支持页面内搜索，包括任务、节点、识别、动作、辅助日志，支持模糊搜索、高亮显示、跳转定位。
-- **任务对比**：支持两次运行任务的对比分析，使用 Needleman-Wunsch 算法对齐节点，识别差异。
+- **Main Flow**: User selects log files, parsers extract task and node information, visualize task execution flow.
+- **Parser Architecture**: Extensible parser architecture where each project parser encapsulates its log parsing logic in `src/parsers/projects`.
+- **Complex Logic**: Special handling required for nested recognition, multi-threaded log interleaving, etc.
+- **Configuration Entry**: Parsers registered via `project-registry.ts`, user-selected parser ID persisted via `useStorage`.
+- **Centralized Configuration**: All app configuration centralized in `src/config/` directory.
+- **Search Feature**: In-page search supporting tasks, nodes, recognitions, actions, auxiliary logs with fuzzy search, highlight, and navigation.
+- **Task Comparison**: Compare two runs of tasks, uses Needleman-Wunsch algorithm to align nodes and identify differences.
 
-## 目录结构
+## Directory Structure
 
 ```
 src/
-├── config/                  # 应用配置
-│   ├── index.ts            # 配置入口
-│   ├── ai.ts              # AI 服务配置
-│   ├── parser.ts          # 解析器配置
-│   ├── file.ts            # 文件处理配置
-│   └── knowledge.ts       # AI 知识库配置
-├── parsers/                # 解析器模块
-│   ├── index.ts           # 模块入口
-│   ├── baseParser.ts      # 基础解析器（共享 maa.log 解析逻辑）
-│   ├── project-registry.ts # 项目解析器注册表
-│   ├── shared.ts          # 共享解析工具函数
-│   ├── correlate.ts       # 日志关联模块
-│   └── projects/          # 项目解析器实现
-│       ├── m9a.ts         # M9A 项目解析器
-│       └── maaend.ts      # MaaEnd 项目解析器
-├── types/                  # TypeScript 类型定义
-│   ├── logTypes.ts        # 日志相关类型
-│   └── parserTypes.ts    # 解析器相关类型
-├── utils/                  # 工具函数
-│   ├── parse.ts           # 日志解析核心功能
-│   ├── format.ts          # 数据格式化
-│   ├── file.ts            # 文件处理
-│   ├── logger.ts          # 日志系统
-│   ├── crypto.ts          # 加密工具
-│   ├── aiAnalyzer.ts      # AI 分析
-│   ├── updater.ts         # 应用更新
-│   ├── pathBuilder.ts     # 任务对比路径构建（Needleman-Wunsch 算法）
-│   └── diffDetection.ts   # 任务对比差异检测
-├── composables/           # Vue Composables
-│   ├── useLogParser.ts    # 日志解析
-│   ├── useSearch.ts       # 文本搜索（原始日志）
-│   ├── useInPageSearch.ts # 页面内搜索（结构化数据）
-│   ├── useStatistics.ts   # 统计分析
-│   ├── useFileSelection.ts # 文件选择
-│   └── useStore.ts        # 持久化存储
-├── components/            # Vue 组件
-│   ├── AppTopBar.vue      # 顶部导航栏
-│   ├── AnalysisPanel.vue  # 分析面板
-│   ├── NodeFlowChart.vue  # 节点流程图
-│   ├── StatisticsPanel.vue # 统计面板
+├── App.vue                # Root component
+├── main.ts                # Application entry
+├── config/                # Application configuration
+│   ├── index.ts           # Configuration entry, exports all configs
+│   ├── ai.ts              # AI service configuration
+│   ├── compare.ts         # Task comparison configuration
+│   ├── constants.ts       # Application constants (log filenames, extensions)
+│   ├── file.ts            # File processing configuration
+│   ├── knowledge.ts        # AI knowledge base configuration
+│   └── parser.ts          # Parser configuration
+├── platform/              # Platform adaptation layer (Facade pattern)
+│   ├── index.ts           # Platform selector, dynamic loading based on environment
+│   ├── types.ts           # Platform interface definitions
+│   ├── web.ts             # Web implementation (degraded)
+│   └── tauri.ts           # Tauri desktop implementation (full)
+├── components/            # Vue components
+│   ├── AIResultCard.vue   # AI analysis result card
+│   ├── AISettingsModal.vue # AI settings modal
+│   ├── AnalysisPanel.vue  # Analysis panel (three-column layout)
+│   ├── ComparePanel.vue   # Task comparison panel
+│   ├── CustomLogPanel.vue # Custom log panel
+│   ├── NodeFlowChart.vue  # Node flow chart
+│   ├── RouteMap.vue       # Comparison route map
+│   ├── SearchPanel.vue    # Search panel
 │   └── ...
-└── App.vue                # 应用入口
+├── composables/           # Vue Composables
+│   ├── useLogParser.ts    # Log parsing
+│   ├── useSearch.ts       # Text search (raw logs)
+│   ├── useInPageSearch.ts # In-page search (structured data)
+│   ├── useStatistics.ts   # Statistics
+│   ├── useFileSelection.ts # File selection
+│   ├── useCompareSlots.ts # Comparison panel slot management
+│   ├── useRunComparison.ts # Task comparison execution
+│   └── useStore.ts        # Persistent storage
+├── parsers/               # Log parsers
+│   ├── index.ts           # Module entry
+│   ├── baseParser.ts      # Base parser (shared maa.log parsing)
+│   ├── shared.ts          # Shared utility functions
+│   ├── correlate.ts       # Log correlation
+│   ├── project-registry.ts # Parser registry
+│   └── projects/          # Project parser implementations
+│       ├── m9a.ts         # M9A parser
+│       └── maaend.ts      # MaaEnd parser
+├── types/                 # TypeScript type definitions
+│   ├── logTypes.ts        # Log-related types
+│   └── parserTypes.ts     # Parser-related types
+├── utils/                 # Utility functions
+│   ├── aiAnalyzer.ts      # AI analysis
+│   ├── crypto.ts          # Cryptography utilities
+│   ├── diffDetection.ts   # Diff detection (task comparison)
+│   ├── file.ts            # File processing
+│   ├── format.ts          # Data formatting
+│   ├── logger.ts          # Logging system
+│   ├── parse.ts           # Parsing utilities
+│   ├── pathBuilder.ts     # Task comparison path building (Needleman-Wunsch)
+│   └── updater.ts         # App update
+├── __tests__/            # Unit tests
+│   ├── parsers/           # Parser tests
+│   ├── utils/             # Utility tests
+│   ├── composables/       # Composable tests
+│   ├── platform/          # Platform adapter tests
+│   └── integration/       # Integration tests
+└── docs/                  # Test sample data
+    └── go-service.log     # go-service log sample
 ```
 
-## 关键文件
+## Key Files
 
-- [`src/config/`](src/config/): 应用配置文件（ai.ts, knowledge.ts, parser.ts, file.ts）。
-- [`src/config/knowledge.ts`](src/config/knowledge.ts): AI 知识库，包含识别算法、动作类型、控制器等知识。
-- [`src/parsers/projects/`](src/parsers/projects/): 项目解析器实现（m9a.ts, maaend.ts）。
-- [`src/types/`](src/types/): TypeScript 类型定义（logTypes.ts, parserTypes.ts）。
-- [`src/utils/`](src/utils/): 工具函数（parse.ts, format.ts, aiAnalyzer.ts）。
-- [`src/utils/pathBuilder.ts`](src/utils/pathBuilder.ts): 任务对比路径构建，实现 Needleman-Wunsch 全局序列对齐算法。
-- [`src/utils/diffDetection.ts`](src/utils/diffDetection.ts): 任务对比差异检测，识别失败节点、耗时异常、路径分歧等。
-- [`src/components/`](src/components/): Vue 组件（AnalysisPanel.vue 等）。
-- [`src/composables/useInPageSearch.ts`](src/composables/useInPageSearch.ts): 页面内搜索 composable，实现任务、节点、识别、动作的搜索和跳转。
-- [`docs/developers/parser-guide.md`](docs/developers/parser-guide.md): 解析器架构与开发指南。
+- [`src/config/`](src/config/): Application configuration files (ai.ts, constants.ts, knowledge.ts, parser.ts, file.ts, compare.ts).
+- [`src/config/constants.ts`](src/config/constants.ts): Application constants including LOG_FILE_NAMES, FILE_EXTENSIONS, LOG_LEVELS, LOG_SOURCES.
+- [`src/config/knowledge.ts`](src/config/knowledge.ts): AI knowledge base containing recognition algorithms, action types, controllers, etc.
+- [`src/parsers/projects/`](src/parsers/projects/): Project parser implementations (m9a.ts, maaend.ts).
+- [`src/types/`](src/types/): TypeScript type definitions (logTypes.ts, parserTypes.ts).
+- [`src/utils/`](src/utils/): Utility functions (parse.ts, format.ts, aiAnalyzer.ts, file.ts).
+- [`src/utils/pathBuilder.ts`](src/utils/pathBuilder.ts): Task comparison path building, implements Needleman-Wunsch global sequence alignment.
+- [`src/utils/diffDetection.ts`](src/utils/diffDetection.ts): Task comparison diff detection, identifies failed nodes, duration anomalies, path divergences, etc.
+- [`src/components/`](src/components/): Vue components (AnalysisPanel.vue, ComparePanel.vue, etc.).
+- [`src/composables/useInPageSearch.ts`](src/composables/useInPageSearch.ts): In-page search composable for tasks, nodes, recognitions, actions.
+- [`src/platform/`](src/platform/): Platform adaptation layer with facade pattern.
+- [`docs/developers/parser-guide.md`](docs/developers/parser-guide.md): Parser architecture and development guide.
 
-## 编码规范
+## Coding Standards
 
-### 1. 解析器开发规范
+### 1. Parser Development Standards
 
-- **接口合规性**：所有解析器必须实现 `ProjectParser` 接口，包含 `parseMainLog`、`parseAuxLog`、`getAuxLogParserInfo` 方法。
-- **单一职责**：每个解析器只负责一个项目的日志格式，不要在解析器中处理 UI 逻辑。
-- **复用共享函数**：使用 `shared.ts` 中的工具函数（如 `parseBracketLine`、`extractIdentifier`）。
-- **错误处理**：使用 try-catch 处理解析异常，避免因单行解析失败导致整体崩溃。
+- **Interface Compliance**: All parsers must implement `ProjectParser` interface with `parseMainLog`, `parseAuxLog`, `getAuxLogParserInfo` methods.
+- **Single Responsibility**: Each parser handles one project's log format only, do not handle UI logic in parsers.
+- **Reuse Shared Functions**: Use utilities from `shared.ts` (e.g., `parseBracketLine`, `extractIdentifier`).
+- **Error Handling**: Use try-catch for parsing exceptions to prevent single line failure from crashing entire parsing.
 
-### 2. 类型定义规范
+### 2. Type Definition Standards
 
-- **类型安全**：所有函数参数和返回值必须有明确的 TypeScript 类型。
-- **类型导出**：新增类型需在 `parserTypes.ts` 或 `logTypes.ts` 中定义并导出。
-- **避免 any**：禁止使用 `any` 类型，必要时使用 `unknown` 并进行类型守卫。
+- **Type Safety**: All function parameters and return values must have explicit TypeScript types.
+- **Type Export**: New types must be defined and exported in `parserTypes.ts` or `logTypes.ts`.
+- **Avoid any**: Forbidden to use `any` type, use `unknown` with type guards when necessary.
 
-### 3. Vue 组件规范
+### 3. Vue Component Standards
 
-- **Composition API**：使用 Vue 3 Composition API + `<script setup>` 语法。
-- **Composables**：封装可复用逻辑到 `composables/` 目录（如 `useLogParser`、`useSearch`）。
-- **Props 类型**：组件 props 必须使用 TypeScript 定义类型。
+- **Composition API**: Use Vue 3 Composition API with `<script setup>` syntax.
+- **Composables**: Encapsulate reusable logic in `composables/` directory (e.g., `useLogParser`, `useSearch`).
+- **Props Types**: Component props must use TypeScript type definitions.
 
-### 4. 配置管理规范
+### 4. Configuration Management Standards
 
-- **集中管理**：所有可配置项应放在 `src/config/` 目录下的对应文件中。
-- **类型定义**：配置必须有 TypeScript 类型注解。
-- **JSDoc 注释**：配置文件必须包含详细的 JSDoc 注释，说明各配置项的用途和影响。
+- **Centralized Management**: All configurable items should be in `src/config/` directory.
+- **Type Annotations**: Configuration must have TypeScript type annotations.
+- **JSDoc Comments**: Configuration files must include detailed JSDoc comments explaining each config item's purpose and impact.
 
-### 5. 代码格式化规范
+### 5. Code Formatting Standards
 
-- **ESLint 约束**：所有代码必须通过 `npm run lint` 检查。
-- **Prettier 约束**：代码格式遵循 `.prettierrc.json` 配置。
-- **提交前检查**：运行 `npm run typecheck` 确保类型正确。
+- **ESLint**: All code must pass `npm run lint`.
+- **Prettier**: Code format follows `.prettierrc.json` config.
+- **Pre-commit Check**: Run `npm run typecheck` to ensure type correctness.
 
-### 6. 注释规范
+### 6. Constants Definition Standards
 
-- **文件头注释**：每个文件应包含 `@fileoverview` 注释，说明文件用途和主要功能。
-- **函数注释**：公共函数应包含 JSDoc 注释，说明参数、返回值和使用示例。
-- **类型注释**：复杂类型应包含属性说明和使用示例。
-- **避免冗余**：简单、自解释的代码无需注释。
+- **Avoid Magic Strings**: Use constants from `src/config/constants.ts` instead of hardcoded strings.
+- **Constant Structure**: Use `as const` for immutable constants:
 
-## 审查重点
-
-在审查代码（Review）时，请重点关注以下事项：
-
-- **接口实现完整性**：检查解析器是否完整实现了 `ProjectParser` 接口的所有方法。
-- **类型定义一致性**：检查新增类型是否在正确的文件中定义，是否已导出。
-- **解析器注册**：新增解析器是否已在 `index.ts` 中导出，是否在 `main.ts` 中注册。
-- **配置集中管理**：检查是否将新的配置项添加到 `src/config/` 目录，而非硬编码。
-- **性能考虑**：避免在循环中创建大量临时对象，避免不必要的重复解析。
-- **嵌套识别处理**：检查嵌套识别是否正确附加到父节点的 `nested_nodes` 中。
-- **日志关联正确性**：检查 `correlateAuxLogs` 是否正确关联辅助日志与任务。
-- **UI 显示完整性**：检查组件是否正确显示解析结果（如嵌套识别、disabled 状态）。
-- **搜索功能完整性**：检查搜索结果是否正确显示、跳转动画是否正常、滚动定位是否准确。
-- **任务对比算法正确性**：检查 Needleman-Wunsch 算法是否正确对齐节点，差异检测是否准确。
-- **任务对比 UI 完整性**：检查差异摘要、路线图、节点详情是否正确显示对比结果。
-
-## 解析器实现要点
-
-### M9A 解析器特殊处理
-
-1. **Next List 提取**：从 `TaskBase::run_recognition` 行的 `list=[...]` 参数提取。
-2. **嵌套识别**：通过 `MaaContextRunRecognition` API 调用检测，注意不同进程/线程日志交错。
-3. **Disabled 节点**：检测 `node disabled` 日志行，设置 `status: "disabled"`。
-4. **Direct Hit**：`direct_hit` 节点不设置 next_list（除非有多个 next）。
-
-### 日志行格式
-
-```
-[时间戳][级别][进程ID][线程ID][源文件位置] 消息 [参数]
+```typescript
+export const LOG_FILE_NAMES = {
+  MAA_LOG: "maa.log",
+  MAA_BAK_LOG: "maa.bak.log",
+  GO_SERVICE_LOG: "go-service.log",
+} as const;
 ```
 
-示例（来自 MaaEnd 项目真实日志）：
+### 7. Comment Standards
+
+- **File Header**: Each file should have `@fileoverview` comment explaining file purpose and main functionality.
+- **Function Comments**: Public functions should have JSDoc comments with parameters, return values, and usage examples.
+- **Type Comments**: Complex types should include property descriptions and usage examples.
+- **Avoid Redundancy**: Simple, self-explanatory code does not need comments.
+
+## Platform Adaptation Layer
+
+MaaLogs uses **Facade Pattern** to share code between Web and Desktop versions. The `platform/` directory provides unified abstract interfaces:
+
+```
+                         ┌─────────────────────────────┐
+                         │     Upper Business Code     │
+                         │  (composables, components)  │
+                         └──────────────┬──────────────┘
+                                        │
+                         ┌──────────────▼──────────────┐
+                         │    platform/index.ts        │
+                         │    getPlatform()           │
+                         └──────────────┬──────────────┘
+                                        │
+              ┌─────────────────────────┴─────────────────────────┐
+              │                                                   │
+              ▼                                                   ▼
+┌─────────────────────────────┐         ┌─────────────────────────────┐
+│    platform/web.ts          │         │    platform/tauri.ts        │
+│    createWebPlatform()     │         │    createTauriPlatform()   │
+│    (browser degraded)      │         │    (desktop full)          │
+└─────────────────────────────┘         └─────────────────────────────┘
+```
+
+**Platform Interface** (`platform/types.ts`):
+
+```typescript
+interface Platform {
+  vfs: Vfs;              // File system
+  images: ImageResolver; // Image resolution
+  storage: Storage;      // Persistent storage
+  updater: UpdaterWindow; // Window operations
+  logger: LoggerFactory; // Logger factory
+  dragDrop: DragDrop;   // Drag and drop
+  picker: Picker;      // Directory picker
+}
+```
+
+## Code Review Focus
+
+When reviewing code, pay attention to:
+
+- **Interface Implementation Completeness**: Check if parser fully implements all methods of `ProjectParser` interface.
+- **Type Definition Consistency**: Check if new types are defined in correct files and exported.
+- **Parser Registration**: Check if new parser is exported in `index.ts` and registered.
+- **Configuration Centralization**: Check if new config items are added to `src/config/` directory, not hardcoded.
+- **Performance Considerations**: Avoid creating large temporary objects in loops, avoid unnecessary repeated parsing.
+- **Nested Recognition Handling**: Check if nested recognition is correctly attached to parent node's `nested_nodes`.
+- **Log Correlation Correctness**: Check if `correlateAuxLogs` correctly correlates auxiliary logs with tasks.
+- **UI Display Completeness**: Check if components correctly display parsed results (nested recognition, disabled status).
+- **Search Feature Completeness**: Check if search results display correctly, jump animation works, scroll positioning accurate.
+- **Task Comparison Algorithm Correctness**: Check if Needleman-Wunsch algorithm correctly aligns nodes, diff detection accurate.
+- **Task Comparison UI Completeness**: Check if diff summary, route map, node details correctly display comparison results.
+
+## Parser Implementation Notes
+
+### M9A Parser Special Handling
+
+1. **Next List Extraction**: Extract from `TaskBase::run_recognition` line's `list=[...]` parameter.
+2. **Nested Recognition**: Detected via `MaaContextRunRecognition` API calls, note different process/thread log interleaving.
+3. **Disabled Nodes**: Detect `node disabled` log lines, set `status: "disabled"`.
+4. **Direct Hit**: `direct_hit` nodes do not set next_list (unless multiple nexts).
+
+### Log Line Format
+
+```
+[timestamp][level][processID][threadID][sourceLocation] message [params]
+```
+
+Examples (from real MaaEnd project logs):
 
 ```bash
-# 任务开始事件
+# Task Start Event
 [2026-03-06 00:27:36.184][INF][Px45380][Tx38246][Utils/EventDispatcher.hpp][L65] !!!OnEventNotify!!! [handle=true] [msg=Tasker.Task.Starting] [details={"entry":"SellProductMain","hash":"db798f091cd70cd7","task_id":200000001,"uuid":"94d79698b0266e69"}]
 
-# 节点识别执行（enter）
+# Node Recognition Execute (enter)
 [2026-03-06 00:27:36.192][DBG][Px45380][Tx38246][PipelineTask.cpp][L237] [cur_node_=SellProductMain] [list=[{"anchor":false,"jump_back":false,"name":"SellProductMain"}]] | enter
 
-# 节点识别执行（leave）
+# Node Recognition Execute (leave)
 [2026-03-06 00:27:44.334][TRC][Px45380][Tx38246][TaskBase.cpp][L54] | leave, 584ms
 
-# 节点识别成功
+# Node Recognition Success
 [2026-03-06 00:27:44.334][INF][Px45380][Tx38246][TaskBase.cpp][L94] reco hit [result.name=SellProductGoToInfrastructureOutpost] [result.box=[514,87,84,21]]
 
-# 节点成功事件（DirectHit 算法）
-[2026-03-06 00:27:36.210][INF][Px45380][Tx38246][Utils/EventDispatcher.hpp][L65] !!!OnEventNotify!!! [handle=true] [msg=Node.PipelineNode.Succeeded] [details={"action_details":{"action":"DoNothing","action_id":500000001,"box":[0,0,0,0],"detail":{},"name":"SellProductMain","success":true},"focus":null,"name":"SellProductMain","node_details":{"action_id":500000001,"completed":true,"name":"SellProductMain","node_id":300000001,"reco_id":400000001},"node_id":300000001,"reco_details":{"algorithm":"DirectHit","box":[0,0,0,0],"detail":null,"name":"SellProductMain","reco_id":400000001},"task_id":200000001}]
+# Node Success Event (DirectHit)
+[2026-03-06 00:27:36.210][INF][Px45380][Tx38246][Utils/EventDispatcher.hpp][L65] !!!OnEventNotify!!! [handle=true] [msg=Node.PipelineNode.Succeeded] [details={...}]
 
-# 节点成功事件（And 算法，包含 OCR 和 TemplateMatch）
-[2026-03-06 00:27:36.939][INF][Px45380][Tx38246][Utils/EventDispatcher.hpp][L65] !!!OnEventNotify!!! [handle=true] [msg=Node.PipelineNode.Succeeded] [details={"action_details":{"action":"DoNothing","action_id":500000002,"box":[0,0,0,0],"detail":{},"name":"SellProductAtDevelopment","success":true},"focus":null,"name":"SellProductMain","node_details":{"action_id":500000002,"completed":true,"name":"SellProductAtDevelopment","node_id":300000002,"reco_id":400000002},"node_id":300000002,"reco_details":{"algorithm":"And","box":[40,25,94,19],"detail":[{"algorithm":"And","box":[40,25,94,19],"detail":[{"algorithm":"OCR","box":[40,25,94,19],"detail":{"all":[{"box":[40,25,94,19],"score":0.883039,"text":"//地区建设"}],"best":{"box":[40,25,94,19],"score":0.883039,"text":"//地区建设"},"filtered":[{"box":[40,25,94,19],"score":0.883039,"text":"//地区建设"}]},"name":"CheckRegionalDevelopmentText","reco_id":400000004},{"algorithm":"TemplateMatch","box":[1193,127,27,25],"detail":{"all":[{"box":[1193,127,27,25],"score":0.960613},{"box":[1194,128,26,24],"score":1.000000}],"best":{"box":[1193,127,27,25],"score":0.960613},"filtered":[{"box":[1193,127,27,25],"score":0.960613},{"box":[1194,128,26,24],"score":1.000000}]},"name":"IncomeReportButton","reco_id":400000005}],"name":"InRegionalDevelopment","reco_id":400000003}],"name":"SellProductAtDevelopment","reco_id":400000002},"task_id":200000001}]
-
-# 动作执行 - DoNothing
-[2026-03-06 00:27:36.209][INF][Px45380][Tx38246][Actuator.cpp][L56] action [i=0] [pipeline_data.repeat=1] [result={"action":"DoNothing","action_id":500000001,"box":[0,0,0,0],"detail":{},"name":"SellProductMain","success":true}]
-
-# 动作执行 - Click
+# Action Execute - Click
 [2026-03-06 00:27:38.171][INF][Px45380][Tx38246][Actuator.cpp][L56] action [i=0] [pipeline_data.repeat=1] [result={"action":"Click","action_id":500000011,"box":[766,196,132,35],"detail":{"contact":0,"point":[815,211],"pressure":1},"name":"SellProductEnterValleyIVOutpost","success":true}]
 
-# 动作执行 - Custom
-[2026-03-06 00:27:37.562][INF][Px45380][Tx38246][Actuator.cpp][L56] action [i=0] [pipeline_data.repeat=1] [result={"action":"Custom","action_id":500000005,"box":[0,0,0,0],"detail":{},"name":"SellProductValleyIV","success":true}]
+# Recognition Failure - TemplateMatch
+[2026-03-06 00:27:37.576][DBG][Px45380][Tx38246][TemplateMatcher.cpp][L45] SellProductEnterOutpostLocked [all_results_=[{"box":[1178,185,35,48],"score":0.209733}]] [filtered_results_=[]] [best_result_=null] [cost=3ms]
 
-# 识别失败 - TemplateMatch（低于阈值）
-[2026-03-06 00:27:37.576][DBG][Px45380][Tx38246][TemplateMatcher.cpp][L45] SellProductEnterOutpostLocked [all_results_=[{"box":[1178,185,35,48],"score":0.209733}]] [filtered_results_=[]] [best_result_=null] [cost=3ms] [param_.template_=["SellProduct/SellProductDevelopmentLocked.png"]] [templates_.size()=1] [param_.thresholds=[0.700000]] [param_.method=5] [param_.green_mask=false]
+# Node Action Start
+[2026-03-06 00:27:44.335][INF][Px45380][Tx38246][Utils/EventDispatcher.hpp][L65] !!!OnEventNotify!!! [handle=true] [msg=Node.Action.Starting] [details={...}]
 
-# 识别失败 - OCR（未匹配期望文本）
-[2026-03-06 00:27:37.645][DBG][Px45380][Tx38246][OCRer.cpp][L90] SellProductCheckOutpostText [cache_=null] [all_results_=[{"box":[40,25,94,19],"score":0.883039,"text":"//地区建设"}]] [filtered_results_=[]] [best_result_=null] [cost=19ms] [param_.model=] [param_.only_rec=false] [param_.expected=["据点","據點","Outpost","拠点","거점"]]
-
-# ADB 控制器创建
-[2026-03-06 00:27:17.452][DBG][Px45380][Tx56166][MaaFramework.cpp][L20] MaaAdbControllerCreate [adb_path=C:/Program Files/NetEase/MuMu Player 12/nx_main/adb.exe] [address=127.0.0.1:16384] [screencap_methods=64] [input_methods=18446744073709551607] [config={"extras":{"mumu":{"enable":true,"index":0,"path":"C:/Program Files/NetEase/MuMu Player 12"}}}] [agent_path=C:\Users\hmy01\Works\Working\Game\Endfield\MaaEnd\install\maafw\MaaAgentBinary] | enter
-
-# 节点动作开始
-[2026-03-06 00:27:44.335][INF][Px45380][Tx38246][Utils/EventDispatcher.hpp][L65] !!!OnEventNotify!!! [handle=true] [msg=Node.Action.Starting] [details={"action_id":500000022,"focus":null,"name":"SellProductGoToInfrastructureOutpost","task_id":200000001}]
-
-# 节点动作成功
-[2026-03-06 00:27:44.394][INF][Px45380][Tx38246][Utils/EventDispatcher.hpp][L65] !!!OnEventNotify!!! [handle=true] [msg=Node.Action.Succeeded] [details={"action_details":{"action":"Click","action_id":500000022,"box":[514,87,84,21],"detail":{"contact":0,"point":[571,92],"pressure":1},"name":"SellProductGoToInfrastructureOutpost","success":true},"action_id":500000022,"focus":null,"name":"SellProductGoToInfrastructureOutpost","task_id":200000001}]
-
-# Next List 成功
-[2026-03-06 00:27:44.334][INF][Px45380][Tx38246][Utils/EventDispatcher.hpp][L65] !!!OnEventNotify!!! [handle=true] [msg=Node.NextList.Succeeded] [details={"focus":null,"list":[{"anchor":false,"jump_back":false,"name":"SellProductInfrastructureOutpostSell"},{"anchor":false,"jump_back":true,"name":"SellProductGoToInfrastructureOutpost"}],"name":"SellProductInfrastructureOutpost","task_id":200000001}]
+# Next List Success
+[2026-03-06 00:27:44.334][INF][Px45380][Tx38246][Utils/EventDispatcher.hpp][L65] !!!OnEventNotify!!! [handle=true] [msg=Node.NextList.Succeeded] [details={...}]
 ```
 
-> **注意**：以上日志示例来自 MaaEnd 项目。其他项目日志格式略有不同。
+> **Note**: Above log examples are from MaaEnd project. Other projects have slightly different log formats.
 
-## 搜索功能实现要点
+## Search Feature Implementation Notes
 
-### 页面内搜索特殊处理
+### In-Page Search Special Handling
 
-1. **模糊搜索**：数字字段支持部分匹配，使用 `includes()` 而非严格相等。
-2. **搜索范围**：支持任务、节点、识别、动作、辅助日志的全方位搜索。
-3. **高亮显示**：搜索结果项高亮显示，对应条目标红突出。
-4. **跳转动画**：使用 CSS `highlight-flash` 动画实现高亮闪烁效果。
-5. **滚动定位**：搜索结果自动滚动到视图中心位置，确保用户体验更好。
-6. **状态自动选择**：搜索任务 ID 时自动选择第一个节点，避免显示"请选择节点"。
-7. **搜索结果样式**：搜索面板宽度 500px，文本使用省略号避免单词断开问题。
-8. **时序控制**：高亮状态在动画结束后自动清除，避免残留样式。
+1. **Fuzzy Search**: Numeric fields support partial matching using `includes()`.
+2. **Search Scope**: Supports comprehensive search across tasks, nodes, recognitions, actions, auxiliary logs.
+3. **Highlight Display**: Search results highlighted, corresponding entries marked in red.
+4. **Jump Animation**: Uses CSS `highlight-flash` animation for highlight flashing effect.
+5. **Scroll Positioning**: Search results automatically scroll to view center position.
+6. **Auto Selection**: Search task ID automatically selects first node, avoiding "Please select node" message.
+7. **Search Result Style**: Search panel width 500px, text uses ellipsis to avoid word breaking.
+8. **Timing Control**: Highlight state automatically cleared after animation ends.
 
-### 错误截图展开逻辑
+### Error Screenshot Expansion Logic
 
-1. **响应式展开**：使用 `v-model:expanded-names` 与 `screenshotExpanded` ref。
-2. **状态同步**：节点切换时自动根据是否有截图同步展开/折叠状态。
-3. **watch 监听**：使用 `watch` 监听节点变化，自动调整截图展开状态。
+1. **Reactive Expansion**: Uses `v-model:expanded-names` with `screenshotExpanded` ref.
+2. **State Sync**: Node switching automatically syncs expand/collapse state based on presence of screenshots.
+3. **Watch Listener**: Uses `watch` to listen for node changes, automatically adjusts screenshot expansion state.
 
-## 任务对比实现要点
+## Task Comparison Implementation Notes
 
-### 核心算法
+### Core Algorithm
 
-任务对比使用 **Needleman-Wunsch 全局序列对齐算法**，用于对齐两次运行的节点序列：
+Task comparison uses **Needleman-Wunsch Global Sequence Alignment Algorithm** to align node sequences from two runs:
 
-1. **算法原理**：动态规划算法，找到两个序列之间的最优对齐，允许插入和删除（gap）。
-2. **得分设置**：
-   - 匹配得分：+2（相同节点名）
-   - 错配罚分：-1（不同节点名）
-   - 空位罚分：-1（插入或删除）
-3. **实现位置**：[`src/utils/pathBuilder.ts`](src/utils/pathBuilder.ts) 中的 `needlemanWunsch` 函数。
+1. **Algorithm Principle**: Dynamic programming algorithm, finds optimal alignment between two sequences, allows insertions and deletions (gap).
+2. **Score Settings**:
+   - Match score: +2 (same node name)
+   - Mismatch penalty: -1 (different node names)
+   - Gap penalty: -1 (insertion or deletion)
+3. **Implementation**: `needlemanWunsch` function in [`src/utils/pathBuilder.ts`](src/utils/pathBuilder.ts).
 
-### 差异检测类型
+### Diff Detection Types
 
-| 类型         | 说明                         | 严重程度                  |
-| ------------ | ---------------------------- | ------------------------- |
-| 失败节点     | 新增失败、持续失败、已修复   | critical / warning / info |
-| 耗时异常     | 耗时变化超过阈值（默认 50%） | warning / info            |
-| 路径分歧     | 从同一节点走了不同分支       | info                      |
-| 识别变化     | 识别算法改变                 | warning                   |
-| 动作变化     | 动作类型改变                 | info                      |
-| 节点数量变化 | 节点总数不同                 | warning                   |
+| Type            | Description                           | Severity               |
+| --------------- | ------------------------------------- | ---------------------- |
+| Failed Node     | New failure, persistent failure, fixed | critical / warning / info |
+| Duration Anomaly | Duration change exceeds threshold (default 50%) | warning / info |
+| Path Divergence | Different branches from same node    | info                   |
+| Recognition Change | Recognition algorithm changed      | warning                |
+| Action Change   | Action type changed                  | info                   |
+| Node Count Change | Total node count different         | warning                |
 
-### 实现文件
+### Implementation Files
 
-- [`src/utils/pathBuilder.ts`](src/utils/pathBuilder.ts)：路径构建和对齐算法
-- [`src/utils/diffDetection.ts`](src/utils/diffDetection.ts)：差异检测逻辑
-- [`src/components/ComparePanel.vue`](src/components/ComparePanel.vue)：对比面板 UI
-- [`src/components/RouteMap.vue`](src/components/RouteMap.vue)：路线图组件
-- [`src/components/PathDetail.vue`](src/components/PathDetail.vue)：节点详情组件
+- [`src/utils/pathBuilder.ts`](src/utils/pathBuilder.ts): Path building and alignment algorithm
+- [`src/utils/diffDetection.ts`](src/utils/diffDetection.ts): Diff detection logic
+- [`src/components/ComparePanel.vue`](src/components/ComparePanel.vue): Comparison panel UI
+- [`src/components/RouteMap.vue`](src/components/RouteMap.vue): Route map component
+- [`src/components/PathDetail.vue`](src/components/PathDetail.vue): Node detail component
 
-### 配置项
+### Configuration
 
-任务对比相关配置在 [`src/config/compare.ts`](src/config/compare.ts)：
+Task comparison configuration in [`src/config/compare.ts`](src/config/compare.ts):
 
 ```typescript
 export const compareConfig = {
-  durationChangeThreshold: 0.5,        // 耗时变化阈值
-  reportFirstPathDivergenceOnly: true, // 只报告第一个路径分歧
-  diffSeverityOrder: [...],            // 差异严重程度排序
+  durationChangeThreshold: 0.5,           // Duration change threshold
+  reportFirstPathDivergenceOnly: true,    // Report only first path divergence
+  diffSeverityOrder: [...],               // Diff severity order
 };
 ```
 
-## 相关文档链接
+## Related Documentation
 
-建议调取以下文档以辅助理解和开发：
+- [Parser Architecture and Development Guide](docs/developers/parser-guide.md)
+- [Development Guide](docs/developers/development-guide.md)
+- [Contribution Guide](docs/developers/CONTRIBUTING.md)
+- [MaaFramework](https://github.com/MaaXYZ/MaaFramework) - Automation framework
+- [Naive UI Documentation](https://www.naiveui.com/)
+- [Tauri Documentation](https://tauri.app/)
 
-- [解析器架构与开发指南](docs/developers/parser-guide.md)
-- [贡献指南](docs/developers/CONTRIBUTING.md)
-- [MaaFramework](https://github.com/MaaXYZ/MaaFramework) - 自动化框架
-- [Naive UI 文档](https://www.naiveui.com/)
-- [Tauri 文档](https://tauri.app/)
+## Dynamic Adjustment Area
 
-## 实时调整区域
+> The following content can be dynamically adjusted during development
 
-> 以下是可在开发过程中动态调整的内容
+### Current Development Focus
 
-### 当前开发重点
+- Task comparison feature improvement
+- Parser stability optimization
+- AI analysis feature improvement
+- User experience enhancement
 
-- 任务对比功能完善
-- 解析器稳定性优化
-- AI 分析功能完善
-- 用户体验改进
+### Known Issues
 
-### 已知问题
+- None
 
-- 暂无
+### TODO
 
-### 待办事项
-
-- 暂无
+- None
 
 ---
 
-最后更新: 2026-03-08
+Last updated: 2026-03-09

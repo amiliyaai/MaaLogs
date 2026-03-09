@@ -22,6 +22,7 @@ import type {
 } from "@/types/parserTypes";
 import type { JsonValue } from "@/types/logTypes";
 import { parseMainLogWithLogDir } from "@/parsers/baseParser";
+import { LOG_SOURCES } from "@/config/constants";
 
 interface JsonLogEntry {
   time?: string;
@@ -68,7 +69,7 @@ function parseJsonLine(line: string, lineNumber: number, fileName: string): AuxL
 
     const entry: AuxLogEntry = {
       key: `${fileName}-${lineNumber}`,
-      source: "go-service",
+      source: LOG_SOURCES.GO_SERVICE,
       timestamp: timestamp || "",
       timestampMs: Number.isNaN(timestampMs) ? undefined : timestampMs,
       level,
@@ -123,7 +124,20 @@ function parseTextLine(line: string, lineNumber: number, fileName: string): AuxL
 
   const levelMatch = rest.match(/^(\w+)\s*/);
   const level = levelMatch ? levelMatch[1].toUpperCase() : "INFO";
-  const message = levelMatch ? rest.slice(levelMatch[0].length) : rest;
+  let message = levelMatch ? rest.slice(levelMatch[0].length) : rest;
+
+  let caller: string | undefined;
+  const callerMatchBracket = message.match(String.raw`^\[([^:]+\:\d+)\]\s*`);
+  if (callerMatchBracket) {
+    caller = callerMatchBracket[1];
+    message = message.slice(callerMatchBracket[0].length);
+  } else {
+    const callerMatchPlain = message.match(String.raw`^([^[\]\s]+:\d+)\s*`);
+    if (callerMatchPlain) {
+      caller = callerMatchPlain[1];
+      message = message.slice(callerMatchPlain[0].length);
+    }
+  }
 
   const identifierMatch = message.match(/\[identifier[=_]([a-f0-9-]{36})\]/i);
   const identifier = identifierMatch ? identifierMatch[1] : undefined;
@@ -135,13 +149,14 @@ function parseTextLine(line: string, lineNumber: number, fileName: string): AuxL
 
   return {
     key: `${fileName}-${lineNumber}`,
-    source: "go-service",
+    source: LOG_SOURCES.GO_SERVICE,
     timestamp,
     timestampMs: Number.isNaN(timestampMs) ? undefined : timestampMs,
     level,
     message: message.trim(),
     identifier,
     task_id,
+    caller,
     fileName,
     lineNumber,
   };
@@ -158,7 +173,7 @@ function parseAuxLine(line: string, lineNumber: number, fileName: string): AuxLo
 
   return {
     key: `${fileName}-${lineNumber}`,
-    source: "go-service",
+    source: LOG_SOURCES.GO_SERVICE,
     timestamp: "",
     level: "INFO",
     message: line.trim(),

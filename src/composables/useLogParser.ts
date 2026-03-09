@@ -38,6 +38,7 @@ import {
   attachScreenshotsFromSaveOnError,
 } from "@/parsers/shared";
 import { isMainLog, isMaaBakLog } from "@/utils/file";
+import { LOG_FILE_NAMES } from "@/config/constants";
 import { createLogger, setLoggerContext } from "@/utils/logger";
 import { parseTimestampToMs } from "@/utils/parse";
 
@@ -313,10 +314,10 @@ async function processFileEntries(
       const mergedLines = [...mergedBakLines, ...entry.lines];
       const mergedContent = mergedLines.join("\n");
       const mergedFile: SelectedFile = {
-        name: "maa.log",
+        name: LOG_FILE_NAMES.MAA_LOG,
         size: mergedContent.length,
         type: "text/plain",
-        file: new File([mergedContent], "maa.log", { type: "text/plain" }),
+        file: new File([mergedContent], LOG_FILE_NAMES.MAA_LOG, { type: "text/plain" }),
         sourceFiles: [...sourceFiles, entry.file.name],
       };
       entry.file = mergedFile;
@@ -324,7 +325,7 @@ async function processFileEntries(
       entry.size = mergedFile.size;
     }
 
-    logger.info("已合并 maa.bak.log 和 maa.log", {
+    logger.info(`已合并 ${LOG_FILE_NAMES.MAA_BAK_LOG} 和 ${LOG_FILE_NAMES.MAA_LOG}`, {
       bakFileCount: sortedBakLogs.length,
       bakLogLines: mergedBakLines.length,
       mainLogLines: mainLogEntries.reduce((sum, e) => sum + e.lines.length, 0),

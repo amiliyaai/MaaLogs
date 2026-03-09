@@ -90,9 +90,12 @@ function createMemoryStorage() {
 export async function createWebPlatform(): Promise<Platform> {
   const files = new Map<
     string,
-    { type: "file" | "dir"; data?: Uint8Array | File; size?: number; mtime?: number; name: string }
+    { type: "file" | "dir"; data?: Uint8Array; size?: number; mtime?: number; name: string }
   >();
   const blobCache = new Map<string, string>();
+  type WebBridgeWindow = Window & {
+    __maalogs_registerMemoryFiles?: (items: { path: string; data: Uint8Array | File }[]) => Promise<void>;
+  };
   function norm(p: string) {
     const s = normalizePathSegment(p);
     return s.startsWith("/") ? s : `/${s}`;
@@ -150,10 +153,6 @@ export async function createWebPlatform(): Promise<Platform> {
       const meta = files.get(p);
       if (!meta || meta.type !== "file") throw new Error("VFS_FILE_NOT_FOUND");
       if (meta.data instanceof Uint8Array) return meta.data;
-      if (typeof Blob !== "undefined" && meta.data instanceof Blob) {
-        const ab = await meta.data.arrayBuffer();
-        return new Uint8Array(ab);
-      }
       throw new Error("VFS_FILE_NOT_FOUND");
     },
     async stat(path: string) {
@@ -178,19 +177,18 @@ export async function createWebPlatform(): Promise<Platform> {
       if (blobCache.has(p)) return blobCache.get(p)!;
       let blob: Blob;
       const lower = p.toLowerCase();
-      const mime = lower.endsWith(".png")
-        ? "image/png"
-        : lower.endsWith(".jpg") || lower.endsWith(".jpeg")
-        ? "image/jpeg"
-        : "application/octet-stream";
+      let mime = "application/octet-stream";
+      if (lower.endsWith(".png")) {
+        mime = "image/png";
+      } else if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) {
+        mime = "image/jpeg";
+      }
       if (meta.data instanceof Uint8Array) {
         const ab = meta.data.buffer.slice(
           meta.data.byteOffset,
           meta.data.byteOffset + meta.data.byteLength
         ) as ArrayBuffer;
         blob = new Blob([ab], { type: mime });
-      } else if (typeof Blob !== "undefined" && meta.data instanceof Blob) {
-        blob = meta.data;
       } else {
         return p;
       }
@@ -288,7 +286,7 @@ export async function createWebPlatform(): Promise<Platform> {
       },
     },
   };
-  const win = getWindow() as any;
+  const win = getWindow() as WebBridgeWindow | null;
   if (win) {
     win.__maalogs_registerMemoryFiles = async (items: { path: string; data: Uint8Array | File }[]) => {
       for (const { path, data } of items) {

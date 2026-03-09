@@ -57,11 +57,30 @@ npm run tauri:build
 
 ```
 src/
+├── App.vue               # 根组件
+├── main.ts               # 应用入口
+├── config/               # 应用配置
+│   ├── index.ts          # 配置入口，导出所有配置
+│   ├── ai.ts             # AI 服务配置
+│   ├── compare.ts        # 任务对比配置
+│   ├── constants.ts      # 应用常量（日志文件名、扩展名等）
+│   ├── file.ts           # 文件处理配置
+│   ├── knowledge.ts      # AI 知识库配置
+│   └── parser.ts         # 解析器配置
+├── platform/             # 平台适配层（门面层）
+│   ├── index.ts          # 平台选择器，根据环境动态加载
+│   ├── types.ts          # 平台接口定义
+│   ├── web.ts            # Web 端实现（降级）
+│   └── tauri.ts          # Tauri 桌面端实现（完整）
 ├── components/           # Vue 组件
 │   ├── AIResultCard.vue      # AI 分析结果卡片
 │   ├── AISettingsModal.vue   # AI 设置弹窗
-│   ├── AnalysisPanel.vue     # 分析面板
+│   ├── AnalysisPanel.vue     # 分析面板（三栏布局）
+│   ├── ComparePanel.vue      # 任务对比面板
+│   ├── CustomLogPanel.vue    # Custom 日志面板
 │   ├── NodeFlowChart.vue     # 节点流程图
+│   ├── RouteMap.vue          # 对比路线图
+│   ├── SearchPanel.vue       # 搜索面板
 │   └── ...
 ├── composables/          # Vue Composables
 │   ├── useLogParser.ts       # 日志解析
@@ -69,35 +88,37 @@ src/
 │   ├── useInPageSearch.ts    # 页面内搜索（结构化数据）
 │   ├── useStatistics.ts      # 统计分析
 │   ├── useFileSelection.ts   # 文件选择
+│   ├── useCompareSlots.ts    # 对比面板槽位管理
+│   ├── useRunComparison.ts   # 任务对比执行
 │   └── useStore.ts           # 持久化存储
 ├── parsers/              # 日志解析器
+│   ├── index.ts              # 模块入口
+│   ├── baseParser.ts         # 基础解析器（maa.log）
+│   ├── shared.ts             # 共享工具函数
+│   ├── correlate.ts          # 日志关联
+│   ├── project-registry.ts   # 解析器注册表
 │   ├── projects/             # 项目解析器实现
 │   │   ├── m9a.ts            # M9A 解析器
 │   │   └── maaend.ts         # MaaEnd 解析器
-│   ├── baseParser.ts         # 基础解析器
-│   ├── shared.ts             # 共享工具函数
-│   ├── correlate.ts          # 日志关联
-│   └── project-registry.ts   # 解析器注册表
 ├── types/                # TypeScript 类型定义
 │   ├── logTypes.ts           # 日志相关类型
 │   └── parserTypes.ts        # 解析器相关类型
 ├── utils/                # 工具函数
 │   ├── aiAnalyzer.ts         # AI 分析
 │   ├── crypto.ts             # 加密工具
+│   ├── diffDetection.ts      # 差异检测（任务对比）
 │   ├── file.ts               # 文件处理
 │   ├── format.ts             # 数据格式化
 │   ├── logger.ts             # 日志系统
 │   ├── parse.ts              # 解析工具
+│   ├── pathBuilder.ts        # Needleman-Wunsch 对齐算法
 │   └── updater.ts            # 应用更新
-├── config/               # 应用配置
-│   └── index.ts              # 环境配置
 ├── __tests__/            # 单元测试
 │   ├── parsers/              # 解析器测试
 │   ├── utils/                # 工具函数测试
 │   ├── composables/          # Composables 测试
+│   ├── platform/             # 平台适配测试
 │   └── integration/          # 集成测试
-├── App.vue               # 根组件
-└── main.ts               # 应用入口
 ```
 
 ## 技术栈
@@ -114,6 +135,58 @@ src/
 
 - **Tauri 2** - 跨平台桌面应用框架
 - **Rust** - 后端逻辑
+
+### 平台适配层
+
+MaaLogs 采用**门面模式（Facade Pattern）**实现 Web 端与桌面端的代码共享。`platform/` 目录作为平台适配层，提供统一的抽象接口：
+
+```
+                    ┌─────────────────────────────┐
+                    │     上层业务代码             │
+                    │  (composables, components)  │
+                    └──────────────┬──────────────┘
+                                   │
+                                   ▼
+                    ┌─────────────────────────────┐
+                    │    platform/index.ts       │
+                    │    getPlatform()           │
+                    └──────────────┬──────────────┘
+                                   │
+              ┌────────────────────┴────────────────────┐
+              │                                         │
+              ▼                                         ▼
+┌─────────────────────────────┐        ┌─────────────────────────────┐
+│    platform/web.ts          │        │    platform/tauri.ts        │
+│    createWebPlatform()       │        │    createTauriPlatform()   │
+│    (浏览器降级实现)          │        │    (桌面完整实现)          │
+└─────────────────────────────┘        └─────────────────────────────┘
+```
+
+**平台接口定义**（`platform/types.ts`）：
+
+```typescript
+interface Platform {
+  vfs: Vfs;              // 文件系统
+  images: ImageResolver; // 图片解析
+  storage: Storage;      // 持久化存储
+  updater: UpdaterWindow; // 窗口操作
+  logger: LoggerFactory; // 日志工厂
+  dragDrop: DragDrop;   // 拖拽事件
+  picker: Picker;       // 目录选择器
+}
+```
+
+**使用示例**：
+
+```typescript
+import { getPlatform } from "@/platform";
+
+async function readLogFile(path: string) {
+  const platform = await getPlatform();
+  const content = await platform.vfs.readText(path);
+  return content;
+}
+```
 
 ### 开发工具
 
@@ -142,6 +215,42 @@ src/
 | 常量            | UPPER_SNAKE_CASE    | `DEFAULT_CONFIG`       |
 | 函数            | camelCase           | `parseBracketLine`     |
 | 接口/类型       | PascalCase          | `TaskInfo`, `NodeInfo` |
+
+### 常量定义规范
+
+项目中使用到的常量应统一放在 `src/config/constants.ts` 文件中，避免 Magic Strings 散落在代码各处：
+
+```typescript
+// src/config/constants.ts
+export const LOG_FILE_NAMES = {
+  MAA_LOG: "maa.log",
+  MAA_BAK_LOG: "maa.bak.log",
+  GO_SERVICE_LOG: "go-service.log",
+} as const;
+
+export const FILE_EXTENSIONS = {
+  LOG: ".log",
+  JSON: ".json",
+  JSONC: ".jsonc",
+} as const;
+
+export const LOG_LEVELS = {
+  INFO: "INFO",
+  DEBUG: "DEBUG",
+  WARN: "WRN",
+  ERROR: "ERR",
+} as const;
+```
+
+使用方式：
+
+```typescript
+import { LOG_FILE_NAMES, FILE_EXTENSIONS } from "@/config/constants";
+
+function isMainLog(fileName: string): boolean {
+  return fileName.toLowerCase() === LOG_FILE_NAMES.MAA_LOG;
+}
+```
 
 ### 注释规范
 
@@ -273,6 +382,39 @@ const {
   clearSearch,
   handleResultClick,
 } = useInPageSearch(tasks, selectedTaskId, setSelectedTaskId, selectedNodeId, setSelectedNodeId);
+```
+
+### 任务对比
+
+MaaLogs 支持对比两次运行的日志，分析差异。核心实现位于：
+
+- `src/utils/pathBuilder.ts` - Needleman-Wunsch 全局序列对齐算法
+- `src/utils/diffDetection.ts` - 差异检测逻辑
+
+**差异类型**：
+
+| 类型         | 说明                         | 严重程度                  |
+| ------------ | ---------------------------- | ------------------------- |
+| 失败节点     | 新增失败、持续失败、已修复   | critical / warning / info |
+| 耗时异常     | 耗时变化超过阈值（默认 50%） | warning / info            |
+| 路径分歧     | 从同一节点走了不同分支       | info                      |
+| 识别变化     | 识别算法改变                 | warning                   |
+| 动作变化     | 动作类型改变                 | info                      |
+| 节点数量变化 | 节点总数不同                 | warning                   |
+
+**使用示例**：
+
+```typescript
+import { useRunComparison } from "@/composables/useRunComparison";
+
+const {
+  comparisonResult,
+  isComparing,
+  runComparison,
+} = useRunComparison(tasksA, tasksB);
+
+const result = await runComparison();
+console.log(result.diffs); // 差异列表
 ```
 
 ## 调试技巧
