@@ -57,6 +57,7 @@ describe("useFileSelection", () => {
   it("falls back to browser directory input when platform picker returns null", async () => {
     getPlatformMock.mockResolvedValue({
       picker: { selectDirectory: vi.fn().mockResolvedValue(null) },
+      vfs: { exists: vi.fn().mockResolvedValue(false) },
     });
 
     const browserFile = new File(["browser"], "maa.log", { type: "text/plain" });
