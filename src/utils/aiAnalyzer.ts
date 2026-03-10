@@ -244,7 +244,6 @@ function buildRecognitionAttemptsSection(attempts?: NodeInfo["recognition_attemp
       name: attempt.name,
       status: attempt.status,
       algorithm: attempt.reco_details?.algorithm,
-      detail: attempt.reco_details?.detail,
     });
     const existing = uniqueResults.get(key);
     if (existing) existing.count++;
@@ -253,13 +252,14 @@ function buildRecognitionAttemptsSection(attempts?: NodeInfo["recognition_attemp
 
   const lines: string[] = [`- 识别尝试次数: ${attempts.length}`];
 
-  if (uniqueResults.size === 1) {
-    const [entry] = uniqueResults.values();
+  const uniqueArray = Array.from(uniqueResults.values());
+  if (uniqueArray.length === 1) {
+    const [entry] = uniqueArray;
     lines.push(`  所有尝试结果相同 (${entry.count}次):`);
     lines.push(...formatAttempt(entry.first));
   } else {
     lines.push("  识别尝试详情 (去重后):");
-    for (const entry of uniqueResults.values()) {
+    for (const entry of uniqueArray) {
       const countStr = entry.count > 1 ? ` (×${entry.count})` : "";
       lines.push(...formatAttempt(entry.first, countStr));
     }
@@ -661,6 +661,9 @@ export async function analyzeWithAI(
       resultsCount: analysisResults.length,
       totalDurationMs: Math.round(totalDuration),
       requestDurationMs: Math.round(requestDuration),
+      promptTokens: stats.promptTokens,
+      completionTokens: stats.completionTokens,
+      totalTokens: stats.totalTokens,
       avgConfidence:
         analysisResults.length > 0
           ? Math.round(
