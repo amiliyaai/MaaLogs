@@ -69,7 +69,7 @@ const expanded = ref(false);
     </template>
 
     <div v-show="expanded" class="file-list-wrapper">
-      <div v-if="selectedFiles.length === 0" class="empty">请先选择日志/配置文件</div>
+      <div v-if="selectedFiles.length === 0" class="empty">请先选择日志目录</div>
       <ul v-else class="file-list">
         <li v-for="(file, index) in selectedFiles" :key="file.name" class="file-row">
           <span class="file-path" :title="file.path">{{ file.path || file.name }}</span>

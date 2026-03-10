@@ -171,6 +171,7 @@ const emit = defineEmits<{
   gap: 12px;
   position: relative;
   flex-shrink: 0;
+  align-items: center;
 }
 
 .hero-text {
@@ -255,7 +256,10 @@ const emit = defineEmits<{
 }
 
 .hero-card :deep(.n-card__header) {
-  padding: 8px 16px;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
 }
 
 .hero-card :deep(.n-card__content) {
@@ -281,7 +285,6 @@ const emit = defineEmits<{
   gap: 6px;
   padding: 6px 16px;
   background: linear-gradient(180deg, #ffffff 0%, #f8f8f8 100%);
-  border: 1px solid #e0e0e0;
   border-radius: 20px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -289,8 +292,7 @@ const emit = defineEmits<{
 }
 
 .file-list-btn:hover {
-  border-color: #a0a0a0;
-  background: #f5f5f5;
+  background: linear-gradient(180deg, #f8f8f8 0%, #f0f0f0 100%);
 }
 
 .file-icon {
