@@ -154,7 +154,7 @@ function useLogWatcher() {
           }
         }
       } else if (parser && projectTypeValue && projectTypeValue !== "unknown") {
-      /** 处理辅助日志（只在项目类型已知时处理） */
+        /** 处理辅助日志（只在项目类型已知时处理） */
         try {
           const result = parser.parseAuxLog(lines, {
             fileName: change.file.filename,
