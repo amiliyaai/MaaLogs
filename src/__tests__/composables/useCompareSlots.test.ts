@@ -30,7 +30,12 @@ vi.mock("@/composables/useLogParser", () => ({
 }));
 
 vi.mock("@/utils/diffDetection", () => ({
-  buildParsedRunSnapshot: (payload: { tasks: TaskInfo[]; sourceName: string; detectedProject: string; label: string }) => ({
+  buildParsedRunSnapshot: (payload: {
+    tasks: TaskInfo[];
+    sourceName: string;
+    detectedProject: string;
+    label: string;
+  }) => ({
     id: "snapshot-id",
     parsedAt: "2026-01-01 00:00:00",
     nodeStatistics: [],
@@ -118,7 +123,9 @@ describe("useCompareSlots", () => {
         candidateSnapshot.value = snapshot;
       },
     };
-    const composable = useCompareSlots(compareOptions as unknown as Parameters<typeof useCompareSlots>[0]);
+    const composable = useCompareSlots(
+      compareOptions as unknown as Parameters<typeof useCompareSlots>[0]
+    );
 
     await composable.handleSelectBaselineDir();
 

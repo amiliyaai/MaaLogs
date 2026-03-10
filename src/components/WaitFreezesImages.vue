@@ -46,13 +46,7 @@ async function loadImages() {
       .filter((entry) => {
         if (!entry.name) return false;
         const n = entry.name.toLowerCase();
-        if (
-          !(
-            n.endsWith(`${base}.jpg`) ||
-            n.endsWith(`${base}.jpeg`) ||
-            n.endsWith(`${base}.png`)
-          )
-        )
+        if (!(n.endsWith(`${base}.jpg`) || n.endsWith(`${base}.jpeg`) || n.endsWith(`${base}.png`)))
           return false;
         const fileMs = parseFileTimeToMs(entry.name);
         if (fileMs === null) return false;

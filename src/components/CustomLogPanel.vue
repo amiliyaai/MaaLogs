@@ -1,12 +1,6 @@
 <script setup lang="ts">
 import { nextTick, ref, watch } from "vue";
-import {
-  NTag,
-  NCheckboxGroup,
-  NCheckbox,
-  NSpace,
-  NSelect,
-} from "naive-ui";
+import { NTag, NCheckboxGroup, NCheckbox, NSpace, NSelect } from "naive-ui";
 import { DynamicScroller, DynamicScrollerItem } from "vue-virtual-scroller";
 import type { AuxLogEntry, PipelineCustomActionInfo } from "@/types/logTypes";
 

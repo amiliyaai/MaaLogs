@@ -181,13 +181,13 @@ MaaLogs uses **Facade Pattern** to share code between Web and Desktop versions. 
 
 ```typescript
 interface Platform {
-  vfs: Vfs;              // File system
+  vfs: Vfs; // File system
   images: ImageResolver; // Image resolution
-  storage: Storage;      // Persistent storage
+  storage: Storage; // Persistent storage
   updater: UpdaterWindow; // Window operations
   logger: LoggerFactory; // Logger factory
-  dragDrop: DragDrop;   // Drag and drop
-  picker: Picker;      // Directory picker
+  dragDrop: DragDrop; // Drag and drop
+  picker: Picker; // Directory picker
 }
 ```
 
@@ -289,14 +289,14 @@ Task comparison uses **Needleman-Wunsch Global Sequence Alignment Algorithm** to
 
 ### Diff Detection Types
 
-| Type            | Description                           | Severity               |
-| --------------- | ------------------------------------- | ---------------------- |
-| Failed Node     | New failure, persistent failure, fixed | critical / warning / info |
-| Duration Anomaly | Duration change exceeds threshold (default 50%) | warning / info |
-| Path Divergence | Different branches from same node    | info                   |
-| Recognition Change | Recognition algorithm changed      | warning                |
-| Action Change   | Action type changed                  | info                   |
-| Node Count Change | Total node count different         | warning                |
+| Type               | Description                                     | Severity                  |
+| ------------------ | ----------------------------------------------- | ------------------------- |
+| Failed Node        | New failure, persistent failure, fixed          | critical / warning / info |
+| Duration Anomaly   | Duration change exceeds threshold (default 50%) | warning / info            |
+| Path Divergence    | Different branches from same node               | info                      |
+| Recognition Change | Recognition algorithm changed                   | warning                   |
+| Action Change      | Action type changed                             | info                      |
+| Node Count Change  | Total node count different                      | warning                   |
 
 ### Implementation Files
 

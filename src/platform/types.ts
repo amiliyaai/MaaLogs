@@ -9,7 +9,10 @@ export interface VfsEntry {
 }
 
 export interface Vfs {
-  list(dir?: string, opts?: { recursive?: boolean; caseInsensitive?: boolean }): Promise<VfsEntry[]>;
+  list(
+    dir?: string,
+    opts?: { recursive?: boolean; caseInsensitive?: boolean }
+  ): Promise<VfsEntry[]>;
   readText(path: string): Promise<string>;
   readBinary(path: string): Promise<Uint8Array>;
   stat(path: string): Promise<{ type: FileType; size?: number; mtime?: number }>;
@@ -60,7 +63,11 @@ export interface LoggerFactory {
 }
 
 export interface DragDrop {
-  onDrop(cb: (paths: string[]) => void, onOver: () => void, onLeave: () => void): Promise<() => void>;
+  onDrop(
+    cb: (paths: string[]) => void,
+    onOver: () => void,
+    onLeave: () => void
+  ): Promise<() => void>;
 }
 
 export interface Picker {

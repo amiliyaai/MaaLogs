@@ -94,7 +94,9 @@ export async function createWebPlatform(): Promise<Platform> {
   >();
   const blobCache = new Map<string, string>();
   type WebBridgeWindow = Window & {
-    __maalogs_registerMemoryFiles?: (items: { path: string; data: Uint8Array | File }[]) => Promise<void>;
+    __maalogs_registerMemoryFiles?: (
+      items: { path: string; data: Uint8Array | File }[]
+    ) => Promise<void>;
   };
   function norm(p: string) {
     const s = normalizePathSegment(p);
@@ -121,18 +123,30 @@ export async function createWebPlatform(): Promise<Platform> {
   function listChildren(dir: string) {
     const base = dir === "/" ? "/" : norm(dir);
     const seen = new Set<string>();
-    const entries: { path: string; name: string; type: "file" | "dir"; size?: number; mtime?: number }[] = [];
+    const entries: {
+      path: string;
+      name: string;
+      type: "file" | "dir";
+      size?: number;
+      mtime?: number;
+    }[] = [];
     for (const p of files.keys()) {
       if (p === base) continue;
       if (!p.startsWith(base === "/" ? "/" : base + "/")) continue;
-      const rest = p.slice((base === "/" ? 1 : base.length + 1));
+      const rest = p.slice(base === "/" ? 1 : base.length + 1);
       const seg = rest.split("/")[0];
       const childPath = base === "/" ? `/${seg}` : `${base}/${seg}`;
       if (seen.has(childPath)) continue;
       seen.add(childPath);
       const childMeta = files.get(childPath);
       if (childMeta) {
-        entries.push({ path: childPath, name: seg, type: childMeta.type, size: childMeta.size, mtime: childMeta.mtime });
+        entries.push({
+          path: childPath,
+          name: seg,
+          type: childMeta.type,
+          size: childMeta.size,
+          mtime: childMeta.mtime,
+        });
       } else {
         entries.push({ path: childPath, name: seg, type: "dir" });
       }
@@ -161,7 +175,9 @@ export async function createWebPlatform(): Promise<Platform> {
         const m = files.get(p)!;
         return { type: m.type, size: m.size, mtime: m.mtime };
       }
-      const existsAsDir = Array.from(files.keys()).some((k) => k.startsWith(p.endsWith("/") ? p : p + "/"));
+      const existsAsDir = Array.from(files.keys()).some((k) =>
+        k.startsWith(p.endsWith("/") ? p : p + "/")
+      );
       if (existsAsDir) return { type: "dir" as const };
       throw new Error("VFS_FILE_NOT_FOUND");
     },
@@ -224,7 +240,13 @@ export async function createWebPlatform(): Promise<Platform> {
     async writeBinary(path: string, data: Uint8Array) {
       const p = norm(path);
       ensureDir(parentDir(p));
-      files.set(p, { type: "file", data, size: data.length, mtime: Date.now(), name: p.split("/").pop() || "" });
+      files.set(p, {
+        type: "file",
+        data,
+        size: data.length,
+        mtime: Date.now(),
+        name: p.split("/").pop() || "",
+      });
     },
   } as const;
   const images = {
@@ -288,9 +310,14 @@ export async function createWebPlatform(): Promise<Platform> {
   };
   const win = getWindow() as WebBridgeWindow | null;
   if (win) {
-    win.__maalogs_registerMemoryFiles = async (items: { path: string; data: Uint8Array | File }[]) => {
+    win.__maalogs_registerMemoryFiles = async (
+      items: { path: string; data: Uint8Array | File }[]
+    ) => {
       for (const { path, data } of items) {
-        await vfs.writeBinary(path, data instanceof Uint8Array ? data : new Uint8Array(await data.arrayBuffer()));
+        await vfs.writeBinary(
+          path,
+          data instanceof Uint8Array ? data : new Uint8Array(await data.arrayBuffer())
+        );
       }
     };
   }

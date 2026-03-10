@@ -133,7 +133,10 @@ function resolveSourceAndFunction(
   const lineNumberRegex = /^L\d+$/;
 
   if (opt3) {
-    if (lineNumberRegex.test(opt2 || "") || (opt1 && (opt1.includes(".cpp") || opt1.includes(".hpp") || opt1.includes(".h")))) {
+    if (
+      lineNumberRegex.test(opt2 || "") ||
+      (opt1 && (opt1.includes(".cpp") || opt1.includes(".hpp") || opt1.includes(".h")))
+    ) {
       sourceFile = opt1;
       lineNumber = opt2;
     } else if (opt2 && (opt2.includes(".cpp") || opt2.includes(".hpp") || opt2.includes(".h"))) {

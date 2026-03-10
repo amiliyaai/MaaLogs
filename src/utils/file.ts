@@ -201,7 +201,8 @@ export function filterLogFiles(fileList: File[]): File[] {
 
 function isImportableLogFile(name: string): boolean {
   if (isSupportedLogFile(name)) return true;
-  if (FILE_CONFIG.getImportMaaBakLog() && name.toLowerCase() === LOG_FILE_NAMES.MAA_BAK_LOG) return true;
+  if (FILE_CONFIG.getImportMaaBakLog() && name.toLowerCase() === LOG_FILE_NAMES.MAA_BAK_LOG)
+    return true;
   return false;
 }
 
@@ -270,9 +271,12 @@ export async function expandSelectedFiles(fileList: File[]): Promise<File[]> {
 
   try {
     if (webVisionRegs.length > 0) {
-      const win = typeof window !== "undefined" ? (window as Window & {
-        __maalogs_registerMemoryFiles?: (items: MemoryRegisterItem[]) => Promise<void>;
-      }) : null;
+      const win =
+        typeof window !== "undefined"
+          ? (window as Window & {
+              __maalogs_registerMemoryFiles?: (items: MemoryRegisterItem[]) => Promise<void>;
+            })
+          : null;
       if (win && typeof win.__maalogs_registerMemoryFiles === "function") {
         await win.__maalogs_registerMemoryFiles(webVisionRegs);
       }
@@ -610,7 +614,8 @@ export async function getFilesFromDragEvent(event: DragEvent): Promise<File[]> {
     const itemWithEntry = item as DataTransferItemWithEntry;
     if (typeof itemWithEntry.webkitGetAsEntry === "function") {
       const entry = itemWithEntry.webkitGetAsEntry();
-      if (entry && entry.isDirectory) dirEntries.push(entry as unknown as FileSystemDirectoryEntryLike);
+      if (entry && entry.isDirectory)
+        dirEntries.push(entry as unknown as FileSystemDirectoryEntryLike);
     }
   }
   const dirFiles: File[] = [];
@@ -742,8 +747,10 @@ export function parsePipelineFile(
  */
 export function isGoServiceLog(fileName: string): boolean {
   const lowerName = fileName.toLowerCase();
-  if (lowerName.includes(LOG_FILE_NAMES.MAA_LOG) || lowerName === LOG_FILE_NAMES.MAA_LOG) return false;
-  if (lowerName.endsWith(FILE_EXTENSIONS.JSON) || lowerName.endsWith(FILE_EXTENSIONS.JSONC)) return false;
+  if (lowerName.includes(LOG_FILE_NAMES.MAA_LOG) || lowerName === LOG_FILE_NAMES.MAA_LOG)
+    return false;
+  if (lowerName.endsWith(FILE_EXTENSIONS.JSON) || lowerName.endsWith(FILE_EXTENSIONS.JSONC))
+    return false;
   return true;
 }
 
@@ -764,7 +771,9 @@ export function isGoServiceLog(fileName: string): boolean {
 export function isMainLog(fileName: string): boolean {
   const lowerName = fileName.toLowerCase();
   return (
-    lowerName === LOG_FILE_NAMES.MAA_LOG || lowerName.endsWith("/" + LOG_FILE_NAMES.MAA_LOG) || lowerName.endsWith("\\" + LOG_FILE_NAMES.MAA_LOG)
+    lowerName === LOG_FILE_NAMES.MAA_LOG ||
+    lowerName.endsWith("/" + LOG_FILE_NAMES.MAA_LOG) ||
+    lowerName.endsWith("\\" + LOG_FILE_NAMES.MAA_LOG)
   );
 }
 

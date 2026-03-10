@@ -20,7 +20,13 @@
 import { ref, triggerRef } from "vue";
 import type { TaskInfo, AuxLogEntry } from "@/types/logTypes";
 import { projectParserRegistry, correlateAuxLogs } from "@/parsers";
-import { parseBracketLine, handleMainLogLine, createMainLogContext, type MainLogParseContext, type ProjectType } from "@/parsers/baseParser";
+import {
+  parseBracketLine,
+  handleMainLogLine,
+  createMainLogContext,
+  type MainLogParseContext,
+  type ProjectType,
+} from "@/parsers/baseParser";
 import { buildTasks, StringPool } from "@/utils/parse";
 import { useFileWatcher, type FileChange } from "./useFileWatcher";
 import { useTaskCache } from "./useTaskCache";
@@ -97,7 +103,7 @@ function useLogWatcher() {
 
     const projectTypeValue = projectType.value;
     let parser = lastParser;
-    
+
     /** 缓存 parser，只在项目类型变化时重新获取 */
     if (!parser || projectType.value !== projectTypeValue) {
       parser = projectParserRegistry.get(projectTypeValue) || projectParserRegistry.getDefault();
@@ -115,18 +121,20 @@ function useLogWatcher() {
       /** 预计算行数，避免重复计算 */
       const lines = content.split(NEWLINE_REGEX);
       const lineCount = lines.length;
-      
-      logger.debug(`正在处理 ${lineCount} 行 from ${change.file.filename}, isMainLog: ${change.isMainLog}`);
+
+      logger.debug(
+        `正在处理 ${lineCount} 行 from ${change.file.filename}, isMainLog: ${change.isMainLog}`
+      );
 
       /** 处理主日志 */
       if (change.isMainLog) {
         let parsedCount = 0;
-        
+
         /** 使用 for 循环替代 forEach，减少函数调用开销 */
         for (let i = 0; i < lineCount; i++) {
           const line = lines[i];
           if (!line.trim()) continue;
-          
+
           const parsed = parseBracketLine(line);
           if (parsed) {
             handleMainLogLine(mainLogContext, line, parsed, change.file.filename, 0);
@@ -134,26 +142,25 @@ function useLogWatcher() {
           }
         }
         logger.debug(`已解析 ${parsedCount} 行主日志`);
-        
+
         /** 批量添加事件到缓存 */
         const eventCount = mainLogContext.events.length;
         logger.debug(`解析到 ${eventCount} 个事件`);
-        
+
         for (let i = 0; i < eventCount; i++) {
           const event = mainLogContext.events[i];
           if (event) {
             taskCache.addEvent(event);
           }
         }
-      } 
+      } else if (parser && projectTypeValue && projectTypeValue !== "unknown") {
       /** 处理辅助日志（只在项目类型已知时处理） */
-      else if (parser && projectTypeValue && projectTypeValue !== "unknown") {
         try {
           const result = parser.parseAuxLog(lines, {
             fileName: change.file.filename,
           });
           logger.debug(`已解析辅助日志: ${result.entries.length} 条`);
-          
+
           /** 批量添加辅助日志条目 */
           const entryCount = result.entries.length;
           for (let i = 0; i < entryCount; i++) {
@@ -167,7 +174,7 @@ function useLogWatcher() {
 
     /** 获取所有事件 */
     const allEvents = taskCache.getAllEvents();
-    
+
     /** 获取已完成的任务（不删除缓存） */
     const newCompleted = taskCache.getCompletedTasks();
     const newCompletedCount = newCompleted.length;
@@ -213,7 +220,9 @@ function useLogWatcher() {
       completedTasks.value = [...completedTasksList];
       triggerRef(completedTasks);
       cachedTasks = completedTasksList.slice();
-      logger.info(`Added ${newCompletedCount} completed tasks with nodes, total: ${completedTasksList.length}`);
+      logger.info(
+        `Added ${newCompletedCount} completed tasks with nodes, total: ${completedTasksList.length}`
+      );
 
       /** 清理已完成任务的缓存 */
       taskCache.clearCompletedTasks();
@@ -226,7 +235,7 @@ function useLogWatcher() {
     /** 获取新的辅助日志条目并关联 */
     const newAuxEntries = taskCache.getAuxEntries();
     const auxEntryCount = newAuxEntries.length;
-    
+
     if (auxEntryCount > 0) {
       const correlated = correlateAuxLogs(newAuxEntries, cachedTasks);
       for (let i = 0; i < correlated.length; i++) {

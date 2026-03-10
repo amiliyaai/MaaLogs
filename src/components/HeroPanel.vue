@@ -95,7 +95,9 @@ const emit = defineEmits<{
             </template>
             开启后自动检测日志目录中的新任务，无需手动刷新。
           </NTooltip>
-          <span v-if="autoRefreshDir && autoRefreshProject !== 'unknown'" class="auto-refresh-info">({{ autoRefreshProject }}: {{ autoRefreshDir }})</span>
+          <span v-if="autoRefreshDir && autoRefreshProject !== 'unknown'" class="auto-refresh-info"
+            >({{ autoRefreshProject }}: {{ autoRefreshDir }})</span
+          >
         </div>
       </div>
       <!-- 提示 -->

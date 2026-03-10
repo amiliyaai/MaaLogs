@@ -184,7 +184,7 @@ async function createPicker() {
       if (!selected) {
         return null;
       }
-      return Array.isArray(selected) ? selected[0] ?? null : selected;
+      return Array.isArray(selected) ? (selected[0] ?? null) : selected;
     },
   };
 }

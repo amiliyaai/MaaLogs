@@ -109,7 +109,9 @@ export function useFileWatcher(): FileWatcherResult {
    * @param projectType - 项目类型（m9a / maaend）
    */
   async function init(dirPath: string, projectType: string): Promise<void> {
-    logger.info(`Initializing file watcher for directory: ${dirPath}, project type: ${projectType}`);
+    logger.info(
+      `Initializing file watcher for directory: ${dirPath}, project type: ${projectType}`
+    );
 
     const platform = await getPlatform();
     const entries = await platform.vfs.list(dirPath);
@@ -133,7 +135,9 @@ export function useFileWatcher(): FileWatcherResult {
         /** 大文件处理：只读取最后 MAX_INITIAL_READ_SIZE 字节 */
         if (fileSize > MAX_INITIAL_READ_SIZE) {
           initialPosition = fileSize - MAX_INITIAL_READ_SIZE;
-          logger.debug(`Large file detected ${filename}: ${fileSize} bytes, starting from position ${initialPosition}`);
+          logger.debug(
+            `Large file detected ${filename}: ${fileSize} bytes, starting from position ${initialPosition}`
+          );
         }
 
         /** 读取从 initialPosition 到文件末尾的内容 */
@@ -164,7 +168,9 @@ export function useFileWatcher(): FileWatcherResult {
           logger.debug(`Initial content for ${filename}: ${lines} lines, isMainLog: ${isMain}`);
         }
 
-        logger.debug(`Found file to watch: ${filename}, size: ${fileSize}, start position: ${initialPosition}`);
+        logger.debug(
+          `Found file to watch: ${filename}, size: ${fileSize}, start position: ${initialPosition}`
+        );
       } catch (err) {
         logger.warn(`Failed to stat file ${filename}: ${err}`);
       }
@@ -172,7 +178,9 @@ export function useFileWatcher(): FileWatcherResult {
 
     watchedFiles.value = files;
     fileChanges.value = changes;
-    logger.info(`File watcher initialized with ${files.length} files, ${changes.length} initial changes`);
+    logger.info(
+      `File watcher initialized with ${files.length} files, ${changes.length} initial changes`
+    );
   }
 
   /**
@@ -185,9 +193,13 @@ export function useFileWatcher(): FileWatcherResult {
    * @param _expectedSize - 预期文件大小（字节），保留参数
    * @returns 文件新增内容
    */
-  async function readFileContent(filePath: string, startPosition: number, _expectedSize: number): Promise<string> {
+  async function readFileContent(
+    filePath: string,
+    startPosition: number,
+    _expectedSize: number
+  ): Promise<string> {
     const platform = await getPlatform();
-    
+
     if (startPosition === 0) {
       return platform.vfs.readText(filePath);
     }
@@ -195,23 +207,23 @@ export function useFileWatcher(): FileWatcherResult {
     /** 使用二进制读取，从指定字节位置开始 */
     const binaryData = await platform.vfs.readBinary(filePath);
     const totalBytes = binaryData.length;
-    
+
     if (startPosition >= totalBytes) {
       return "";
     }
-    
+
     /** 找到第一个完整行，避免读取不完整的行 */
     let newlineOffset = startPosition;
     while (newlineOffset < totalBytes && binaryData[newlineOffset] !== 10) {
       newlineOffset++;
     }
-    
+
     /** 如果找到换行符，从换行符后开始读取 */
     const startOffset = newlineOffset < totalBytes ? newlineOffset + 1 : startPosition;
-    
+
     /** 提取新增内容的字节数组 */
     const newContentBytes = binaryData.slice(startOffset);
-    
+
     /** 将字节数组转换为字符串 */
     const decoder = new TextDecoder("utf-8", { fatal: false });
     return decoder.decode(newContentBytes);
@@ -255,7 +267,9 @@ export function useFileWatcher(): FileWatcherResult {
               newContent: newContent,
               isMainLog: isMain,
             });
-            logger.debug(`File changed: ${watched.filename}, ${lines} new lines, isMainLog: ${isMain}`);
+            logger.debug(
+              `File changed: ${watched.filename}, ${lines} new lines, isMainLog: ${isMain}`
+            );
           }
         }
       } catch (err) {

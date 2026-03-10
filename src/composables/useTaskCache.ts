@@ -116,14 +116,14 @@ export function useTaskCache(): TaskCacheResult {
       const taskId = details.task_id as number;
       const uuid = (details.uuid as string) || "";
       const cacheKey = `${uuid}:${taskId}`;
-      
+
       /** 如果任务已存在，保留第一个事件的进程信息（Agent Client），只追加事件 */
       const existing = taskCache.value.get(cacheKey);
       if (existing) {
         existing.events.push(event);
         return;
       }
-      
+
       const task: CachedTask = {
         taskId,
         entry: details.entry as string,
@@ -144,19 +144,18 @@ export function useTaskCache(): TaskCacheResult {
       const taskId = details.task_id as number;
       const uuid = (details.uuid as string) || "";
       const cacheKey = `${uuid}:${taskId}`;
-      
+
       let cached = taskCache.value.get(cacheKey);
-      
+
       if (!cached) {
         for (const [, task] of taskCache.value) {
-          if (task.status === "running" && 
-              (task.uuid === uuid || task.taskId === taskId)) {
+          if (task.status === "running" && (task.uuid === uuid || task.taskId === taskId)) {
             cached = task;
             break;
           }
         }
       }
-      
+
       if (cached) {
         cached.events.push(event);
         cached.status = message === "Tasker.Task.Succeeded" ? "succeeded" : "failed";
