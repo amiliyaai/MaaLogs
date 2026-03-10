@@ -41,7 +41,6 @@ import "vue-virtual-scroller/dist/vue-virtual-scroller.css";
  */
 import AppTopBar from "@/components/AppTopBar.vue";
 import HeroPanel from "@/components/HeroPanel.vue";
-import FileListPanel from "@/components/FileListPanel.vue";
 import AnalysisPanel from "@/components/AnalysisPanel.vue";
 import SearchPanel from "@/components/SearchPanel.vue";
 import StatisticsPanel from "@/components/StatisticsPanel.vue";
@@ -825,6 +824,8 @@ useTauriIntegration({
             :parse-state="parseState"
             :parse-progress="parseProgress"
             :status-message="statusMessage"
+            :task-count="tasks.length"
+            :aux-log-count="auxLogs.length"
             :is-dragging="isDragging"
             :format-size="formatSize"
             :is-auto-refresh="isAutoRefreshEnabled"
@@ -837,18 +838,11 @@ useTauriIntegration({
             @drag-leave="handleDragLeave"
             @drop="handleDrop"
             @toggle-auto-refresh="handleToggleAutoRefresh"
+            @remove-file="handleRemoveSelectedFile"
+            @clear-files="handleClearSelectedFiles"
           />
 
           <div class="main-content">
-            <!-- 文件列表面板 -->
-            <FileListPanel
-              v-if="viewMode !== 'compare'"
-              :selected-files="selectedFiles"
-              :format-size="formatSize"
-              @remove="handleRemoveSelectedFile"
-              @clear="handleClearSelectedFiles"
-            />
-
             <!-- 分析面板 -->
             <AnalysisPanel
               v-if="viewMode === 'analysis'"

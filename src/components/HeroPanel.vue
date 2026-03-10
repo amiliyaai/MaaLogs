@@ -32,7 +32,7 @@
 -->
 
 <script setup lang="ts">
-import { NButton, NCard, NProgress, NSwitch, NTooltip } from "naive-ui";
+import { NButton, NCard, NProgress, NSwitch, NTooltip, NPopover } from "naive-ui";
 import type { SelectedFile } from "@/types/logTypes";
 
 type ParseState = "idle" | "ready" | "parsing" | "done";
@@ -43,6 +43,8 @@ defineProps<{
   parseState: ParseState;
   parseProgress: number;
   statusMessage: string;
+  taskCount?: number;
+  auxLogCount?: number;
   isDragging: boolean;
   formatSize: (value: number) => string;
   isAutoRefresh?: boolean;
@@ -58,6 +60,8 @@ const emit = defineEmits<{
   (e: "drag-leave", event: DragEvent): void;
   (e: "drop", event: DragEvent): void;
   (e: "toggle-auto-refresh"): void;
+  (e: "remove-file", index: number): void;
+  (e: "clear-files"): void;
 }>();
 </script>
 
@@ -111,22 +115,46 @@ const emit = defineEmits<{
     <!-- 状态信息卡片 -->
     <NCard class="hero-card" size="small">
       <template #header>
-        <span>当前选择：</span>
-        <span class="card-stat-divider">|</span>
-        <span
-          >文件数量 <strong>{{ selectedFiles.length }}</strong></span
-        >
-        <span class="card-stat-divider">|</span>
-        <span
-          >总大小 <strong>{{ formatSize(totalSize) }}</strong></span
-        >
+        <div class="hero-card-header">
+          <!-- 左侧：文件列表按钮 -->
+          <div class="file-section">
+            <NPopover trigger="hover" placement="bottom-start" :show-arrow="false" :style="{ padding: '6px 0' }">
+              <template #trigger>
+                <div class="file-list-btn">
+                  <span class="file-icon">📁</span>
+                  <span class="file-label">文件列表</span>
+                  <span v-if="selectedFiles.length > 0" class="file-badge">{{ selectedFiles.length }}</span>
+                </div>
+              </template>
+              <div class="file-dropdown">
+                <div v-if="selectedFiles.length === 0" class="empty-tip">请先选择日志/配置文件</div>
+                <ul v-else class="file-list">
+                  <li v-for="(file, index) in selectedFiles" :key="file.name" class="file-item">
+                    <span class="file-name" :title="file.path">{{ file.path || file.name }}</span>
+                    <span class="file-size">{{ formatSize(file.size) }}</span>
+                    <n-button size="tiny" quaternary type="error" @click="emit('remove-file', index)">移除</n-button>
+                  </li>
+                </ul>
+              </div>
+            </NPopover>
+            <n-button v-if="selectedFiles.length > 0" size="tiny" type="error" quaternary @click="emit('clear-files')">清空</n-button>
+          </div>
+          <!-- 右侧：统计 -->
+          <div class="stats-section">
+            <span class="stat-item">大小 <strong>{{ formatSize(totalSize) }}</strong></span>
+            <template v-if="taskCount">
+              <span class="stat-divider">|</span>
+              <span class="stat-item">任务 <strong>{{ taskCount }}</strong></span>
+            </template>
+            <template v-if="auxLogCount">
+              <span class="stat-divider">|</span>
+              <span class="stat-item">Custom 日志 <strong>{{ auxLogCount }}</strong></span>
+            </template>
+          </div>
+        </div>
       </template>
       <!-- 解析进度条 -->
       <NProgress v-if="parseState === 'parsing'" :percentage="parseProgress" processing />
-      <!-- 状态消息 -->
-      <div class="card-hint">
-        {{ statusMessage }}
-      </div>
     </NCard>
   </section>
 </template>
@@ -226,19 +254,141 @@ const emit = defineEmits<{
   border-radius: 12px;
 }
 
+.hero-card :deep(.n-card__header) {
+  padding: 8px 16px;
+}
+
+.hero-card :deep(.n-card__content) {
+  padding: 8px 16px;
+}
+
+.hero-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.file-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.file-list-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8f8f8 100%);
+  border: 1px solid #e0e0e0;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--n-text-color-1);
+}
+
+.file-list-btn:hover {
+  border-color: #a0a0a0;
+  background: #f5f5f5;
+}
+
+.file-icon {
+  font-size: 14px;
+}
+
+.file-label {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.file-badge {
+  background: rgba(255, 255, 255, 0.3);
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.stats-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.stat-item strong {
+  color: var(--n-text-color-1);
+}
+
+.stat-divider {
+  color: var(--n-color-border);
+}
+
+.status-icon {
+  cursor: pointer;
+  font-size: 14px;
+  margin-left: 4px;
+}
+
+.file-dropdown {
+  min-width: 360px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.file-dropdown .empty-tip {
+  padding: 16px;
+  text-align: center;
+  color: var(--n-text-color-3);
+  font-size: 13px;
+}
+
+.file-dropdown .file-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.file-dropdown .file-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.file-dropdown .file-item:last-child {
+  border-bottom: none;
+}
+
+.file-dropdown .file-item:hover {
+  background: var(--n-color-hover);
+}
+
+.file-dropdown .file-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.file-dropdown .file-size {
+  font-size: 12px;
+  color: var(--n-text-color-3);
+  white-space: nowrap;
+}
+
 .hero-card :deep(.n-card__header),
 .hero-card :deep(.n-card__content) {
   padding: 8px 12px;
-}
-
-.card-hint {
-  font-size: 12px;
-  color: var(--n-text-color-3);
-}
-
-.card-stat-divider {
-  color: var(--n-text-color-3);
-  margin: 0 4px;
 }
 
 .hero.drop-active {
