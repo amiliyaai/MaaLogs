@@ -69,7 +69,7 @@ function useLogWatcher() {
   /** 当前监控目录 */
   const dirPath = ref("");
   /** 当前项目类型 */
-  const projectType = ref<ProjectType>("unknown");
+  const projectType = ref<ProjectType>("");
 
   /** 文件监控器实例 */
   const fileWatcher = useFileWatcher();
@@ -347,7 +347,7 @@ function useLogWatcher() {
     taskCache.resetReturnedKeys();
     fileWatcher.reset();
     dirPath.value = "";
-    projectType.value = "unknown";
+    projectType.value = "";
     logger.info("Log watcher reset");
   }
 

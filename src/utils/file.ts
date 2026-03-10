@@ -25,6 +25,7 @@ const MAX_BROWSER_FILE_BYTES = FILE_CONFIG.maxBrowserFileBytes;
 type BrowserRelativeFile = File & {
   webkitRelativePath?: string;
   __fullPath?: string;
+  __path?: string;
 };
 
 type MemoryRegisterItem = {
@@ -32,12 +33,18 @@ type MemoryRegisterItem = {
   data: Uint8Array | File;
 };
 
+function createFileWithPath(content: string | Blob, name: string, path: string): File {
+  const file = new File([content], name, { type: "text/plain" });
+  (file as BrowserRelativeFile).__path = path;
+  return file;
+}
+
 /**
  * 获取浏览器文件对象中的相对路径信息
  */
 function getBrowserRelativePath(file: File): string {
   const f = file as BrowserRelativeFile;
-  return f.webkitRelativePath || f.__fullPath || file.name;
+  return f.__path || f.webkitRelativePath || f.__fullPath || file.name;
 }
 
 /**
@@ -90,7 +97,7 @@ function extractZipFiles(
     if (!allowEntry(entryBaseName) && !allowEntry(entryName)) continue;
 
     const text = decoder.decode(data as Uint8Array);
-    files.push(new File([text], entryBaseName, { type: "text/plain" }));
+    files.push(createFileWithPath(text, entryBaseName, entryName));
   }
 
   return files;
@@ -353,7 +360,7 @@ export async function applySelectedPaths(paths: string[]): Promise<{
           continue;
         }
         const text = await platform.vfs.readText(entry.path);
-        outFiles.push(new File([text], entry.name, { type: "text/plain" }));
+        outFiles.push(createFileWithPath(text, entry.name, entry.path));
       }
       return true;
     } catch (error) {
@@ -427,7 +434,7 @@ export async function applySelectedPaths(paths: string[]): Promise<{
     if (!allowFile(name)) return false;
     try {
       const text = await platform.vfs.readText(filePath);
-      outFiles.push(new File([text], name, { type: "text/plain" }));
+      outFiles.push(createFileWithPath(text, name, filePath));
       return true;
     } catch (error) {
       if (error) errors.push(String(error));
@@ -435,7 +442,7 @@ export async function applySelectedPaths(paths: string[]): Promise<{
         const url = await platform.vfs.getImageURL(filePath);
         const response = await fetch(url);
         const blob = await response.blob();
-        outFiles.push(new File([blob], name, { type: "text/plain" }));
+        outFiles.push(createFileWithPath(blob, name, filePath));
         return true;
       } catch (fallbackError) {
         if (fallbackError) errors.push(String(fallbackError));
@@ -680,6 +687,7 @@ export function applySelectedFiles(
     size: file.size,
     type: getFileType(file),
     file,
+    path: getBrowserRelativePath(file),
   }));
 
   // 替换同名文件：移除旧的同名文件，添加新文件

@@ -40,7 +40,7 @@ const logger = createLogger("BaseParser");
 export { extractLogDirectory, parseBracketLine };
 
 /** 项目类型 */
-export type ProjectType = "m9a" | "maaend" | "unknown";
+export type ProjectType = "m9a" | "maaend" | "unknown" | "";
 
 /** 主日志解析上下文 */
 export interface MainLogParseContext {
@@ -102,7 +102,7 @@ export function detectProjectFromLine(line: string): ProjectType | null {
     const beforeChar = beforeIdx >= 0 ? afterWorking[beforeIdx] : undefined;
     const nextChar = afterWorking[afterIdx];
     const isPathStart = beforeChar === "/" || beforeChar === "\\";
-    const isPathEnd = nextChar === undefined || nextChar === "/" || nextChar === "\\";
+    const isPathEnd = nextChar === undefined || !/[A-Z0-9]/.test(nextChar);
     if (isPathStart && isPathEnd) {
       return project;
     }

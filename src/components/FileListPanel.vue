@@ -72,9 +72,8 @@ const expanded = ref(false);
       <div v-if="selectedFiles.length === 0" class="empty">请先选择日志/配置文件</div>
       <ul v-else class="file-list">
         <li v-for="(file, index) in selectedFiles" :key="file.name" class="file-row">
-          <span class="file-name">{{ file.name }}</span>
+          <span class="file-path" :title="file.path">{{ file.path || file.name }}</span>
           <span class="file-meta">{{ formatSize(file.size) }}</span>
-          <span class="file-type">{{ file.type }}</span>
           <n-button size="tiny" quaternary type="error" @click="emit('remove', index)">
             移除
           </n-button>
@@ -164,12 +163,14 @@ const expanded = ref(false);
   background: var(--n-color-modal);
 }
 
-.file-name {
+.file-path {
   flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 12px;
+  color: var(--n-text-color-2);
 }
 
 .file-meta {

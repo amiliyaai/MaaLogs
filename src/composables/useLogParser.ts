@@ -592,6 +592,7 @@ export function useLogParser(_config: LogParserConfig = {}): LogParserResult {
       threadId: selectedThreadId.value === "all" ? "ui" : selectedThreadId.value,
     });
 
+    detectedProject.value = "unknown";
     parseState.value = "parsing";
     statusMessage.value = "解析中…";
     parseProgress.value = 0;

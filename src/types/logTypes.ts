@@ -44,6 +44,7 @@ export type SelectedFile = {
   size: number;
   type: string;
   file: File;
+  path?: string;
   sourceFiles?: string[];
 };
 
