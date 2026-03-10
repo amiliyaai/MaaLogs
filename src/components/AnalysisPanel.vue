@@ -534,6 +534,8 @@ async function doAIAnalyze() {
   if (!props.selectedTask) return;
   if (!aiConfig.value) return;
 
+  aiConfig.value = await getAIConfig();
+
   if (!aiConfig.value.apiKeys[aiConfig.value.provider]) {
     aiError.value = "请先在设置中配置 API Key";
     return;
