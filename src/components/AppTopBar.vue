@@ -32,6 +32,8 @@ import { NButton } from "naive-ui";
 type ViewMode = "analysis" | "search" | "statistics" | "compare";
 type ThemeMode = "light" | "dark" | "auto";
 
+const isDev = import.meta.env.DEV;
+
 defineProps<{
   viewMode: ViewMode;
   isTauri: boolean;
@@ -95,8 +97,8 @@ const emitView = (value: ViewMode) => {
       <div class="divider" />
       <!-- 设置按钮 -->
       <n-button size="small" quaternary @click="emit('open-settings')"> ⚙️ 设置 </n-button>
-      <!-- 开发者工具按钮（仅 Tauri 环境） -->
-      <n-button v-if="isTauri" size="small" quaternary @click="emit('open-devtools')">
+      <!-- 开发者工具按钮（仅开发环境） -->
+      <n-button v-if="isDev" size="small" quaternary @click="emit('open-devtools')">
         开发者工具
       </n-button>
     </div>
