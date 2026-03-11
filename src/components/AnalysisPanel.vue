@@ -1314,7 +1314,21 @@ async function openScreenshot(filePath: string): Promise<void> {
                 <div v-if="(selectedNode.recognition_attempts || []).length === 0" class="empty">
                   无识别尝试记录
                 </div>
-                <div v-else class="recognition-attempts-list">
+                <div
+                  v-else-if="detailExpandedNames.includes('reco')"
+                  class="recognition-attempts-list"
+                >
+                  <div class="reco-sticky-header">
+                    <span>{{ summarizeRecognition(selectedNode) }}</span>
+                    <n-button
+                      text
+                      type="primary"
+                      size="small"
+                      @click="detailExpandedNames = detailExpandedNames.filter((n) => n !== 'reco')"
+                    >
+                      折叠
+                    </n-button>
+                  </div>
                   <n-collapse
                     v-for="(attempt, index) in selectedNode.recognition_attempts"
                     :key="`${selectedNode.node_id}-${index}`"
@@ -1819,6 +1833,19 @@ async function openScreenshot(filePath: string): Promise<void> {
 .collapse-header {
   display: flex;
   gap: 8px;
+}
+
+.reco-sticky-header {
+  position: sticky;
+  top: -8px;
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 8px 24px;
+  background: #e6f7ff;
+  border-bottom: 1px solid var(--n-border-color);
+  margin: -4px -24px 8px -24px;
 }
 
 .panel-top {
