@@ -1,4 +1,4 @@
-name: Deploy to GitHub Pages
+name: Deploy to Sever
 
 on:
   workflow_dispatch:
@@ -39,13 +39,11 @@ jobs:
         with:
           path: dist
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Deploy to Server
+        uses: easingthemes/ssh-deploy@main
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_KEY }}
+          REMOTE_HOST: ${{ secrets.DEPLOY_HOST }}
+          REMOTE_USER: ${{ secrets.DEPLOY_USERNAME }}
+          TARGET: ${{ secrets.DEPLOY_PATH }}
+          SOURCE: dist
