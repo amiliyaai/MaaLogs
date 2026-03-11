@@ -389,7 +389,7 @@ const emit = defineEmits<{
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--n-border-color);
 }
 
 .file-dropdown .file-item:last-child {

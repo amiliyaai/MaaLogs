@@ -283,23 +283,23 @@ function actionParams(params: Record<string, unknown> | undefined): string {
   gap: 12px;
   padding: 12px 16px;
   border-radius: 8px;
-  background: #f5f7fa;
+  background: var(--n-color-fill);
 }
 
 .detail-header.equal {
-  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.05));
 }
 
 .detail-header.diverged {
-  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(245, 158, 11, 0.05));
 }
 
 .detail-header.a-only {
-  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.05));
 }
 
 .detail-header.b-only {
-  background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(139, 92, 246, 0.05));
 }
 
 .detail-icon {
@@ -309,7 +309,7 @@ function actionParams(params: Record<string, unknown> | undefined): string {
 .detail-name {
   font-weight: 600;
   font-size: 16px;
-  color: #374151;
+  color: var(--n-text-color-1);
 }
 
 .detail-section {
@@ -320,10 +320,10 @@ function actionParams(params: Record<string, unknown> | undefined): string {
 
 .section-title {
   font-weight: 600;
-  color: #374151;
+  color: var(--n-text-color-1);
   font-size: 14px;
   padding-bottom: 4px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--n-border-color);
 }
 
 .detail-row {
@@ -334,17 +334,17 @@ function actionParams(params: Record<string, unknown> | undefined): string {
 }
 
 .label {
-  color: #6b7280;
+  color: var(--n-text-color-3);
   font-size: 13px;
 }
 
 .value {
-  color: #374151;
+  color: var(--n-text-color-1);
   font-size: 13px;
 }
 
 .value.empty {
-  color: #9ca3af;
+  color: var(--n-text-color-3);
   font-style: italic;
 }
 
@@ -357,7 +357,7 @@ function actionParams(params: Record<string, unknown> | undefined): string {
 
 .compare-hint {
   font-weight: 500;
-  color: #f59e0b;
+  color: var(--n-warning-color);
 }
 
 .next-list {
@@ -373,12 +373,12 @@ function actionParams(params: Record<string, unknown> | undefined): string {
   align-items: center;
   gap: 8px;
   padding: 6px 10px;
-  background: #f9fafb;
+  background: var(--n-color-fill);
   border-radius: 6px;
 }
 
 .next-arrow {
-  color: #9ca3af;
+  color: var(--n-text-color-3);
   font-weight: bold;
 }
 
@@ -401,20 +401,20 @@ function actionParams(params: Record<string, unknown> | undefined): string {
 
 .side-title {
   font-weight: 600;
-  color: #374151;
+  color: var(--n-text-color-1);
   font-size: 13px;
   padding-bottom: 4px;
   border-bottom: 2px solid;
 }
 
 .side-col:first-child .side-title {
-  border-color: #3b82f6;
-  color: #3b82f6;
+  border-color: #60a5fa;
+  color: #60a5fa;
 }
 
 .side-col:last-child .side-title {
-  border-color: #8b5cf6;
-  color: #8b5cf6;
+  border-color: #a78bfa;
+  color: #a78bfa;
 }
 
 .side-content {
@@ -422,12 +422,12 @@ function actionParams(params: Record<string, unknown> | undefined): string {
   flex-direction: column;
   gap: 4px;
   padding: 8px;
-  background: #f9fafb;
+  background: var(--n-color-fill);
   border-radius: 6px;
 }
 
 .empty {
-  color: #9ca3af;
+  color: var(--n-text-color-3);
   font-style: italic;
   font-size: 13px;
   padding: 8px;
@@ -445,30 +445,30 @@ function actionParams(params: Record<string, unknown> | undefined): string {
   align-items: center;
   gap: 4px;
   padding: 12px 20px;
-  background: #f9fafb;
+  background: var(--n-color-fill);
   border-radius: 8px;
   min-width: 80px;
 }
 
 .duration-item.diff {
-  background: #fffbeb;
+  background: var(--n-color-hover);
 }
 
 .duration-label {
   font-size: 12px;
   font-weight: 600;
-  color: #6b7280;
+  color: var(--n-text-color-3);
 }
 
 .duration-value {
   font-size: 16px;
   font-weight: 600;
-  color: #374151;
+  color: var(--n-text-color-1);
   word-break: break-word;
   text-align: center;
 }
 
 .duration-item.diff .duration-value {
-  color: #f59e0b;
+  color: var(--n-warning-color);
 }
 </style>

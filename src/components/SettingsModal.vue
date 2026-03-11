@@ -199,10 +199,10 @@ onMounted(() => {
 }
 
 .nav-item.active {
-  background: #18a05820;
-  color: #18a058;
+  background: var(--n-color-hover);
+  color: var(--n-success-color);
   font-weight: 600;
-  border-right: 3px solid #18a058;
+  border-right: 3px solid var(--n-success-color);
 }
 
 .nav-icon {

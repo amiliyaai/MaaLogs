@@ -72,7 +72,7 @@ const icon = computed(() => {
   gap: 8px;
   padding: 10px 16px;
   border-radius: 10px;
-  background: #f5f7fa;
+  background: var(--n-color-fill);
   border: 2px solid transparent;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -84,48 +84,48 @@ const icon = computed(() => {
 }
 
 .path-node.success {
-  border-color: #10b981;
-  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  border-color: var(--n-success-color);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.05));
 }
 
 .path-node.failed {
-  border-color: #ef4444;
-  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  border-color: var(--n-error-color);
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.05));
 }
 
 .path-node.skipped {
-  border-color: #9ca3af;
-  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+  border-color: var(--n-text-color-3);
+  background: linear-gradient(135deg, rgba(156, 163, 175, 0.15), rgba(156, 163, 175, 0.05));
 }
 
 .path-node.equal {
-  border-color: #10b981;
+  border-color: var(--n-success-color);
 }
 
 .path-node.diverged {
-  border-color: #f59e0b;
+  border-color: var(--n-warning-color);
 }
 
 .path-node.a-only {
-  border-color: #3b82f6;
+  border-color: var(--n-info-color);
 }
 
 .path-node.b-only {
-  border-color: #8b5cf6;
+  border-color: #a78bfa;
 }
 
 .node-name {
   font-weight: 500;
-  color: #374151;
+  color: var(--n-text-color-1);
 }
 
 .loop-count {
-  color: #f59e0b;
+  color: var(--n-warning-color);
   font-weight: 600;
 }
 
 .node-index {
-  color: #9ca3af;
+  color: var(--n-text-color-3);
   font-size: 12px;
   margin-left: auto;
 }

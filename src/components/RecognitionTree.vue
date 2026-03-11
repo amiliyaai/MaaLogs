@@ -224,7 +224,7 @@ onMounted(() => {
   text-align: center;
   cursor: pointer;
   user-select: none;
-  color: #999;
+  color: var(--n-text-color-3);
 }
 .node-name {
   font-weight: 500;
@@ -232,18 +232,18 @@ onMounted(() => {
 .node-id,
 .node-box,
 .node-score {
-  color: #666;
+  color: var(--n-text-color-2);
 }
 .image-preview {
   margin: 8px 0;
   padding: 8px;
-  background: #fafafa;
-  border: 1px solid #eee;
+  background: var(--n-color-fill);
+  border: 1px solid var(--n-border-color);
   border-radius: 6px;
   display: inline-block;
 }
 .children {
-  border-left: 1px dashed #ddd;
+  border-left: 1px dashed var(--n-border-color);
   margin-left: 8px;
   display: flex;
   flex-direction: column;
@@ -258,7 +258,7 @@ onMounted(() => {
   border-bottom: none;
 }
 .no-vision {
-  color: #999;
+  color: var(--n-text-color-3);
   font-size: 12px;
 }
 </style>

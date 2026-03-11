@@ -1919,10 +1919,12 @@ async function openScreenshot(filePath: string): Promise<void> {
   cursor: pointer;
   transition: background 0.2s;
   border: 1px solid transparent;
+  border-left: 3px solid transparent;
+  overflow: hidden;
 }
 
 .task-row.failed {
-  border-left: 3px solid #d03050;
+  border-left-color: var(--n-error-color);
 }
 
 .task-row.highlight {
@@ -2078,7 +2080,7 @@ async function openScreenshot(filePath: string): Promise<void> {
 .recognition-attempt-item.highlight,
 .action-attempt-item.highlight {
   animation: highlight-flash 1.5s ease-out;
-  border: 2px solid #2080f0;
+  border: 2px solid var(--n-info-color);
   border-radius: 6px;
 }
 
@@ -2233,13 +2235,13 @@ async function openScreenshot(filePath: string): Promise<void> {
 
 .search-result-item.search-result-item-selected,
 .search-result-item.search-result-item-selected:hover {
-  background: #e6f4ff !important;
-  outline: 2px solid #2080f0 !important;
+  background: var(--n-color-hover) !important;
+  outline: 2px solid var(--n-info-color) !important;
 }
 
 .result-label :deep(.search-highlight) {
-  background-color: #ffe066 !important;
-  color: #000 !important;
+  background-color: var(--n-warning-color) !important;
+  color: var(--n-text-color-1) !important;
   padding: 0 2px;
   border-radius: 2px;
 }
@@ -2435,27 +2437,27 @@ async function openScreenshot(filePath: string): Promise<void> {
 }
 
 .raw-data-collapse :deep(.jv-container.jv-light .jv-item.jv-string) {
-  color: #98c379;
+  color: var(--n-success-color);
 }
 
 .raw-data-collapse :deep(.jv-container.jv-light .jv-item.jv-number) {
-  color: #d19a66;
+  color: var(--n-warning-color);
 }
 
 .raw-data-collapse :deep(.jv-container.jv-light .jv-item.jv-boolean) {
-  color: #c678dd;
+  color: var(--n-info-color);
 }
 
 .raw-data-collapse :deep(.jv-container.jv-light .jv-ellipsis) {
   background: var(--n-color-modal);
-  color: #49b3ff;
+  color: var(--n-info-color);
   cursor: pointer;
   font-weight: bold;
 }
 
 .raw-data-collapse :deep(.jv-container.jv-light .jv-ellipsis:hover) {
-  background: #49b3ff;
-  color: white;
+  background: var(--n-info-color);
+  color: var(--n-color);
 }
 
 .raw-data-collapse :deep(.jv-container.jv-light .jv-button) {

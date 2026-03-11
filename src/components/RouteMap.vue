@@ -493,7 +493,7 @@ function showDetailFor(_side: "a" | "b", node: ColumnNode) {
   flex-wrap: wrap;
   gap: 12px;
   padding: 16px;
-  background: linear-gradient(135deg, #f0f9ff 0%, #fef3c7 100%);
+  background: var(--n-color-modal);
   border-radius: 12px;
 }
 
@@ -502,7 +502,7 @@ function showDetailFor(_side: "a" | "b", node: ColumnNode) {
   flex-direction: column;
   align-items: center;
   padding: 12px 20px;
-  background: white;
+  background: var(--n-color);
   border-radius: 8px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   min-width: 80px;
@@ -517,55 +517,55 @@ function showDetailFor(_side: "a" | "b", node: ColumnNode) {
 }
 
 .summary-item.baseline {
-  border-left: 3px solid #3b82f6;
+  border-left: 3px solid var(--n-info-color);
 }
 
 .summary-item.candidate {
-  border-left: 3px solid #8b5cf6;
+  border-left: 3px solid var(--n-warning-color);
 }
 
 .summary-item.equal {
-  border-left: 3px solid #22c55e;
+  border-left: 3px solid var(--n-success-color);
 }
 
 .summary-item.diff {
-  border-left: 3px solid #f59e0b;
+  border-left: 3px solid var(--n-warning-color);
 }
 
 .summary-item.warning {
-  border-left: 3px solid #ef4444;
+  border-left: 3px solid var(--n-error-color);
 }
 
 .summary-label {
   font-size: 12px;
-  color: #6b7280;
+  color: var(--n-text-color-3);
   margin-bottom: 4px;
 }
 
 .summary-value {
   font-size: 20px;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--n-text-color-1);
 }
 
 .summary-item.baseline .summary-value {
-  color: #3b82f6;
+  color: var(--n-info-color);
 }
 
 .summary-item.candidate .summary-value {
-  color: #8b5cf6;
+  color: var(--n-warning-color);
 }
 
 .summary-item.equal .summary-value {
-  color: #22c55e;
+  color: var(--n-success-color);
 }
 
 .summary-item.diff .summary-value {
-  color: #f59e0b;
+  color: var(--n-warning-color);
 }
 
 .summary-item.warning .summary-value {
-  color: #ef4444;
+  color: var(--n-error-color);
 }
 
 .route-controls {
@@ -578,7 +578,7 @@ function showDetailFor(_side: "a" | "b", node: ColumnNode) {
   flex-wrap: wrap;
   gap: 16px;
   padding: 12px 16px;
-  background: white;
+  background: var(--n-color);
   border-radius: 8px;
   font-size: 13px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
@@ -598,27 +598,27 @@ function showDetailFor(_side: "a" | "b", node: ColumnNode) {
 }
 
 .legend-success {
-  background: linear-gradient(135deg, #10b981, #059669);
+  background: var(--n-success-color);
 }
 
 .legend-failed {
-  background: linear-gradient(135deg, #ef4444, #dc2626);
+  background: var(--n-error-color);
 }
 
 .legend-skipped {
-  background: linear-gradient(135deg, #9ca3af, #6b7280);
+  background: var(--n-text-color-3);
 }
 
 .legend-diverged {
-  background: linear-gradient(135deg, #f59e0b, #d97706);
+  background: var(--n-warning-color);
 }
 
 .legend-only {
-  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  background: var(--n-warning-color);
 }
 
 .legend-text {
-  color: #374151;
+  color: var(--n-text-color-2);
   font-weight: 500;
 }
 
@@ -627,7 +627,7 @@ function showDetailFor(_side: "a" | "b", node: ColumnNode) {
   flex-wrap: wrap;
   gap: 10px;
   padding: 12px 16px;
-  background: white;
+  background: var(--n-color);
   border-radius: 10px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
@@ -642,8 +642,8 @@ function showDetailFor(_side: "a" | "b", node: ColumnNode) {
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
-  background: white;
-  border: 2px solid #e5e7eb;
+  background: var(--n-color);
+  border: 2px solid var(--n-border-color);
 }
 
 .nav-tag:hover {
@@ -652,34 +652,34 @@ function showDetailFor(_side: "a" | "b", node: ColumnNode) {
 }
 
 .nav-tag-active {
-  border-color: #3b82f6;
-  background: #eff6ff;
-  color: #1d4ed8;
+  border-color: var(--n-info-color);
+  background: var(--n-color-hover);
+  color: var(--n-info-color);
 }
 
 .nav-tag-status_changed,
 .nav-tag-a_only {
-  border-color: #ef4444;
-  background: #fef2f2;
-  color: #b91c1c;
+  border-color: var(--n-error-color);
+  background: var(--n-color-hover);
+  color: var(--n-error-color);
 }
 
 .nav-tag-b_only {
-  border-color: #f59e0b;
-  background: #fffbeb;
-  color: #b45309;
+  border-color: var(--n-warning-color);
+  background: var(--n-color-hover);
+  color: var(--n-warning-color);
 }
 
 .nav-tag-diverged {
-  border-color: #8b5cf6;
-  background: #f5f3ff;
-  color: #6d28d9;
+  border-color: var(--n-warning-color);
+  background: var(--n-color-hover);
+  color: var(--n-warning-color);
 }
 
 .nav-tag-duration_changed {
-  border-color: #06b6d4;
-  background: #ecfeff;
-  color: #0891b2;
+  border-color: var(--n-info-color);
+  background: var(--n-color-hover);
+  color: var(--n-info-color);
 }
 
 .route-diff-view {
@@ -692,7 +692,7 @@ function showDetailFor(_side: "a" | "b", node: ColumnNode) {
 }
 
 .diff-group {
-  background: white;
+  background: var(--n-color);
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
@@ -710,19 +710,19 @@ function showDetailFor(_side: "a" | "b", node: ColumnNode) {
   padding: 14px 18px;
   font-weight: 600;
   font-size: 14px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--n-border-color);
   cursor: pointer;
   transition: background 0.2s;
 }
 
 .diff-group-header:hover {
-  background: #f9fafb;
+  background: var(--n-color-hover);
 }
 
 .collapse-icon {
   margin-left: auto;
   font-size: 12px;
-  color: #6b7280;
+  color: var(--n-text-color-3);
   user-select: none;
 }
 
@@ -731,36 +731,36 @@ function showDetailFor(_side: "a" | "b", node: ColumnNode) {
 }
 
 .diff-group-label {
-  color: #374151;
+  color: var(--n-text-color-1);
 }
 
 .diff-group-count {
-  color: #6b7280;
+  color: var(--n-text-color-3);
   font-weight: 400;
   font-size: 13px;
-  background: #f3f4f6;
+  background: var(--n-color-fill);
   padding: 2px 8px;
   border-radius: 10px;
 }
 
 .diff-group-status_changed .diff-group-header {
-  background: linear-gradient(90deg, #fef2f2, transparent);
+  background: linear-gradient(90deg, rgba(239, 68, 68, 0.15), transparent);
 }
 
 .diff-group-a_only .diff-group-header {
-  background: linear-gradient(90deg, #fef2f2, transparent);
+  background: linear-gradient(90deg, rgba(59, 130, 246, 0.15), transparent);
 }
 
 .diff-group-b_only .diff-group-header {
-  background: linear-gradient(90deg, #fffbeb, transparent);
+  background: linear-gradient(90deg, rgba(139, 92, 246, 0.15), transparent);
 }
 
 .diff-group-diverged .diff-group-header {
-  background: linear-gradient(90deg, #f5f3ff, transparent);
+  background: linear-gradient(90deg, rgba(245, 158, 11, 0.15), transparent);
 }
 
 .diff-group-duration_changed .diff-group-header {
-  background: #ecfeff;
+  background: linear-gradient(90deg, rgba(34, 197, 94, 0.15), transparent);
 }
 
 .diff-items {
@@ -773,8 +773,8 @@ function showDetailFor(_side: "a" | "b", node: ColumnNode) {
   margin-bottom: 8px;
   cursor: pointer;
   transition: all 0.2s;
-  background: #fafafa;
-  border: 1px solid #e5e7eb;
+  background: var(--n-color);
+  border: 1px solid var(--n-border-color);
 }
 
 .diff-item:last-child {
@@ -782,8 +782,8 @@ function showDetailFor(_side: "a" | "b", node: ColumnNode) {
 }
 
 .diff-item:hover {
-  background: #f3f4f6;
-  border-color: #d1d5db;
+  background: var(--n-color-hover);
+  border-color: var(--n-border-color);
 }
 
 .diff-path-preview {
@@ -802,8 +802,8 @@ function showDetailFor(_side: "a" | "b", node: ColumnNode) {
 }
 
 .path-node-context {
-  background: #f3f4f6;
-  color: #6b7280;
+  background: var(--n-color-fill);
+  color: var(--n-text-color-3);
 }
 
 .path-node-clickable {
@@ -812,43 +812,43 @@ function showDetailFor(_side: "a" | "b", node: ColumnNode) {
 }
 
 .path-node-clickable:hover {
-  background: #e0e7ff;
-  color: #3730a3;
-  border-color: #c7d2fe;
+  background: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+  border-color: #60a5fa;
 }
 
 .path-node-main {
-  background: #e0e7ff;
-  color: #3730a3;
-  border: 1px solid #c7d2fe;
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
 }
 
 .path-arrow {
-  color: #9ca3af;
+  color: var(--n-text-color-3);
   font-size: 12px;
 }
 
 .diff-item-status-changed .path-node-main {
-  background: #fee2e2;
-  color: #991b1b;
-  border-color: #fca5a5;
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.3);
 }
 
 .diff-item-a-only .path-node-main {
-  background: #fee2e2;
-  color: #991b1b;
-  border-color: #fca5a5;
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border-color: rgba(59, 130, 246, 0.3);
 }
 
 .diff-item-b-only .path-node-main {
-  background: #fef3c7;
-  color: #92400e;
-  border-color: #fcd34d;
+  background: rgba(139, 92, 246, 0.15);
+  color: #a78bfa;
+  border-color: rgba(139, 92, 246, 0.3);
 }
 
 .diff-description {
   font-size: 13px;
-  color: #6b7280;
+  color: var(--n-text-color-3);
   margin-bottom: 8px;
 }
 
@@ -867,7 +867,7 @@ function showDetailFor(_side: "a" | "b", node: ColumnNode) {
 
 .status-label {
   font-size: 12px;
-  color: #6b7280;
+  color: var(--n-text-color-3);
 }
 
 .status-value {
@@ -876,19 +876,19 @@ function showDetailFor(_side: "a" | "b", node: ColumnNode) {
 }
 
 .status-value.status-success {
-  color: #10b981;
+  color: #34d399;
 }
 
 .status-value.status-failed {
-  color: #ef4444;
+  color: #f87171;
 }
 
 .status-value.status-skipped {
-  color: #9ca3af;
+  color: var(--n-text-color-3);
 }
 
 .status-arrow {
-  color: #9ca3af;
+  color: var(--n-text-color-3);
 }
 
 .diff-only-badge {
@@ -897,13 +897,13 @@ function showDetailFor(_side: "a" | "b", node: ColumnNode) {
   border-radius: 4px;
   font-size: 11px;
   font-weight: 600;
-  background: #fef2f2;
-  color: #991b1b;
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
 }
 
 .diff-item-b-only .diff-only-badge {
-  background: #fef3c7;
-  color: #92400e;
+  background: rgba(139, 92, 246, 0.2);
+  color: #a78bfa;
 }
 
 .route-nodes {
@@ -911,7 +911,7 @@ function showDetailFor(_side: "a" | "b", node: ColumnNode) {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  background: white;
+  background: var(--n-color);
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
@@ -919,8 +919,8 @@ function showDetailFor(_side: "a" | "b", node: ColumnNode) {
 .route-columns {
   display: flex;
   gap: 8px;
-  background: linear-gradient(180deg, #f9fafb, white);
-  border-bottom: 2px solid #e5e7eb;
+  background: var(--n-color-fill);
+  border-bottom: 2px solid var(--n-border-color);
   border-radius: 12px 12px 0 0;
 }
 
@@ -939,24 +939,24 @@ function showDetailFor(_side: "a" | "b", node: ColumnNode) {
   font-weight: 600;
   font-size: 14px;
   border-bottom: 2px solid;
-  background: white;
+  background: var(--n-color);
 }
 
 .column-a .column-header {
-  border-color: #3b82f6;
-  color: #3b82f6;
+  border-color: #60a5fa;
+  color: #60a5fa;
 }
 
 .column-b .column-header {
-  border-color: #8b5cf6;
-  color: #8b5cf6;
+  border-color: #a78bfa;
+  color: #a78bfa;
 }
 
 .column-count {
   font-size: 12px;
   font-weight: 500;
   opacity: 0.8;
-  background: #f3f4f6;
+  background: var(--n-color-fill);
   padding: 2px 8px;
   border-radius: 10px;
 }
@@ -965,7 +965,7 @@ function showDetailFor(_side: "a" | "b", node: ColumnNode) {
   flex: 1;
   overflow-y: auto;
   padding: 12px;
-  background: #fafafa;
+  background: var(--n-color-fill);
 }
 
 .route-row {
@@ -986,8 +986,8 @@ function showDetailFor(_side: "a" | "b", node: ColumnNode) {
 .node-placeholder {
   min-height: 44px;
   border-radius: 6px;
-  background: #f3f4f6;
-  border: 2px dashed #d1d5db;
+  background: var(--n-color-fill);
+  border: 2px dashed var(--n-border-color);
 }
 
 .node-item {
@@ -996,8 +996,8 @@ function showDetailFor(_side: "a" | "b", node: ColumnNode) {
   gap: 10px;
   padding: 12px 16px;
   border-radius: 8px;
-  background: white;
-  border: 2px solid #e5e7eb;
+  background: var(--n-color);
+  border: 2px solid var(--n-border-color);
   cursor: pointer;
   transition: all 0.2s ease;
   min-height: 44px;
@@ -1007,40 +1007,40 @@ function showDetailFor(_side: "a" | "b", node: ColumnNode) {
 .node-item:hover {
   transform: translateX(4px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  border-color: #9ca3af;
+  border-color: #60a5fa;
 }
 
 .node-item.status-success {
-  border-color: #10b981;
-  background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+  border-color: #34d399;
+  background: linear-gradient(135deg, rgba(52, 211, 153, 0.15), rgba(52, 211, 153, 0.05));
 }
 
 .node-item.status-failed {
-  border-color: #ef4444;
-  background: linear-gradient(135deg, #fef2f2, #fee2e2);
+  border-color: #f87171;
+  background: linear-gradient(135deg, rgba(248, 113, 113, 0.15), rgba(248, 113, 113, 0.05));
 }
 
 .node-item.status-skipped {
   border-color: #9ca3af;
-  background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+  background: linear-gradient(135deg, rgba(156, 163, 175, 0.15), rgba(156, 163, 175, 0.05));
 }
 
 .node-item.compare-equal {
-  background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+  background: linear-gradient(135deg, rgba(52, 211, 153, 0.15), rgba(52, 211, 153, 0.05));
 }
 
 .node-item.compare-diverged {
-  background: linear-gradient(135deg, #fffbeb, #fef3c7);
-  border-color: #f59e0b;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(245, 158, 11, 0.05));
+  border-color: #fbbf24;
 }
 
 .node-item.compare-only {
-  background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(139, 92, 246, 0.05));
 }
 
 .node-item.compare-missing {
   opacity: 0.4;
-  background: linear-gradient(135deg, #fef2f2, #fee2e2);
+  background: linear-gradient(135deg, rgba(248, 113, 113, 0.15), rgba(248, 113, 113, 0.05));
 }
 
 .node-status-icon {
@@ -1050,11 +1050,11 @@ function showDetailFor(_side: "a" | "b", node: ColumnNode) {
 }
 
 .status-success .node-status-icon {
-  color: #10b981;
+  color: #34d399;
 }
 
 .status-failed .node-status-icon {
-  color: #ef4444;
+  color: #f87171;
 }
 
 .status-skipped .node-status-icon {
@@ -1062,13 +1062,13 @@ function showDetailFor(_side: "a" | "b", node: ColumnNode) {
 }
 
 .compare-diverged .node-status-icon {
-  color: #f59e0b;
+  color: #fbbf24;
 }
 
 .node-name {
   flex: 1;
   font-weight: 500;
-  color: #374151;
+  color: var(--n-text-color-1);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1076,7 +1076,7 @@ function showDetailFor(_side: "a" | "b", node: ColumnNode) {
 
 .node-duration {
   font-size: 12px;
-  color: #6b7280;
+  color: var(--n-text-color-3);
   white-space: nowrap;
 }
 
@@ -1085,7 +1085,7 @@ function showDetailFor(_side: "a" | "b", node: ColumnNode) {
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: #10b981;
+  color: var(--n-success-color);
   font-size: 16px;
 }
 </style>

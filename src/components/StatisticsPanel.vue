@@ -220,7 +220,7 @@ const statSortOptions = [
 
 .control-label {
   font-size: 14px;
-  color: #333;
+  color: var(--n-text-color-1);
   white-space: nowrap;
 }
 </style>

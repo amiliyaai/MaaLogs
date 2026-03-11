@@ -138,12 +138,14 @@ const currentTheme = computed(() => (isDark.value ? darkTheme : lightTheme));
 const updateScrollbarVars = () => {
   const root = document.documentElement;
   if (isDark.value) {
+    root.classList.add("dark");
     root.style.setProperty("--scrollbar-track", "rgba(255, 255, 255, 0.08)");
     root.style.setProperty("--scrollbar-thumb", "rgba(255, 255, 255, 0.2)");
     root.style.setProperty("--scrollbar-thumb-hover", "rgba(255, 255, 255, 0.35)");
     root.style.setProperty("--app-bg", "#1a1a1a");
     root.style.setProperty("--app-text", "#ffffff");
   } else {
+    root.classList.remove("dark");
     root.style.setProperty("--scrollbar-track", "rgba(0, 0, 0, 0.05)");
     root.style.setProperty("--scrollbar-thumb", "rgba(0, 0, 0, 0.15)");
     root.style.setProperty("--scrollbar-thumb-hover", "rgba(0, 0, 0, 0.25)");
