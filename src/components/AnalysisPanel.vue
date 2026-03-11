@@ -86,7 +86,7 @@ import {
 } from "naive-ui";
 import { PictureFilled, SearchOutlined } from "@vicons/antd";
 import { DynamicScroller, DynamicScrollerItem } from "vue-virtual-scroller";
-import { ref, watch, onMounted, onUnmounted, computed } from "vue";
+import { ref, watch, onMounted, onUnmounted, computed, nextTick } from "vue";
 import { useStorage, useInPageSearch } from "@/composables";
 import { getPlatform } from "@/platform";
 import type {
@@ -127,8 +127,18 @@ const aiError = ref("");
 /**
  * 页面内搜索状态
  */
-const { searchText, searchScope, searchResults, showResults, performSearch, closeResults } =
-  useInPageSearch();
+const {
+  searchText,
+  searchScope,
+  searchResults,
+  showResults,
+  selectedIndex,
+  selectNext,
+  selectPrevious,
+  resetSelection,
+  performSearch,
+  closeResults,
+} = useInPageSearch();
 
 const searchScopeOptions = [
   { label: "全部", value: "all" },
@@ -164,7 +174,45 @@ function getSearchableAuxLogs(): Map<string, AuxLogEntry[]> | undefined {
 }
 
 function handleSearchInput() {
+  resetSelection();
   performSearch(props.tasks, getSearchableAuxLogs());
+}
+
+function handleSearchKeydown(event: KeyboardEvent) {
+  if (!showResults.value || searchResults.value.length === 0) return;
+
+  switch (event.key) {
+    case "ArrowDown":
+      event.preventDefault();
+      selectNext();
+      scrollSearchResultToView();
+      break;
+    case "ArrowUp":
+      event.preventDefault();
+      selectPrevious();
+      scrollSearchResultToView();
+      break;
+    case "Enter":
+      event.preventDefault();
+      if (selectedIndex.value >= 0 && searchResults.value[selectedIndex.value]) {
+        handleSearchResultClick(searchResults.value[selectedIndex.value]);
+      }
+      break;
+    case "Escape":
+      event.preventDefault();
+      closeResults();
+      resetSelection();
+      break;
+  }
+}
+
+function scrollSearchResultToView() {
+  nextTick(() => {
+    const selectedItem = document.querySelector(".search-result-item-selected");
+    if (selectedItem) {
+      selectedItem.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+  });
 }
 
 function handleSearchFocus() {
@@ -347,6 +395,23 @@ function getSearchResultIcon(type: string): string {
     default:
       return "📄";
   }
+}
+
+function highlightSearchText(text: string): string {
+  if (!searchText.value.trim()) return escapeHtml(text);
+  const keyword = searchText.value.trim();
+  const regex = new RegExp(`(${escapeRegex(keyword)})`, "gi");
+  return escapeHtml(text).replace(regex, '<span class="search-highlight">$1</span>');
+}
+
+function escapeHtml(text: string): string {
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function getSearchResultLabel(result: InPageSearchResult): string {
@@ -833,6 +898,7 @@ async function openScreenshot(filePath: string): Promise<void> {
               class="search-input"
               @update:value="handleSearchInput"
               @focus="handleSearchFocus"
+              @keydown="handleSearchKeydown"
             >
               <template #prefix>
                 <n-icon :component="SearchOutlined" />
@@ -853,11 +919,12 @@ async function openScreenshot(filePath: string): Promise<void> {
                   v-for="(result, index) in searchResults"
                   :key="index"
                   class="search-result-item"
+                  :class="{ 'search-result-item-selected': index === selectedIndex }"
                   @click="handleSearchResultClick(result)"
                 >
                   <span class="result-icon">{{ getSearchResultIcon(result.type) }}</span>
                   <div class="result-content">
-                    <div class="result-label">{{ getSearchResultLabel(result) }}</div>
+                    <div class="result-label" v-html="highlightSearchText(getSearchResultLabel(result))"></div>
                     <div v-if="getSearchResultMetaParts(result).length > 0" class="result-meta">
                       <span
                         v-for="(part, metaIndex) in getSearchResultMetaParts(result)"
@@ -2112,6 +2179,19 @@ async function openScreenshot(filePath: string): Promise<void> {
 
 .search-result-item:hover {
   background: var(--n-color-hover);
+}
+
+.search-result-item.search-result-item-selected,
+.search-result-item.search-result-item-selected:hover {
+  background: #e6f4ff !important;
+  outline: 2px solid #2080f0 !important;
+}
+
+.result-label :deep(.search-highlight) {
+  background-color: #ffe066 !important;
+  color: #000 !important;
+  padding: 0 2px;
+  border-radius: 2px;
 }
 
 .result-icon {

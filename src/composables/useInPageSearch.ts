@@ -75,6 +75,14 @@ export interface InPageSearcherResult {
   searchResults: Ref<InPageSearchResult[]>;
   /** 是否显示搜索结果 */
   showResults: Ref<boolean>;
+  /** 当前选中索引 */
+  selectedIndex: Ref<number>;
+  /** 选中下一个结果 */
+  selectNext: () => void;
+  /** 选中上一个结果 */
+  selectPrevious: () => void;
+  /** 重置选中状态 */
+  resetSelection: () => void;
   /** 执行搜索 */
   performSearch: (tasks: TaskInfo[], auxLogs?: Map<string, AuxLogEntry[]>) => void;
   /** 重置搜索 */
@@ -93,6 +101,7 @@ export function useInPageSearch(): InPageSearcherResult {
   const searchScope = ref<SearchScope>("all");
   const searchResults = ref<InPageSearchResult[]>([]);
   const showResults = ref(false);
+  const selectedIndex = ref(-1);
 
   /**
    * 检查文本是否匹配
@@ -489,11 +498,41 @@ export function useInPageSearch(): InPageSearcherResult {
     showResults.value = false;
   }
 
+  /**
+   * 选中下一个结果
+   */
+  function selectNext(): void {
+    if (searchResults.value.length === 0) return;
+    selectedIndex.value = (selectedIndex.value + 1) % searchResults.value.length;
+  }
+
+  /**
+   * 选中上一个结果
+   */
+  function selectPrevious(): void {
+    if (searchResults.value.length === 0) return;
+    selectedIndex.value =
+      selectedIndex.value <= 0
+        ? searchResults.value.length - 1
+        : selectedIndex.value - 1;
+  }
+
+  /**
+   * 重置选中状态
+   */
+  function resetSelection(): void {
+    selectedIndex.value = -1;
+  }
+
   return {
     searchText,
     searchScope,
     searchResults,
     showResults,
+    selectedIndex,
+    selectNext,
+    selectPrevious,
+    resetSelection,
     performSearch,
     resetSearch,
     closeResults,
