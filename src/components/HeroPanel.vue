@@ -118,12 +118,19 @@ const emit = defineEmits<{
         <div class="hero-card-header">
           <!-- 左侧：文件列表按钮 -->
           <div class="file-section">
-            <NPopover trigger="hover" placement="bottom-start" :show-arrow="false" :style="{ padding: '6px 0' }">
+            <NPopover
+              trigger="hover"
+              placement="bottom-start"
+              :show-arrow="false"
+              :style="{ padding: '6px 0' }"
+            >
               <template #trigger>
                 <div class="file-list-btn">
                   <span class="file-icon">📁</span>
                   <span class="file-label">文件列表</span>
-                  <span v-if="selectedFiles.length > 0" class="file-badge">{{ selectedFiles.length }}</span>
+                  <span v-if="selectedFiles.length > 0" class="file-badge">{{
+                    selectedFiles.length
+                  }}</span>
                 </div>
               </template>
               <div class="file-dropdown">
@@ -132,23 +139,42 @@ const emit = defineEmits<{
                   <li v-for="(file, index) in selectedFiles" :key="file.name" class="file-item">
                     <span class="file-name" :title="file.path">{{ file.path || file.name }}</span>
                     <span class="file-size">{{ formatSize(file.size) }}</span>
-                    <n-button size="tiny" quaternary type="error" @click="emit('remove-file', index)">移除</n-button>
+                    <n-button
+                      size="tiny"
+                      quaternary
+                      type="error"
+                      @click="emit('remove-file', index)"
+                      >移除</n-button
+                    >
                   </li>
                 </ul>
               </div>
             </NPopover>
-            <n-button v-if="selectedFiles.length > 0" size="tiny" type="error" quaternary @click="emit('clear-files')">清空</n-button>
+            <n-button
+              v-if="selectedFiles.length > 0"
+              size="tiny"
+              type="error"
+              quaternary
+              @click="emit('clear-files')"
+              >清空</n-button
+            >
           </div>
           <!-- 右侧：统计 -->
           <div class="stats-section">
-            <span class="stat-item">大小 <strong>{{ formatSize(totalSize) }}</strong></span>
+            <span class="stat-item"
+              >大小 <strong>{{ formatSize(totalSize) }}</strong></span
+            >
             <template v-if="taskCount">
               <span class="stat-divider">|</span>
-              <span class="stat-item">任务 <strong>{{ taskCount }}</strong></span>
+              <span class="stat-item"
+                >任务 <strong>{{ taskCount }}</strong></span
+              >
             </template>
             <template v-if="auxLogCount">
               <span class="stat-divider">|</span>
-              <span class="stat-item">Custom 日志 <strong>{{ auxLogCount }}</strong></span>
+              <span class="stat-item"
+                >Custom 日志 <strong>{{ auxLogCount }}</strong></span
+              >
             </template>
           </div>
         </div>
