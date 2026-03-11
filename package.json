@@ -33,7 +33,7 @@
     "@vicons/antd": "~0.13.0",
     "fflate": "~0.8.1",
     "naive-ui": "~2.43.2",
-    "tar": "^7.5.10",
+    "tar": "7.5.11",
     "vue": "~3.5.13",
     "vue-json-viewer": "^3.0.4",
     "vue-virtual-scroller": "~2.0.0-beta.8"
