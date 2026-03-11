@@ -310,7 +310,7 @@ const emit = defineEmits<{
   align-items: center;
   gap: 6px;
   padding: 6px 16px;
-  background: linear-gradient(180deg, #ffffff 0%, #f8f8f8 100%);
+  background: var(--n-color);
   border-radius: 20px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -318,7 +318,7 @@ const emit = defineEmits<{
 }
 
 .file-list-btn:hover {
-  background: linear-gradient(180deg, #f8f8f8 0%, #f0f0f0 100%);
+  background: var(--n-color-hover);
 }
 
 .file-icon {

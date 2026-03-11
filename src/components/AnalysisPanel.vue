@@ -1910,7 +1910,7 @@ async function openScreenshot(filePath: string): Promise<void> {
   justify-content: center;
   align-items: center;
   padding: 8px 24px;
-  background: #e6f7ff;
+  background: var(--n-color);
   border-bottom: 1px solid var(--n-border-color);
   margin: -4px -24px 8px -24px;
 }
