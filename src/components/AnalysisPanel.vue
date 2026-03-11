@@ -89,6 +89,7 @@ import { DynamicScroller, DynamicScrollerItem } from "vue-virtual-scroller";
 import { ref, watch, onMounted, onUnmounted, computed, nextTick } from "vue";
 import { useStorage, useInPageSearch } from "@/composables";
 import { getPlatform } from "@/platform";
+import { parseTimestampToMs } from "@/utils/parse";
 import type {
   NodeInfo,
   NextListItem,
@@ -104,6 +105,7 @@ import {
   type FailureAnalysis,
   type AIAnalysisStats,
 } from "@/utils/aiAnalyzer";
+import type { DurationDisplayConfig } from "@/config/display";
 import AIResultCard from "./AIResultCard.vue";
 import ControllerInfoCard from "./ControllerInfoCard.vue";
 import CustomLogPanel from "./CustomLogPanel.vue";
@@ -123,6 +125,35 @@ const screenshotSrc = ref("");
 const skipAIConfirm = useStorage("skipAIConfirm", false);
 const showAIConfirm = ref(false);
 const aiError = ref("");
+
+function getNodeDuration(node: NodeInfo): number | null {
+  const startMs = node.start_time ? parseTimestampToMs(node.start_time) : null;
+  const endMs = node.end_time
+    ? parseTimestampToMs(node.end_time)
+    : node.timestamp
+      ? parseTimestampToMs(node.timestamp)
+      : null;
+  if (startMs === null || endMs === null) return null;
+  return endMs - startMs;
+}
+
+function getDurationColor(duration: number | null): string {
+  if (duration === null) return "inherit";
+  const config = props.durationDisplay;
+  if (duration >= config.dangerThreshold) return config.dangerColor;
+  if (duration >= config.warningThreshold) return config.warningColor;
+  return config.normalColor;
+}
+
+function formatNodeDuration(duration: number | null): string {
+  if (duration === null) return "-";
+  if (duration < 1000) return `${duration}ms`;
+  const seconds = Math.floor(duration / 1000);
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${minutes}m ${remainingSeconds}s`;
+}
 
 /**
  * 页面内搜索状态
@@ -774,6 +805,7 @@ const props = withDefaults(
     callerOptions: { label: string; value: string }[];
     visionDir?: string;
     jsonExpandDepth?: number;
+    durationDisplay?: DurationDisplayConfig;
   }>(),
   {
     selectedAuxLevels: () => ["error", "warn", "info", "debug", "other"],
@@ -782,6 +814,13 @@ const props = withDefaults(
     searchableAuxLogs: () => new Map<string, AuxLogEntry[]>(),
     visionDir: undefined,
     jsonExpandDepth: 5,
+    durationDisplay: () => ({
+      warningThreshold: 3000,
+      dangerThreshold: 10000,
+      warningColor: "#f0a020",
+      dangerColor: "#d03050",
+      normalColor: "#18a058",
+    }),
   }
 );
 
@@ -924,6 +963,7 @@ async function openScreenshot(filePath: string): Promise<void> {
                 >
                   <span class="result-icon">{{ getSearchResultIcon(result.type) }}</span>
                   <div class="result-content">
+                    <!-- eslint-disable-next-line vue/no-v-html -->
                     <div class="result-label" v-html="highlightSearchText(getSearchResultLabel(result))"></div>
                     <div v-if="getSearchResultMetaParts(result).length > 0" class="result-meta">
                       <span
@@ -1102,14 +1142,24 @@ async function openScreenshot(filePath: string): Promise<void> {
                   </div>
                   <!-- 节点徽章 -->
                   <div class="node-badges">
-                    <n-tag type="warning" size="small"
-                      >进行识别：{{ item.recognition_attempts?.length || 0 }}</n-tag
-                    >
-                    <n-tag type="info" size="small"
-                      >Next列表：{{
-                        item.next_list_attempts?.[0]?.list?.length || item.next_list?.length || 0
-                      }}</n-tag
-                    >
+                    <div class="node-badges-top">
+                      <n-tag type="warning" size="small"
+                        >进行识别：{{ item.recognition_attempts?.length || 0 }}</n-tag
+                      >
+                      <n-tag type="info" size="small"
+                        >Next列表：{{
+                          item.next_list_attempts?.[0]?.list?.length || item.next_list?.length || 0
+                        }}</n-tag
+                      >
+                    </div>
+                    <div class="node-badges-bottom">
+                      <span
+                        class="node-duration"
+                        :style="{ color: getDurationColor(getNodeDuration(item)) }"
+                      >
+                        耗时：{{ formatNodeDuration(getNodeDuration(item)) }}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </DynamicScrollerItem>
@@ -2227,6 +2277,33 @@ async function openScreenshot(filePath: string): Promise<void> {
 .node-row.highlight {
   animation: highlight-flash 1.5s ease-out;
   position: relative;
+}
+
+.node-badges {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.node-badges-top {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.node-badges-bottom {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.node-duration {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--n-color-fill);
+  white-space: nowrap;
 }
 
 @keyframes highlight-flash {

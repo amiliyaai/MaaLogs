@@ -5,6 +5,7 @@ import GeneralSettings from "./settings/GeneralSettings.vue";
 import AISettings from "./settings/AISettings.vue";
 import AboutSettings from "./settings/AboutSettings.vue";
 import type { AIConfig } from "@/config/ai";
+import type { DurationDisplayConfig } from "@/config/display";
 
 type ThemeMode = "light" | "dark" | "auto";
 
@@ -14,6 +15,7 @@ const props = defineProps<{
   aiConfig: AIConfig | null;
   importMaaBakLog: boolean;
   jsonExpandDepth: number;
+  durationDisplay: DurationDisplayConfig;
 }>();
 
 const emit = defineEmits<{
@@ -23,6 +25,7 @@ const emit = defineEmits<{
   (e: "save-ai-config", value: AIConfig): void;
   (e: "update:import-maa-bak-log", value: boolean): void;
   (e: "update:json-expand-depth", value: number): void;
+  (e: "update:duration-display", value: DurationDisplayConfig): void;
 }>();
 
 const contentRef = ref<HTMLElement | null>(null);
@@ -94,6 +97,10 @@ function handleJsonExpandDepthChange(value: number) {
   emit("update:json-expand-depth", value);
 }
 
+function handleDurationDisplayChange(value: DurationDisplayConfig) {
+  emit("update:duration-display", value);
+}
+
 onMounted(() => {
   nextTick(() => {
     if (contentRef.value) {
@@ -133,9 +140,11 @@ onMounted(() => {
             :theme-mode="props.themeMode"
             :import-maa-bak-log="props.importMaaBakLog"
             :json-expand-depth="props.jsonExpandDepth"
+            :duration-display="props.durationDisplay"
             @update:theme-mode="handleThemeChange"
             @update:import-maa-bak-log="handleImportMaaBakLogChange"
             @update:json-expand-depth="handleJsonExpandDepthChange"
+            @update:duration-display="handleDurationDisplayChange"
           />
         </section>
 

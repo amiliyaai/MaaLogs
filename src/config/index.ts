@@ -115,3 +115,4 @@ export * from "./file";
 export * from "./knowledge";
 export * from "./compare";
 export * from "./logFiles";
+export * from "./display";

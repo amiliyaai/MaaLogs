@@ -92,6 +92,7 @@ import { createLogger } from "@/utils/logger";
 import { setImportMaaBakLogGetter } from "@/config/file";
 import { getAIConfig, saveAIConfig, type AIConfig } from "@/utils/aiAnalyzer";
 import { DEFAULT_HIDDEN_CALLERS } from "@/config/constants";
+import { defaultDurationConfig, type DurationDisplayConfig } from "@/config/display";
 import type { AuxLogEntry, TaskInfo } from "@/types/logTypes";
 
 // ============================================
@@ -116,6 +117,11 @@ const importMaaBakLog = useStorage<boolean>("importMaaBakLog", true);
 
 /** JSON 展开层级 */
 const jsonExpandDepth = useStorage<number>("jsonExpandDepth", 5);
+
+/** 节点耗时显示配置 */
+const durationDisplay = useStorage<DurationDisplayConfig>("durationDisplay", {
+  ...defaultDurationConfig,
+});
 
 /** 当前是否为暗色主题 */
 const isDark = computed(() => {
@@ -884,6 +890,7 @@ useTauriIntegration({
               :caller-options="callerOptions"
               :vision-dir="visionDir"
               :json-expand-depth="jsonExpandDepth"
+              :duration-display="durationDisplay"
               @select-task="
                 ({ taskKey, nodeId }) => {
                   selectedTaskKey = taskKey;
@@ -960,11 +967,13 @@ useTauriIntegration({
           :ai-config="aiConfig"
           :import-maa-bak-log="importMaaBakLog"
           :json-expand-depth="jsonExpandDepth"
+          :duration-display="durationDisplay"
           @update:theme-mode="themeMode = $event"
           @update:ai-config="aiConfig = $event"
           @save-ai-config="handleSaveAIConfig"
           @update:import-maa-bak-log="importMaaBakLog = $event"
           @update:json-expand-depth="jsonExpandDepth = $event"
+          @update:duration-display="durationDisplay = $event"
         />
       </n-dialog-provider>
     </n-message-provider>

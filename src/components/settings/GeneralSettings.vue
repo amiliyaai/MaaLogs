@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { NButton, NSwitch, NInputNumber } from "naive-ui";
+import { NButton, NSwitch, NInputNumber, NPopconfirm, NColorPicker } from "naive-ui";
 import { getPlatform } from "@/platform";
+import { defaultDurationConfig, type DurationDisplayConfig } from "@/config/display";
 
 type ThemeMode = "light" | "dark" | "auto";
 
@@ -8,12 +9,14 @@ const props = defineProps<{
   themeMode: ThemeMode;
   importMaaBakLog: boolean;
   jsonExpandDepth: number;
+  durationDisplay: DurationDisplayConfig;
 }>();
 
 const emit = defineEmits<{
   (e: "update:themeMode", value: ThemeMode): void;
   (e: "update:importMaaBakLog", value: boolean): void;
   (e: "update:jsonExpandDepth", value: number): void;
+  (e: "update:durationDisplay", value: DurationDisplayConfig): void;
 }>();
 
 const themeOptions: { label: string; icon: string; value: ThemeMode }[] = [
@@ -37,6 +40,45 @@ function handleImportMaaBakLogChange(value: boolean) {
 
 function handleJsonExpandDepthChange(value: number | null) {
   emit("update:jsonExpandDepth", value ?? 5);
+}
+
+function handleWarningThresholdChange(value: number | null) {
+  emit("update:durationDisplay", {
+    ...props.durationDisplay,
+    warningThreshold: value ?? defaultDurationConfig.warningThreshold,
+  });
+}
+
+function handleDangerThresholdChange(value: number | null) {
+  emit("update:durationDisplay", {
+    ...props.durationDisplay,
+    dangerThreshold: value ?? defaultDurationConfig.dangerThreshold,
+  });
+}
+
+function handleNormalColorChange(value: string) {
+  emit("update:durationDisplay", {
+    ...props.durationDisplay,
+    normalColor: value,
+  });
+}
+
+function handleWarningColorChange(value: string) {
+  emit("update:durationDisplay", {
+    ...props.durationDisplay,
+    warningColor: value,
+  });
+}
+
+function handleDangerColorChange(value: string) {
+  emit("update:durationDisplay", {
+    ...props.durationDisplay,
+    dangerColor: value,
+  });
+}
+
+function resetDurationDisplay() {
+  emit("update:durationDisplay", { ...defaultDurationConfig });
 }
 </script>
 
@@ -101,6 +143,70 @@ function handleJsonExpandDepthChange(value: number | null) {
           class="depth-input"
           @update:value="handleJsonExpandDepthChange"
         />
+      </div>
+    </div>
+
+    <div class="setting-card">
+      <div class="setting-header">
+        <div class="setting-row">
+          <div class="setting-icon">⏱️</div>
+          <div class="setting-info">
+            <div class="setting-title">节点耗时显示</div>
+            <div class="setting-desc">设置节点耗时阈值和显示颜色</div>
+          </div>
+          <n-popconfirm
+            positive-text="确认"
+            negative-text="取消"
+            @positive-click="resetDurationDisplay"
+          >
+            <template #trigger>
+              <n-button size="small" type="warning">重置</n-button>
+            </template>
+            确定要重置为默认值吗？
+          </n-popconfirm>
+        </div>
+      </div>
+      <div class="duration-settings">
+        <div class="duration-row">
+          <span class="duration-label">正常颜色</span>
+          <n-color-picker
+            :value="props.durationDisplay.normalColor"
+            class="color-picker"
+            @update:value="handleNormalColorChange"
+          />
+        </div>
+        <div class="duration-row">
+          <span class="duration-label">警告阈值 (ms)</span>
+          <n-input-number
+            :value="props.durationDisplay.warningThreshold"
+            :min="0"
+            :max="100000"
+            :step="100"
+            class="threshold-input"
+            @update:value="handleWarningThresholdChange"
+          />
+          <n-color-picker
+            :value="props.durationDisplay.warningColor"
+            class="color-picker"
+            @update:value="handleWarningColorChange"
+          />
+        </div>
+        <div class="duration-row">
+          <span class="duration-label">危险阈值 (ms)</span>
+          <n-input-number
+            :value="props.durationDisplay.dangerThreshold"
+            :min="0"
+            :max="100000"
+            :step="100"
+            class="threshold-input"
+            @update:value="handleDangerThresholdChange"
+          />
+          <n-color-picker
+            :value="props.durationDisplay.dangerColor"
+            class="color-picker"
+            @update:value="handleDangerColorChange"
+          />
+        </div>
       </div>
     </div>
   </div>
@@ -205,6 +311,36 @@ function handleJsonExpandDepthChange(value: number | null) {
 }
 
 .depth-input {
+  width: 100px;
+}
+
+.duration-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 16px;
+  background: var(--n-color-fill);
+  border-radius: 12px;
+}
+
+.duration-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.duration-label {
+  width: 120px;
+  font-size: 13px;
+  color: var(--n-text-color-2);
+}
+
+.threshold-input {
+  width: 120px;
+}
+
+.color-picker {
   width: 100px;
 }
 </style>
