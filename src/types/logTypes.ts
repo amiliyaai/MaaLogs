@@ -10,6 +10,26 @@
  */
 
 /**
+ * 日志来源类型
+ *
+ * 用于区分不同来源的日志文件：
+ * - main: 主日志文件（maa.log 或 maafw.log）
+ * - agent: Agent执行日志（mafw_agent.log）
+ * - aux: 辅助日志文件（go-service.log 等）
+ *
+ * 注意：maa.log 与 maafw.log + mafw_agent.log 互斥，不能同时使用
+ */
+export type LogSource = 'main' | 'agent' | 'aux';
+
+/**
+ * 日志模式类型
+ *
+ * - legacy: 旧版统一日志（maa.log）
+ * - split: 新版分离日志（maafw.log + maafw_agent.log）
+ */
+export type LogMode = 'legacy' | 'split';
+
+/**
  * 用户选择的文件信息
  *
  * 表示用户通过文件选择器或拖拽操作导入的文件元数据。
@@ -46,6 +66,8 @@ export type SelectedFile = {
   file: File;
   path?: string;
   sourceFiles?: string[];
+  logSource?: LogSource;
+  logMode?: LogMode;
 };
 
 /**
@@ -443,6 +465,7 @@ export type RecognitionDetail = {
   detail: JsonValue;
   name: string;
   expected?: string[];
+  anchor?: string | null;
 };
 
 /**
