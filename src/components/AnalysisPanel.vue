@@ -90,6 +90,7 @@ import { ref, watch, onMounted, onUnmounted, computed, nextTick } from "vue";
 import { useStorage, useInPageSearch } from "@/composables";
 import { getPlatform } from "@/platform";
 import { parseTimestampToMs } from "@/utils/parse";
+import { isTauriEnv } from "@/utils/env";
 import type {
   NodeInfo,
   NextListItem,
@@ -125,6 +126,7 @@ const screenshotSrc = ref("");
 const skipAIConfirm = useStorage("skipAIConfirm", false);
 const showAIConfirm = ref(false);
 const aiError = ref("");
+const isDesktop = computed(() => isTauriEnv());
 
 function getNodeDuration(node: NodeInfo): number | null {
   const startMs = node.start_time ? parseTimestampToMs(node.start_time) : null;
@@ -1010,7 +1012,7 @@ async function openScreenshot(filePath: string): Promise<void> {
             <span>任务列表</span>
             <div class="ai-controls">
               <n-spin :show="aiAnalyzing" size="small">
-                <n-button size="small" :disabled="!selectedTask" @click="handleAIAnalyze">
+                <n-button v-if="isDesktop" size="small" :disabled="!selectedTask" @click="handleAIAnalyze">
                   AI 分析
                 </n-button>
               </n-spin>

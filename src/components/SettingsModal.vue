@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { ref, onMounted, nextTick, watch } from "vue";
+import { ref, onMounted, nextTick, watch, computed } from "vue";
 import { NModal } from "naive-ui";
 import GeneralSettings from "./settings/GeneralSettings.vue";
 import AISettings from "./settings/AISettings.vue";
 import AboutSettings from "./settings/AboutSettings.vue";
 import type { AIConfig } from "@/config/ai";
 import type { DurationDisplayConfig } from "@/config/display";
+import { isTauriEnv } from "@/utils/env";
 
 type ThemeMode = "light" | "dark" | "auto";
 
@@ -31,11 +32,18 @@ const emit = defineEmits<{
 const contentRef = ref<HTMLElement | null>(null);
 const activeSection = ref("general");
 
-const sections = [
-  { id: "general", label: "通用", icon: "⚙️" },
-  { id: "ai", label: "AI 设置", icon: "🤖" },
-  { id: "about", label: "关于", icon: "ℹ️" },
-];
+const isDesktop = computed(() => isTauriEnv());
+
+const sections = computed(() => {
+  const list = [
+    { id: "general", label: "通用", icon: "⚙️" },
+    { id: "about", label: "关于", icon: "ℹ️" },
+  ];
+  if (isDesktop.value) {
+    list.splice(1, 0, { id: "ai", label: "AI 设置", icon: "🤖" });
+  }
+  return list;
+});
 
 watch(
   () => props.show,
@@ -148,7 +156,7 @@ onMounted(() => {
           />
         </section>
 
-        <section id="ai" class="settings-section">
+        <section v-if="isDesktop" id="ai" class="settings-section">
           <h3 class="section-title">AI 设置</h3>
           <AISettings
             :config="props.aiConfig"

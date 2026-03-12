@@ -218,7 +218,7 @@ export async function encryptSecure(data: string): Promise<string> {
  *
  * @example
  * const encrypted = await store.get<string>('api-key');
- * const apiKey = await decryptSecure(encrypted);
+ * const decrypted = await decryptSecure(encrypted);
  */
 export async function decryptSecure(encryptedData: string): Promise<string> {
   return decrypt(encryptedData, await getOrCreateKey());
