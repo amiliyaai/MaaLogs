@@ -237,7 +237,7 @@ async function downloadAndInstall(update: Update | null): Promise<void> {
  */
 export async function getCurrentVersion(): Promise<string> {
   if (!isTauriEnv()) {
-    return "web";
+    return "v" + __APP_VERSION__;
   }
   try {
     const { getVersion } = await import("@tauri-apps/api/app");
