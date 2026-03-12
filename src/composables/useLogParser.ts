@@ -20,68 +20,18 @@ import type {
   RawLine,
   AuxLogEntry,
   SelectedFile,
-  EventNotification,
-  ControllerInfo,
 } from "@/types/logTypes";
-import { projectParserRegistry, correlateAuxLogs, detectProject } from "@/parsers";
-import { type ProjectType, parseMainLogStream, createLineGenerator } from "@/parsers/baseParser";
+import type { ProjectType } from "@/types/parserTypes";
+import { correlateAuxLogs } from "@/parsers";
 import {
-  StringPool,
-  buildIdentifierRanges,
-  buildTasks,
-  associateControllersToTasks,
-  buildFocusLogEntries,
-} from "@/utils/parse";
-import {
-  parseOnErrorScreenshotsAsync,
   attachScreenshotsToTasks,
   attachScreenshotsFromSaveOnError,
+  parseOnErrorScreenshotsAsync,
 } from "@/parsers/shared";
-import { isMainLog, isMaaBakLog } from "@/utils/file";
-import { LOG_FILE_NAMES } from "@/config/constants";
-import { getProjectParserId } from "@/config/parser";
 import { createLogger, setLoggerContext } from "@/utils/logger";
-import { parseTimestampToMs } from "@/utils/parse";
+import { useLogParserWorker } from "./useLogParserWorker";
 
 const logger = createLogger("LogParser");
-
-function mergeMultilineLogs(lines: string[]): string[] {
-  const merged: string[] = [];
-  let currentLine = "";
-
-  for (const line of lines) {
-    if (line.startsWith("[")) {
-      if (currentLine) {
-        merged.push(currentLine);
-      }
-      currentLine = line;
-    } else if (currentLine) {
-      currentLine += line;
-    } else {
-      merged.push(line);
-    }
-  }
-
-  if (currentLine) {
-    merged.push(currentLine);
-  }
-
-  return merged;
-}
-
-type FileLineEntry = { file: SelectedFile; lines: string[]; size: number };
-
-type ParseCollections = {
-  events: EventNotification[];
-  allLines: RawLine[];
-  auxEntries: AuxLogEntry[];
-  controllerInfos: ControllerInfo[];
-  eventIdentifierMap: Map<number, string>;
-  logDir?: string;
-  baseDir?: string;
-  saveOnErrorRawLines: string[];
-  expectedParams: Map<string, string[]>;
-};
 
 async function attachScreenshotsToParsedTasks(
   tasks: TaskInfo[],
@@ -112,304 +62,6 @@ function logCorrelationStats(auxLogs: AuxLogEntry[]): void {
     failed: auxLogs.filter((item) => item.correlation?.status === "failed").length,
   };
   logger.info("Custom日志关联完成", stats);
-}
-
-async function readSelectedFiles(
-  files: SelectedFile[]
-): Promise<{ fileLines: FileLineEntry[]; totalLines: number }> {
-  const startTime = performance.now();
-  logger.info("开始读取文件", {
-    fileCount: files.length,
-    files: files.map((f) => ({ name: f.name, size: f.size })),
-  });
-
-  const fileLines: FileLineEntry[] = [];
-  let totalLines = 0;
-  for (const file of files) {
-    const fileStartTime = performance.now();
-    const text = await file.file.text();
-    const rawLines = text.split(/\r?\n/);
-    const lines = mergeMultilineLogs(rawLines);
-    fileLines.push({ file, lines, size: file.size });
-    totalLines += lines.length;
-
-    const fileDuration = performance.now() - fileStartTime;
-    logger.debug("文件读取完成", {
-      fileName: file.name,
-      rawLines: rawLines.length,
-      mergedLines: lines.length,
-      sizeBytes: file.size,
-      durationMs: Math.round(fileDuration),
-    });
-  }
-
-  const totalDuration = performance.now() - startTime;
-  logger.info("文件读取阶段完成", {
-    totalFiles: files.length,
-    totalLines,
-    durationMs: Math.round(totalDuration),
-  });
-  return { fileLines, totalLines };
-}
-
-function collectRawLines(allLines: RawLine[], fileName: string, lines: string[]): void {
-  for (let i = 0; i < lines.length; i++) {
-    allLines.push({ fileName, lineNumber: i + 1, line: lines[i] });
-  }
-}
-
-function mergeMainLogResult(
-  collections: ParseCollections,
-  result: {
-    events: EventNotification[];
-    controllers: ControllerInfo[];
-    identifierMap: Map<number, string>;
-    _logDir?: string;
-    saveOnErrorRawLines: string[];
-    expectedParams: Map<string, string[]>;
-  }
-): void {
-  const startIndex = collections.events.length;
-  collections.events.push(...result.events);
-  collections.controllerInfos.push(...result.controllers);
-  for (const [idx, identifier] of result.identifierMap) {
-    collections.eventIdentifierMap.set(startIndex + idx, identifier);
-  }
-  if (result._logDir) {
-    collections.logDir = result._logDir;
-  }
-  collections.saveOnErrorRawLines.push(...result.saveOnErrorRawLines);
-  for (const [nodeName, expected] of result.expectedParams) {
-    if (!collections.expectedParams.has(nodeName)) {
-      collections.expectedParams.set(nodeName, expected);
-    }
-  }
-}
-
-async function parseMainLogFile(
-  collections: ParseCollections,
-  lines: string[],
-  fileName: string,
-  fileSize: number
-): Promise<ProjectType> {
-  const detected = detectProject(lines);
-  logger.info("开始解析主日志文件", { fileName, detected });
-
-  // 大文件（超过 5MB）使用流式解析
-  const STREAM_THRESHOLD_BYTES = 5 * 1024 * 1024; // 5MB
-  const useStream = fileSize > STREAM_THRESHOLD_BYTES;
-  logger.info(useStream ? "使用流式解析" : "使用传统解析", { fileSize, linesCount: lines.length });
-
-  if (detected !== "unknown") {
-    const parser = getProjectParser(detected);
-    if (parser) {
-      let result;
-      if (useStream) {
-        // 使用流式解析
-        const content = lines.join("\n");
-        const lineGenerator = createLineGenerator(content);
-        result = await parseMainLogStream(lineGenerator, fileName);
-      } else {
-        // 使用传统解析
-        result = parser.parseMainLog(lines, { fileName });
-      }
-      mergeMainLogResult(collections, result);
-      return detected;
-    }
-  }
-
-  const projectParser = projectParserRegistry.getDefault();
-  if (!projectParser) return "unknown";
-
-  let result;
-  if (useStream) {
-    // 使用流式解析
-    const content = lines.join("\n");
-    const lineGenerator = createLineGenerator(content);
-    result = await parseMainLogStream(lineGenerator, fileName);
-  } else {
-    // 使用传统解析
-    result = projectParser.parseMainLog(lines, { fileName });
-  }
-  mergeMainLogResult(collections, result);
-  return result.detectedProject || "unknown";
-}
-
-function parseAuxLogFile(
-  collections: ParseCollections,
-  lines: string[],
-  fileName: string,
-  detectedProjectType: ProjectType
-): void {
-  if (detectedProjectType === "unknown") return;
-
-  const parserId = getProjectParserId(detectedProjectType);
-  if (!parserId) return;
-
-  const projectParser = getProjectParser(parserId);
-  if (!projectParser) return;
-  const result = projectParser.parseAuxLog(lines, { fileName });
-  collections.auxEntries.push(...result.entries);
-}
-
-interface FileParseProgress {
-  processed: number;
-  totalLines: number;
-  detectedProjectType: ProjectType;
-}
-
-function extractTimestamp(line: string): number | null {
-  const match = line.match(/^\[(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}[.,]?\d{3})\]/);
-  if (match) {
-    return parseTimestampToMs(match[1]);
-  }
-  return null;
-}
-
-async function processFileEntries(
-  collections: ParseCollections,
-  fileLines: FileLineEntry[],
-  onProgress: (percentage: number) => void
-): Promise<FileParseProgress> {
-  const startTime = performance.now();
-  const mainLogEntries: FileLineEntry[] = [];
-  const auxLogEntries: FileLineEntry[] = [];
-  const maaBakLogEntries: FileLineEntry[] = [];
-
-  for (const entry of fileLines) {
-    if (isMaaBakLog(entry.file.name)) {
-      maaBakLogEntries.push(entry);
-    } else if (isMainLog(entry.file.name)) {
-      mainLogEntries.push(entry);
-    } else {
-      auxLogEntries.push(entry);
-    }
-  }
-
-  if (maaBakLogEntries.length > 0 && mainLogEntries.length > 0) {
-    const sortedBakLogs = maaBakLogEntries.sort((a, b) => {
-      const timeA = extractTimestamp(a.lines[0]) || 0;
-      const timeB = extractTimestamp(b.lines[0]) || 0;
-      return timeA - timeB;
-    });
-
-    const mergedBakLines: string[] = [];
-    const sourceFiles: string[] = [];
-    for (const bak of sortedBakLogs) {
-      mergedBakLines.push(...bak.lines);
-      sourceFiles.push(bak.file.name);
-    }
-
-    for (const entry of mainLogEntries) {
-      const bakLastLineTime = extractTimestamp(mergedBakLines[mergedBakLines.length - 1]);
-      const logFirstLineTime = extractTimestamp(entry.lines[0]);
-
-      if (
-        bakLastLineTime !== null &&
-        logFirstLineTime !== null &&
-        bakLastLineTime > logFirstLineTime
-      ) {
-        logger.warn("maa.bak.log 时间顺序可能不正确（最后一条日志晚于 maa.log 第一条）", {
-          bakLastTime: bakLastLineTime,
-          logFirstTime: logFirstLineTime,
-        });
-      }
-
-      const mergedLines = [...mergedBakLines, ...entry.lines];
-      const mergedContent = mergedLines.join("\n");
-      const mergedFile: SelectedFile = {
-        name: LOG_FILE_NAMES.MAA_LOG,
-        size: mergedContent.length,
-        type: "text/plain",
-        file: new File([mergedContent], LOG_FILE_NAMES.MAA_LOG, { type: "text/plain" }),
-        sourceFiles: [...sourceFiles, entry.file.name],
-      };
-      entry.file = mergedFile;
-      entry.lines = mergedLines;
-      entry.size = mergedFile.size;
-    }
-
-    logger.info(`已合并 ${LOG_FILE_NAMES.MAA_BAK_LOG} 和 ${LOG_FILE_NAMES.MAA_LOG}`, {
-      bakFileCount: sortedBakLogs.length,
-      bakLogLines: mergedBakLines.length,
-      mainLogLines: mainLogEntries.reduce((sum, e) => sum + e.lines.length, 0),
-      mergedFiles: mainLogEntries.map((e) => e.file.sourceFiles),
-    });
-  }
-
-  logger.info("文件分类完成", {
-    mainLogCount: mainLogEntries.length,
-    auxLogCount: auxLogEntries.length,
-    mainLogFiles: mainLogEntries.map((e) => e.file.name),
-    auxLogFiles: auxLogEntries.map((e) => e.file.name),
-  });
-
-  const totalLines = fileLines.reduce((sum, e) => sum + e.lines.length, 0);
-  let processed = 0;
-  let detectedProjectType: ProjectType = "unknown";
-
-  logger.info("开始解析主日志文件", { count: mainLogEntries.length });
-
-  for (const entry of mainLogEntries) {
-    const { file, lines, size } = entry;
-    const fileStartTime = performance.now();
-    collectRawLines(collections.allLines, file.name, lines);
-    const detected = await parseMainLogFile(collections, lines, file.name, size);
-    if (detected !== "unknown") {
-      detectedProjectType = detected;
-    }
-    processed += lines.length;
-    onProgress(Math.round((processed / totalLines) * 100));
-
-    const fileDuration = performance.now() - fileStartTime;
-    logger.debug("主日志解析完成", {
-      fileName: file.name,
-      linesCount: lines.length,
-      eventsCount: collections.events.length,
-      detectedProject: detected,
-      durationMs: Math.round(fileDuration),
-    });
-  }
-
-  logger.info("开始解析辅助日志文件", { count: auxLogEntries.length });
-
-  for (const entry of auxLogEntries) {
-    const { file, lines } = entry;
-    const fileStartTime = performance.now();
-    collectRawLines(collections.allLines, file.name, lines);
-    parseAuxLogFile(collections, lines, file.name, detectedProjectType);
-    processed += lines.length;
-    onProgress(Math.round((processed / totalLines) * 100));
-
-    const fileDuration = performance.now() - fileStartTime;
-    logger.debug("辅助日志解析完成", {
-      fileName: file.name,
-      linesCount: lines.length,
-      auxEntriesCount: collections.auxEntries.length,
-      durationMs: Math.round(fileDuration),
-    });
-  }
-
-  const totalDuration = performance.now() - startTime;
-  logger.info("文件解析阶段完成", {
-    totalLines,
-    processedLines: processed,
-    eventsCount: collections.events.length,
-    auxEntriesCount: collections.auxEntries.length,
-    detectedProjectType,
-    durationMs: Math.round(totalDuration),
-  });
-
-  return { processed, totalLines, detectedProjectType };
-}
-
-function getProjectParser(parserId: string) {
-  const projectParser = projectParserRegistry.get(parserId);
-  if (!projectParser) {
-    logger.warn("未找到选择的解析器", { parserId });
-    return null;
-  }
-  return projectParser;
 }
 
 function buildTaskMessage(taskCount: number): string {
@@ -510,6 +162,8 @@ export function useLogParser(_config: LogParserConfig = {}): LogParserResult {
   const selectedThreadId = ref("all");
   const expectedParams = new Map<string, string[]>();
 
+  const worker = useLogParserWorker();
+
   // ============================================
   // 计算属性
   // ============================================
@@ -602,96 +256,45 @@ export function useLogParser(_config: LogParserConfig = {}): LogParserResult {
     });
 
     try {
-      const collections: ParseCollections = {
-        events: [],
-        allLines: [],
-        auxEntries: [],
-        controllerInfos: [],
-        eventIdentifierMap: new Map(),
-        baseDir: _config.baseDir ? _config.baseDir() : undefined,
-        saveOnErrorRawLines: [],
-        expectedParams: new Map(),
-      };
+      const baseDir = _config.baseDir ? _config.baseDir() : undefined;
 
-      const { fileLines, totalLines } = await readSelectedFiles(selectedFiles.value);
-      logger.info("文件读取完成，开始解析", { totalLines });
-
-      const progress = await processFileEntries(collections, fileLines, (percentage) => {
-        parseProgress.value = percentage;
-        statusMessage.value = `解析中… ${percentage}%`;
-      });
-
-      detectedProject.value = progress.detectedProjectType;
-      rawLines.value = collections.allLines;
-
-      logger.info("开始构建任务结构", {
-        eventsCount: collections.events.length,
-        identifierMapSize: collections.eventIdentifierMap.size,
-      });
-
-      const buildStartTime = performance.now();
-      const identifierRanges = buildIdentifierRanges(
-        collections.eventIdentifierMap,
-        collections.events.length
+      const workerResult = await worker.parse(
+        selectedFiles.value,
+        baseDir,
+        (progress) => {
+          parseProgress.value = progress.percentage;
+          statusMessage.value = progress.message || `解析中… ${progress.percentage}%`;
+        }
       );
-      logger.debug("identifier 范围", {
-        count: identifierRanges.length,
-        samples: identifierRanges.slice(0, 5),
-      });
 
-      const stringPool = new StringPool();
-      tasks.value = buildTasks(collections.events, stringPool, identifierRanges);
-      stringPool.clear();
-      const buildDuration = performance.now() - buildStartTime;
+      detectedProject.value = workerResult.detectedProjectType;
+      rawLines.value = workerResult.rawLines;
+      tasks.value = workerResult.tasks;
+      const auxEntries = workerResult.auxEntries;
+      const logDir = workerResult.logDir;
 
-      logger.info("任务构建完成", {
+      logger.info("Worker 解析完成，开始关联截图", {
         tasksCount: tasks.value.length,
-        durationMs: Math.round(buildDuration),
-      });
-
-      const focusStartTime = performance.now();
-      const focusEntries = buildFocusLogEntries(collections.events);
-      if (focusEntries.length > 0) {
-        collections.auxEntries.push(...focusEntries);
-        logger.debug("Focus 日志条目构建完成", {
-          focusEntriesCount: focusEntries.length,
-          durationMs: Math.round(performance.now() - focusStartTime),
-        });
-      }
-
-      associateControllersToTasks(tasks.value as TaskInfo[], collections.controllerInfos);
-
-      logger.info("开始关联截图", {
-        saveOnErrorLines: collections.saveOnErrorRawLines.length,
-        logDir: collections.logDir || collections.baseDir || "无",
+        logDir: logDir || baseDir || "无",
       });
 
       const screenshotStartTime = performance.now();
-      await attachScreenshotsToParsedTasks(
-        tasks.value,
-        collections.saveOnErrorRawLines,
-        collections.baseDir || collections.logDir
-      );
+      await attachScreenshotsToParsedTasks(tasks.value, [], baseDir || logDir);
       logger.debug("截图关联完成", {
         durationMs: Math.round(performance.now() - screenshotStartTime),
       });
 
       logger.info("开始关联辅助日志", {
-        auxEntriesCount: collections.auxEntries.length,
+        auxEntriesCount: auxEntries.length,
         tasksCount: tasks.value.length,
       });
 
       const correlationStartTime = performance.now();
-      auxLogs.value = correlateAuxLogs(collections.auxEntries, tasks.value);
+      auxLogs.value = correlateAuxLogs(auxEntries, tasks.value);
       logCorrelationStats(auxLogs.value);
       logger.debug("辅助日志关联完成", {
         durationMs: Math.round(performance.now() - correlationStartTime),
       });
-
-      expectedParams.clear();
-      for (const [nodeName, expected] of collections.expectedParams) {
-        expectedParams.set(nodeName, expected);
-      }
 
       parseState.value = "done";
 
@@ -702,6 +305,7 @@ export function useLogParser(_config: LogParserConfig = {}): LogParserResult {
         auxLogsCount: auxLogs.value.length,
         rawLinesCount: rawLines.value.length,
         detectedProject: detectedProject.value,
+        workerDurationMs: Math.round(workerResult.duration),
         totalDurationMs: Math.round(totalDuration),
       });
     } catch (error) {
