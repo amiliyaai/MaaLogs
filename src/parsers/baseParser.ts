@@ -362,6 +362,7 @@ export function extractRecoDetailsFromEvent(event: EventNotification): Recogniti
     algorithm: asString(reco.algorithm) || "Unknown",
     box: parsedBox,
     detail: reco.detail || null,
+    anchor: reco.anchor !== undefined ? asString(reco.anchor) || null : undefined,
   };
 }
 

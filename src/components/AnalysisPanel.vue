@@ -1236,6 +1236,14 @@ async function openScreenshot(filePath: string): Promise<void> {
                   </div>
                 </div>
                 <div class="detail-section-cell">
+                  <div class="detail-section-label">锚点</div>
+                  <div class="detail-section-value">
+                    <n-tag size="small" type="warning">
+                      {{ selectedNode.reco_details.anchor ?? '无' }}
+                    </n-tag>
+                  </div>
+                </div>
+                <div class="detail-section-cell">
                   <div class="detail-section-label">节点名称</div>
                   <div class="detail-section-value">
                     {{ selectedNode.reco_details.name }}
@@ -1280,6 +1288,14 @@ async function openScreenshot(filePath: string): Promise<void> {
                       {{ selectedNode.recognition_attempts[0].reco_details.algorithm }}
                     </n-tag>
                     <div v-else>零个</div>
+                  </div>
+                </div>
+                <div class="detail-section-cell">
+                  <div class="detail-section-label">锚点</div>
+                  <div class="detail-section-value">
+                    <n-tag size="small" type="warning">
+                      {{ selectedNode.recognition_attempts[0]?.reco_details?.anchor ?? '无' }}
+                    </n-tag>
                   </div>
                 </div>
                 <div class="detail-section-cell">
@@ -1478,6 +1494,12 @@ async function openScreenshot(filePath: string): Promise<void> {
                           <span class="attempt-label">算法：</span>
                           <n-tag size="small" type="info">
                             {{ attempt.reco_details.algorithm }}
+                          </n-tag>
+                        </div>
+                        <div class="attempt-detail-row">
+                          <span class="attempt-label">锚点：</span>
+                          <n-tag size="small" type="warning">
+                            {{ attempt.reco_details.anchor ?? '无' }}
                           </n-tag>
                         </div>
                         <div v-if="attempt.reco_details.name" class="attempt-detail-row">
