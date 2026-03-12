@@ -443,6 +443,7 @@ export type RecognitionDetail = {
   detail: JsonValue;
   name: string;
   expected?: string[];
+  anchor?: string | null;
 };
 
 /**
