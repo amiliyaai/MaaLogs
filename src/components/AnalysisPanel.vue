@@ -83,6 +83,8 @@ import {
   NTag,
   NSpin,
   NIcon,
+  NTabs,
+  NTab,
 } from "naive-ui";
 import { PictureFilled, SearchOutlined } from "@vicons/antd";
 import { DynamicScroller, DynamicScrollerItem } from "vue-virtual-scroller";
@@ -108,6 +110,8 @@ import {
 } from "@/utils/aiAnalyzer";
 import type { DurationDisplayConfig } from "@/config/display";
 import AIResultCard from "./AIResultCard.vue";
+import PresetAnalysisCard from "./PresetAnalysisCard.vue";
+import { diagnoseFailures } from "@/utils/failureDetector";
 import ControllerInfoCard from "./ControllerInfoCard.vue";
 import CustomLogPanel from "./CustomLogPanel.vue";
 import RecognitionTree from "./RecognitionTree.vue";
@@ -119,6 +123,7 @@ import WaitFreezesImages from "./WaitFreezesImages.vue";
  */
 const aiConfig = ref<AIConfig | null>(null);
 const aiAnalyzing = ref(false);
+const nodeListTab = ref<'nodes' | 'summary' | 'ai'>('nodes');
 const aiResults = ref<FailureAnalysis[]>([]);
 const aiStats = ref<AIAnalysisStats>();
 const showScreenshot = ref(false);
@@ -127,6 +132,17 @@ const skipAIConfirm = useStorage("skipAIConfirm", false);
 const showAIConfirm = ref(false);
 const aiError = ref("");
 const isDesktop = computed(() => isTauriEnv());
+const diagnosisCount = computed(() => {
+  if (!props.selectedTask) return 0;
+  const results = diagnoseFailures([props.selectedTask]);
+  const failedNodeIds = new Set<number>();
+  for (const node of props.selectedTask.nodes) {
+    if (node.status === 'failed') {
+      failedNodeIds.add(node.node_id);
+    }
+  }
+  return results.filter(d => failedNodeIds.has(d.nodeId)).length;
+});
 
 function getNodeDuration(node: NodeInfo): number | null {
   const startMs = node.start_time ? parseTimestampToMs(node.start_time) : null;
@@ -627,6 +643,34 @@ async function handleAIAnalyze() {
   doAIAnalyze();
 }
 
+function handleSelectFailedNode(nodeId: number) {
+  if (!props.selectedTask) return;
+  emit('select-node', nodeId);
+  const nodeIndex = props.selectedTask.nodes.findIndex(n => n.node_id === nodeId);
+  if (nodeIndex >= 0) {
+    highlightNodeId.value = nodeId;
+    setTimeout(() => {
+      highlightNodeId.value = null;
+    }, 1500);
+    if (nodeListTab.value === 'nodes') {
+      nextTick(() => {
+        if (nodeScrollerRef.value) {
+          (nodeScrollerRef.value as unknown as { scrollToItem: (index: number) => void }).scrollToItem(nodeIndex);
+        }
+      });
+    } else {
+      nodeListTab.value = 'nodes';
+      nextTick(() => {
+        setTimeout(() => {
+          if (nodeScrollerRef.value) {
+            (nodeScrollerRef.value as unknown as { scrollToItem: (index: number) => void }).scrollToItem(nodeIndex);
+          }
+        }, 300);
+      });
+    }
+  }
+}
+
 async function doAIAnalyze() {
   showAIConfirm.value = false;
   if (!props.selectedTask) return;
@@ -1010,13 +1054,6 @@ async function openScreenshot(filePath: string): Promise<void> {
         <div class="panel-top">
           <div class="node-header">
             <span>任务列表</span>
-            <div class="ai-controls">
-              <n-spin :show="aiAnalyzing" size="small">
-                <n-button v-if="isDesktop" size="small" :disabled="!selectedTask" @click="handleAIAnalyze">
-                  AI 分析
-                </n-button>
-              </n-spin>
-            </div>
           </div>
         </div>
         <div class="task-list-content">
@@ -1087,13 +1124,21 @@ async function openScreenshot(filePath: string): Promise<void> {
       <!-- 中栏：节点列表 -->
       <div class="node-list">
         <div class="panel-top">
-          <div class="node-header">
-            <span>节点列表</span>
-          </div>
+          <n-tabs v-model:value="nodeListTab" type="segment" size="small" class="node-tabs">
+            <n-tab name="nodes">节点</n-tab>
+            <n-tab name="summary">
+              摘要&nbsp;
+              <n-tag v-if="diagnosisCount > 0" type="error" size="small">{{ diagnosisCount }}</n-tag>
+            </n-tab>
+            <n-tab v-if="isDesktop" name="ai">AI分析</n-tab>
+          </n-tabs>
         </div>
+        
         <!-- 空状态：未选择任务 -->
         <div v-if="!selectedTaskKey" class="empty">请选择左侧任务</div>
-        <div v-else class="node-list-content">
+        
+        <!-- 节点 Tab -->
+        <div v-show="nodeListTab === 'nodes'" class="node-list-content">
           <!-- 虚拟滚动节点列表 -->
           <DynamicScroller
             ref="nodeScrollerRef"
@@ -1113,6 +1158,7 @@ async function openScreenshot(filePath: string): Promise<void> {
                 <!-- 节点行 -->
                 <div
                   class="node-row"
+                  :data-node-id="item.node_id"
                   :class="{
                     active: item.node_id === selectedNodeId,
                     failed: item.status === 'failed',
@@ -1170,6 +1216,25 @@ async function openScreenshot(filePath: string): Promise<void> {
           <!-- 空状态：无节点 -->
           <div v-if="(selectedTask?.nodes || []).length === 0" class="empty">未发现节点事件</div>
         </div>
+        
+        <!-- 摘要 Tab -->
+        <div v-show="nodeListTab === 'summary'" class="diagnosis-content">
+          <PresetAnalysisCard :tasks="selectedTask ? [selectedTask] : []" :duration-display="durationDisplay" @select-node="handleSelectFailedNode" />
+        </div>
+        
+        <!-- AI分析 Tab -->
+        <div v-show="nodeListTab === 'ai'" class="ai-content">
+          <div v-if="!aiAnalyzing && (!aiResults || aiResults.length === 0)" class="ai-empty">
+            <n-button type="primary" @click="handleAIAnalyze">
+              开始AI分析
+            </n-button>
+          </div>
+          <div v-else-if="aiAnalyzing" class="ai-loading">
+            <n-spin size="medium" />
+            <span>AI 分析中...</span>
+          </div>
+          <AIResultCard v-else :results="aiResults" :error="aiError" :stats="aiStats" />
+        </div>
       </div>
       <!-- 右栏：节点详情 -->
       <div class="detail-panel">
@@ -1209,8 +1274,6 @@ async function openScreenshot(filePath: string): Promise<void> {
             v-if="selectedTask.controllerInfo"
             :controller-info="selectedTask.controllerInfo"
           />
-          <!-- AI 分析结果卡片 -->
-          <AIResultCard :results="aiResults" :error="aiError" :stats="aiStats" />
           <!-- 空状态：未选择节点 -->
           <div v-if="!selectedNode" class="empty">请选择节点</div>
           <template v-else>
@@ -1945,9 +2008,14 @@ async function openScreenshot(filePath: string): Promise<void> {
   border-radius: 6px;
   cursor: pointer;
   transition: background 0.2s;
-  border: 1px solid transparent;
+  border: 1px solid var(--n-border-color);
   border-left: 3px solid transparent;
   overflow: hidden;
+}
+
+.task-row.active {
+  border-color: #1890ff;
+  background: rgba(24, 144, 255, 0.1);
 }
 
 .task-row.failed {
@@ -2042,7 +2110,7 @@ async function openScreenshot(filePath: string): Promise<void> {
 
 .task-layout {
   display: grid;
-  grid-template-columns: 1fr 1.2fr 1.4fr;
+  grid-template-columns: 1fr 1.2fr 1.5fr;
   gap: 16px;
   flex: 1;
   min-height: 0;
@@ -2063,17 +2131,52 @@ async function openScreenshot(filePath: string): Promise<void> {
 }
 
 .task-list-content,
-.node-list-content {
+.node-list-content,
+.diagnosis-content,
+.ai-content {
   flex: 1;
   min-height: 0;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.node-list-content {
+  padding: 0;
+}
+
+.diagnosis-content {
+  padding: 12px;
+}
+
+.ai-content {
+  padding: 12px;
+}
+
+.ai-empty {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+}
+
+.ai-loading {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  height: 200px;
+  color: var(--n-text-color-3);
 }
 
 .virtual-scroller {
   height: 100%;
-  padding: 8px;
-  padding-bottom: 24px;
+  padding: 8px 16px 24px 8px;
   box-sizing: border-box;
+}
+
+.virtual-scroller:empty {
+  display: none;
 }
 
 .detail-panel {
@@ -2092,6 +2195,7 @@ async function openScreenshot(filePath: string): Promise<void> {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 8px;
   padding-bottom: 24px;
   box-sizing: border-box;

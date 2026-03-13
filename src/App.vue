@@ -1311,8 +1311,9 @@ body,
   cursor: pointer;
   align-items: stretch;
   min-height: 72px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   box-sizing: border-box;
+  width: calc(100% - 8px);
 }
 
 .node-row.active {
