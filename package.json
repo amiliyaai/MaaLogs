@@ -4,7 +4,8 @@
   "version": "2.0.0",
   "type": "module",
   "overrides": {
-    "minimatch": "^10.2.3"
+    "minimatch": "^10.2.3",
+    "flatted": "^3.4.0"
   },
   "scripts": {
     "dev": "vite",
