@@ -11,7 +11,6 @@ export default [
       "dist/**",
       "src-tauri/**",
       "node_modules/**",
-      "vscode/out/**",
       "commitlint.config.cjs",
     ],
   },
@@ -58,19 +57,6 @@ export default [
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-unused-vars": "off",
       "sonarjs/unused-import": "off",
-    },
-  },
-  {
-    files: ["vscode/**"],
-    rules: {
-      "sonarjs/cognitive-complexity": "off",
-      "sonarjs/no-nested-conditional": "off",
-      "sonarjs/regex-complexity": "off",
-      "sonarjs/slow-regex": "off",
-      "sonarjs/no-unused-collection": "off",
-      "sonarjs/unused-import": "off",
-      "@typescript-eslint/no-unused-vars": "off",
-      "@typescript-eslint/no-explicit-any": "off",
     },
   },
   {

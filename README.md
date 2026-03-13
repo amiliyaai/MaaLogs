@@ -159,7 +159,6 @@ MaaLogs/
 ├── src-tauri/                # Tauri 后端
 │   ├── src/                  # Rust 源码
 │   └── icons/                # 应用图标
-├── vscode/                   # VSCode 插件
 └── docs/                     # 文档
 ```
 

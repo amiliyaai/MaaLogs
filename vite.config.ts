@@ -24,14 +24,13 @@ export default defineConfig(async () => ({
 
   test: {
     include: ["src/**/*.{test,spec}.{js,ts}"],
-    exclude: ["node_modules", "src-tauri", "vscode"],
+    exclude: ["node_modules", "src-tauri"],
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html", "lcov"],
       exclude: [
         "node_modules/**",
         "src-tauri/**",
-        "vscode/**",
         "src/**/*.d.ts",
         "src/main.ts",
         "src/__tests__/**",
