@@ -1138,7 +1138,7 @@ async function openScreenshot(filePath: string): Promise<void> {
         <div v-if="!selectedTaskKey" class="empty">请选择左侧任务</div>
         
         <!-- 节点 Tab -->
-        <div v-show="nodeListTab === 'nodes'" class="node-list-content">
+        <div v-show="nodeListTab === 'nodes'" class="node-list-content" :class="{ 'has-items': selectedTaskNodes.length > 0 }">
           <!-- 虚拟滚动节点列表 -->
           <DynamicScroller
             ref="nodeScrollerRef"
@@ -2142,6 +2142,11 @@ async function openScreenshot(filePath: string): Promise<void> {
 
 .node-list-content {
   padding: 0;
+  overflow-y: hidden;
+}
+
+.node-list-content.has-items {
+  overflow-y: auto;
 }
 
 .diagnosis-content {
