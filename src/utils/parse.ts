@@ -1307,7 +1307,9 @@ export function buildTasks(
   const deduplicatedTasks = deduplicateTasks(tasks);
 
   const filteredTasks = deduplicatedTasks.filter(
-    (task) => task.entry !== "MaaTaskerPostStop" && !task.entry.includes("post_stop")
+    (task) =>
+      task.entry.toLowerCase() !== "maataskerpoststop" &&
+      !task.entry.toLowerCase().includes("post_stop")
   );
 
   const duration = performance.now() - startTime;

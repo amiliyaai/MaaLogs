@@ -212,6 +212,11 @@ export function useTaskCache(): TaskCacheResult {
     /** 遍历所有任务，找出已完成的且未返回的 */
     for (const [cacheKey, cached] of taskCache.value) {
       if (cached.status !== "running" && !returnedKeys.has(cacheKey)) {
+        const entryLower = cached.entry.toLowerCase();
+        if (entryLower === "maataskerpoststop" || entryLower.includes("post_stop")) {
+          continue;
+        }
+
         returnedKeys.add(cacheKey);
 
         completed.push({
