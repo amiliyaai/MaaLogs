@@ -116,3 +116,4 @@ export * from "./knowledge";
 export * from "./compare";
 export * from "./logFiles";
 export * from "./display";
+export * from "./failureDetector";

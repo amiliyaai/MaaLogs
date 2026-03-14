@@ -82,7 +82,7 @@ function buildWarningDiagnoses(
         nodeId: node.node_id,
         nodeName: node.name,
         taskName: task.entry || 'Unknown',
-        patternName: 'retry_warning',
+        patternId: 'retry_warning',
         category: 'recognition',
         severity: 'warning',
         cause: retryCount > 1 ? `识别重试 ${retryCount - 1} 次后成功` : '识别有重试记录',
@@ -97,7 +97,7 @@ function buildWarningDiagnoses(
       nodeId: info.nodeId,
       nodeName: key.split('_')[0],
       taskName: task?.entry || 'Unknown',
-      patternName: 'duration_warning',
+      patternId: 'duration_warning',
       category: 'recognition',
       severity: info.severity,
       cause: info.severity === 'critical'
