@@ -28,6 +28,7 @@ import {
   getFilesFromDragEvent,
 } from "@/utils/file";
 import { createLogger } from "@/utils/logger";
+import { isTauriEnv } from "@/utils/env";
 
 /**
  * 应用日志记录器
@@ -216,20 +217,22 @@ export function useFileSelection(
       return;
     }
 
-    const browserFiles = await pickDirectoryFilesInBrowser();
-    if (browserFiles.length === 0) {
-      return;
+    if (!isTauriEnv()) {
+      const browserFiles = await pickDirectoryFilesInBrowser();
+      if (browserFiles.length === 0) {
+        return;
+      }
+      const logFiles = await expandSelectedFiles(browserFiles);
+      const hasVision = browserFiles.some((f) => hasVisionPath(f));
+      const hasVisionInMemory = await platform.vfs.exists("/selected/vision");
+      if (logFiles.length === 0) {
+        return;
+      }
+      if (hasVision || hasVisionInMemory) {
+        baseDir.value = "/selected";
+      }
+      applySelectedFiles(logFiles);
     }
-    const logFiles = await expandSelectedFiles(browserFiles);
-    const hasVision = browserFiles.some((f) => hasVisionPath(f));
-    const hasVisionInMemory = await platform.vfs.exists("/selected/vision");
-    if (logFiles.length === 0) {
-      return;
-    }
-    if (hasVision || hasVisionInMemory) {
-      baseDir.value = "/selected";
-    }
-    applySelectedFiles(logFiles);
   }
 
   /**
