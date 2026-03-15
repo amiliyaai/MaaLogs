@@ -2144,3 +2144,10 @@ export function normalizeSearchLine(line: string, hideDebugInfo: boolean): strin
     .replace(/\s{2,}/g, " ")
     .trim();
 }
+
+export function parseJsonc(content: string): unknown {
+  content = content
+    .replace(/\/\/.*$/gm, "")
+    .replace(/\/\*[\s\S]*?\*\//g, "");
+  return JSON.parse(content);
+}

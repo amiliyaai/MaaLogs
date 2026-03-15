@@ -12,10 +12,29 @@
     "process:default",
     "store:default",
     "dialog:default",
-    "fs:scope",
-    "fs:allow-read-dir",
-    "fs:allow-read-file",
-    "fs:allow-read-text-file",
+    {
+      "identifier": "fs:default"
+    },
+    {
+      "identifier": "fs:allow-read-dir",
+      "allow": [
+        { "path": "$HOME/**" },
+        { "path": "$DESKTOP/**" },
+        { "path": "$DOCUMENT/**" },
+        { "path": "D:/**" },
+        { "path": "C:/**" }
+      ]
+    },
+    {
+      "identifier": "fs:allow-read-text-file",
+      "allow": [
+        { "path": "$HOME/**" },
+        { "path": "$DESKTOP/**" },
+        { "path": "$DOCUMENT/**" },
+        { "path": "D:/**" },
+        { "path": "C:/**" }
+      ]
+    },
     "fs:allow-exists",
     "fs:allow-write-text-file",
     "fs:allow-write-file",

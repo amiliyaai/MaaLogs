@@ -94,6 +94,7 @@ import { getAIConfig, saveAIConfig, type AIConfig } from "@/utils/aiAnalyzer";
 import { DEFAULT_HIDDEN_CALLERS } from "@/config/constants";
 import { defaultDurationConfig, type DurationDisplayConfig } from "@/config/display";
 import type { AuxLogEntry, TaskInfo } from "@/types/logTypes";
+import { usePipelineStore } from "@/composables/usePipelineStore";
 
 // ============================================
 // 日志记录器
@@ -253,6 +254,8 @@ const visionDir = computed(() => {
   if (!dir) return undefined;
   return `${dir}/vision`;
 });
+
+const pipelineStore = usePipelineStore();
 
 /**
  * 日志监控器
@@ -778,6 +781,24 @@ async function handleSaveAIConfig(config: AIConfig) {
   await saveAIConfig(config);
   aiConfig.value = config;
 }
+
+/**
+ * 处理 Pipeline 目录变化
+ */
+async function handlePipelineDirChange(dir: string | null) {
+  if (dir) {
+    await pipelineStore.loadPipelineDir(dir);
+  } else {
+    pipelineStore.clearPipeline();
+  }
+}
+
+/**
+ * 刷新 Pipeline
+ */
+async function handleRefreshPipeline() {
+  await pipelineStore.refreshPipelineDir();
+}
 useTauriIntegration({
   isDragging,
   viewMode,
@@ -970,12 +991,17 @@ useTauriIntegration({
           :import-maa-bak-log="importMaaBakLog"
           :json-expand-depth="jsonExpandDepth"
           :duration-display="durationDisplay"
+          :pipeline-dir="pipelineStore.pipelineDir.value"
+          :pipeline-loaded="pipelineStore.isLoaded.value"
+          :is-loading-pipeline="pipelineStore.isLoading.value"
           @update:theme-mode="themeMode = $event"
           @update:ai-config="aiConfig = $event"
           @save-ai-config="handleSaveAIConfig"
           @update:import-maa-bak-log="importMaaBakLog = $event"
           @update:json-expand-depth="jsonExpandDepth = $event"
           @update:duration-display="durationDisplay = $event"
+          @update:pipeline-dir="handlePipelineDirChange"
+          @refresh-pipeline="handleRefreshPipeline"
         />
       </n-dialog-provider>
     </n-message-provider>

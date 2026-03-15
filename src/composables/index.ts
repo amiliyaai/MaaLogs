@@ -50,3 +50,6 @@ export { useTaskCache } from "./useTaskCache";
 export type { TaskCacheResult, CachedTask } from "./useTaskCache";
 
 export { useLogWatcher } from "./useLogWatcher";
+
+export { usePipelineStore } from "./usePipelineStore";
+export type { PipelineNodeConfig, PipelineFile } from "./usePipelineStore";

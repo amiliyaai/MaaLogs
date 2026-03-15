@@ -89,10 +89,11 @@ import {
 import { PictureFilled, SearchOutlined } from "@vicons/antd";
 import { DynamicScroller, DynamicScrollerItem } from "vue-virtual-scroller";
 import { ref, watch, onMounted, onUnmounted, computed, nextTick } from "vue";
-import { useStorage, useInPageSearch } from "@/composables";
+import { useStorage, useInPageSearch, usePipelineStore } from "@/composables";
 import { getPlatform } from "@/platform";
 import { parseTimestampToMs } from "@/utils/parse";
 import { isTauriEnv } from "@/utils/env";
+import type { PipelineNodeConfig } from "@/composables/usePipelineStore";
 import type {
   NodeInfo,
   NextListItem,
@@ -111,7 +112,10 @@ import {
 import type { DurationDisplayConfig } from "@/config/display";
 import AIResultCard from "./AIResultCard.vue";
 import PresetAnalysisCard from "./PresetAnalysisCard.vue";
+import DiagnosisCard from "./DiagnosisCard.vue";
 import { diagnoseFailures } from "@/utils/failureDetector";
+import { FiveLayerDiagnosisEngine } from "@/utils/diagnosis";
+import type { DiagnosisResult } from "@/types/diagnosis";
 import ControllerInfoCard from "./ControllerInfoCard.vue";
 import CustomLogPanel from "./CustomLogPanel.vue";
 import RecognitionTree from "./RecognitionTree.vue";
@@ -123,7 +127,7 @@ import WaitFreezesImages from "./WaitFreezesImages.vue";
  */
 const aiConfig = ref<AIConfig | null>(null);
 const aiAnalyzing = ref(false);
-const nodeListTab = ref<'nodes' | 'summary' | 'ai'>('nodes');
+const nodeListTab = ref<'nodes' | 'summary' | 'diagnosis' | 'ai'>('nodes');
 const aiResults = ref<FailureAnalysis[]>([]);
 const aiStats = ref<AIAnalysisStats>();
 const showScreenshot = ref(false);
@@ -132,6 +136,16 @@ const skipAIConfirm = useStorage("skipAIConfirm", false);
 const showAIConfirm = ref(false);
 const aiError = ref("");
 const isDesktop = computed(() => isTauriEnv());
+
+const diagnosisEngine = new FiveLayerDiagnosisEngine();
+const diagnosisResult = ref<DiagnosisResult | null>(null);
+const diagnosisLoading = ref(false);
+
+const pipelineStore = usePipelineStore();
+
+function findNodeInAllPipelines(nodeName: string): PipelineNodeConfig | null {
+  return pipelineStore.getNodeConfig(nodeName);
+}
 
 const STORAGE_KEYS = {
   LEFT_WIDTH: "analysisLeftPanelWidth",
@@ -377,6 +391,7 @@ function scrollDetailElementToCenter(selector: string) {
 
 onMounted(async () => {
   aiConfig.value = await getAIConfig();
+  pipelineStore.ensureLoaded();
   document.addEventListener("click", handleClickOutside);
 });
 
@@ -962,6 +977,44 @@ watch(
   { immediate: true }
 );
 
+watch(
+  () => props.selectedNode,
+  async (node) => {
+    if (!node) {
+      diagnosisResult.value = null;
+      return;
+    }
+    if (node.status === 'failed') {
+      diagnosisLoading.value = true;
+      try {
+        const pipelineConfig = findNodeInAllPipelines(node.name);
+        console.log('[Diagnosis] pipelineStore:', {
+          pipelineDir: pipelineStore?.pipelineDir?.value,
+          isLoaded: pipelineStore?.isLoaded?.value,
+          nodesCount: Object.keys(pipelineStore?.allNodes?.value ?? {}).length,
+          searchedNode: node.name,
+        });
+        console.log('[Diagnosis] Node:', node.name, 'Pipeline found:', !!pipelineConfig, 'Config:', pipelineConfig);
+        console.log('[Diagnosis] selected task:', props.selectedTask);
+        const result = diagnosisEngine.diagnose(node, {
+          enableAllLayers: !!pipelineConfig,
+          pipelineConfig: pipelineConfig || undefined,
+          findNodeInAllPipelines,
+        });
+        diagnosisResult.value = result;
+      } catch (e) {
+        console.error('Diagnosis error:', e);
+        diagnosisResult.value = null;
+      } finally {
+        diagnosisLoading.value = false;
+      }
+    } else {
+      diagnosisResult.value = null;
+    }
+  },
+  { immediate: true }
+);
+
 /**
  * 组件事件定义
  * @event select-task - 选择任务，参数包个taskKey 和可选的 nodeId
@@ -1196,6 +1249,10 @@ async function openScreenshot(filePath: string): Promise<void> {
               摘要&nbsp;
               <n-tag v-if="diagnosisCount > 0" type="error" size="small">{{ diagnosisCount }}</n-tag>
             </n-tab>
+            <n-tab name="diagnosis">
+              诊断&nbsp;
+              <n-tag v-if="diagnosisResult" :type="diagnosisResult.severity === 'error' || diagnosisResult.severity === 'critical' ? 'error' : 'warning'" size="small">L5</n-tag>
+            </n-tab>
             <n-tab v-if="isDesktop" name="ai">AI分析</n-tab>
           </n-tabs>
         </div>
@@ -1286,6 +1343,11 @@ async function openScreenshot(filePath: string): Promise<void> {
         <!-- 摘要 Tab -->
         <div v-show="nodeListTab === 'summary'" ref="summaryContentRef" class="diagnosis-content">
           <PresetAnalysisCard :tasks="selectedTask ? [selectedTask] : []" :duration-display="durationDisplay" @select-node="handleSelectFailedNode" />
+        </div>
+        
+        <!-- 智能诊断 Tab -->
+        <div v-show="nodeListTab === 'diagnosis'" class="diagnosis-content">
+          <DiagnosisCard :diagnosis="diagnosisResult" :loading="diagnosisLoading" />
         </div>
         
         <!-- AI分析 Tab -->

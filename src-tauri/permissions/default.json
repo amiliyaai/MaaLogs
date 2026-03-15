@@ -2,7 +2,15 @@
   "permissions": [
     {
       "identifier": "fs:scope",
-      "allow": [{ "path": "$APPLOG/**" }, { "path": "$APPDATA/**" }]
+      "allow": [
+        { "path": "$APPLOG/**" },
+        { "path": "$APPDATA/**" },
+        { "path": "$HOME/**" },
+        { "path": "$DESKTOP/**" },
+        { "path": "$DOCUMENT/**" },
+        { "path": "D:/**" },
+        { "path": "C:/**" }
+      ]
     }
   ]
 }

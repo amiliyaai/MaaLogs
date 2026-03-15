@@ -17,6 +17,9 @@ const props = defineProps<{
   importMaaBakLog: boolean;
   jsonExpandDepth: number;
   durationDisplay: DurationDisplayConfig;
+  pipelineDir: string | null;
+  pipelineLoaded: boolean;
+  isLoadingPipeline: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -27,6 +30,8 @@ const emit = defineEmits<{
   (e: "update:import-maa-bak-log", value: boolean): void;
   (e: "update:json-expand-depth", value: number): void;
   (e: "update:duration-display", value: DurationDisplayConfig): void;
+  (e: "update:pipeline-dir", value: string | null): void;
+  (e: "refresh-pipeline"): void;
 }>();
 
 const contentRef = ref<HTMLElement | null>(null);
@@ -149,10 +154,15 @@ onMounted(() => {
             :import-maa-bak-log="props.importMaaBakLog"
             :json-expand-depth="props.jsonExpandDepth"
             :duration-display="props.durationDisplay"
+            :pipeline-dir="props.pipelineDir"
+            :pipeline-loaded="props.pipelineLoaded"
+            :is-loading-pipeline="props.isLoadingPipeline"
             @update:theme-mode="handleThemeChange"
             @update:import-maa-bak-log="handleImportMaaBakLogChange"
             @update:json-expand-depth="handleJsonExpandDepthChange"
             @update:duration-display="handleDurationDisplayChange"
+            @update:pipeline-dir="emit('update:pipeline-dir', $event)"
+            @refresh-pipeline="emit('refresh-pipeline')"
           />
         </section>
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { NButton, NSwitch, NInputNumber, NPopconfirm, NColorPicker } from "naive-ui";
+import { NButton, NSwitch, NInputNumber, NPopconfirm, NColorPicker, NTag } from "naive-ui";
 import { getPlatform } from "@/platform";
 import { defaultDurationConfig, type DurationDisplayConfig } from "@/config/display";
 
@@ -10,6 +10,9 @@ const props = defineProps<{
   importMaaBakLog: boolean;
   jsonExpandDepth: number;
   durationDisplay: DurationDisplayConfig;
+  pipelineDir: string | null;
+  pipelineLoaded: boolean;
+  isLoadingPipeline: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -17,6 +20,8 @@ const emit = defineEmits<{
   (e: "update:importMaaBakLog", value: boolean): void;
   (e: "update:jsonExpandDepth", value: number): void;
   (e: "update:durationDisplay", value: DurationDisplayConfig): void;
+  (e: "update:pipelineDir", value: string | null): void;
+  (e: "refresh-pipeline"): void;
 }>();
 
 const themeOptions: { label: string; icon: string; value: ThemeMode }[] = [
@@ -80,6 +85,22 @@ function handleDangerColorChange(value: string) {
 function resetDurationDisplay() {
   emit("update:durationDisplay", { ...defaultDurationConfig });
 }
+
+async function selectPipelineDir() {
+  const platform = await getPlatform();
+  const dir = await platform.picker.selectDirectory();
+  if (dir) {
+    emit("update:pipelineDir", dir);
+  }
+}
+
+function clearPipelineDir() {
+  emit("update:pipelineDir", null);
+}
+
+function refreshPipeline() {
+  emit("refresh-pipeline");
+}
 </script>
 
 <template>
@@ -125,6 +146,33 @@ function resetDurationDisplay() {
           <div class="setting-desc">导入目录时同时导入 maa.bak.log，与 maa.log 拼接后解析</div>
         </div>
         <n-switch :value="props.importMaaBakLog" @update:value="handleImportMaaBakLogChange" />
+      </div>
+    </div>
+
+    <div class="setting-card">
+      <div class="setting-row">
+        <div class="setting-icon">📁</div>
+        <div class="setting-info">
+          <div class="setting-title">Pipeline 目录</div>
+          <div class="setting-desc">用于诊断增强的 Pipeline 配置文件目录（递归搜索 JSON）</div>
+        </div>
+        <div class="pipeline-actions">
+          <n-button v-if="!props.pipelineDir" size="small" @click="selectPipelineDir">选择目录</n-button>
+          <template v-else>
+            <n-button size="small" @click="selectPipelineDir">更改</n-button>
+            <n-button size="small" @click="refreshPipeline" :loading="props.isLoadingPipeline">刷新</n-button>
+            <n-button size="small" @click="clearPipelineDir">清除</n-button>
+          </template>
+        </div>
+      </div>
+      <div v-if="props.pipelineDir" class="pipeline-dir">
+        <span class="dir-path">{{ props.pipelineDir }}</span>
+        <n-tag v-if="props.pipelineLoaded" type="success" size="small">
+          已加载
+        </n-tag>
+        <n-tag v-else-if="props.isLoadingPipeline" type="info" size="small">
+          加载中...
+        </n-tag>
       </div>
     </div>
 
@@ -342,5 +390,29 @@ function resetDurationDisplay() {
 
 .color-picker {
   width: 100px;
+}
+
+.pipeline-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.pipeline-dir {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: var(--n-color-fill);
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.dir-path {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--n-text-color-3);
 }
 </style>
