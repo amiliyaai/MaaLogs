@@ -133,51 +133,55 @@ const showAIConfirm = ref(false);
 const aiError = ref("");
 const isDesktop = computed(() => isTauriEnv());
 
-const leftPanelWidth = useStorage("analysisLeftPanelWidth", 1);
-const middlePanelWidth = useStorage("analysisMiddlePanelWidth", 1.2);
-const leftPanelRef = ref<HTMLElement | null>(null);
-const isDragging = ref<"left" | "right" | null>(null);
+const STORAGE_KEYS = {
+  LEFT_WIDTH: "analysisLeftPanelWidth",
+  MIDDLE_WIDTH: "analysisMiddlePanelWidth",
+} as const;
+
+const MIN_PANEL_FLEX = 0.4;
+const MAX_PANEL_FLEX = 1.4;
+
+const leftPanelWidth = useStorage(STORAGE_KEYS.LEFT_WIDTH, 0.8);
+const middlePanelWidth = useStorage(STORAGE_KEYS.MIDDLE_WIDTH, 1.06);
+const layoutRef = ref<HTMLElement | null>(null);
+const draggingPanel = ref<"left" | "right" | null>(null);
 
 const rightPanelFlex = computed(() => {
   return 3 - leftPanelWidth.value - middlePanelWidth.value;
 });
 
-function handleDragStart(e: MouseEvent, position: "left" | "right") {
-  isDragging.value = position;
-  document.addEventListener("mousemove", handleDragMove);
-  document.addEventListener("mouseup", handleDragEnd);
+function startDrag(e: MouseEvent, panel: "left" | "right") {
+  draggingPanel.value = panel;
+  document.addEventListener("mousemove", onDrag);
+  document.addEventListener("mouseup", stopDrag);
   e.preventDefault();
 }
 
-function handleDragMove(e: MouseEvent) {
-  if (!isDragging.value || !leftPanelRef.value) return;
-  
-  const containerRect = leftPanelRef.value.parentElement?.getBoundingClientRect();
-  if (!containerRect) return;
-  
-  const containerLeft = containerRect.left;
-  const containerWidth = containerRect.width;
-  const minFlex = 0.4;
-  const maxFlex = 1.4;
-  
-  const mouseX = e.clientX;
-  const relativeX = mouseX - containerLeft;
-  
-  if (isDragging.value === "left") {
-    let newLeftFlex = (relativeX / containerWidth) * 3;
-    newLeftFlex = Math.max(minFlex, Math.min(newLeftFlex, maxFlex));
-    leftPanelWidth.value = newLeftFlex;
-  } else if (isDragging.value === "right") {
-    let newMiddleFlex = ((relativeX / containerWidth) * 3) - leftPanelWidth.value;
-    newMiddleFlex = Math.max(minFlex, Math.min(newMiddleFlex, 3 - minFlex - leftPanelWidth.value));
-    middlePanelWidth.value = newMiddleFlex;
+function onDrag(e: MouseEvent) {
+  if (!draggingPanel.value || !layoutRef.value) return;
+
+  const rect = layoutRef.value.getBoundingClientRect();
+  if (rect.width === 0) return;
+
+  const relativeX = e.clientX - rect.left;
+  const flexRatio = (relativeX / rect.width) * 3;
+
+  if (draggingPanel.value === "left") {
+    leftPanelWidth.value = clamp(flexRatio, MIN_PANEL_FLEX, MAX_PANEL_FLEX);
+  } else {
+    const newMiddleFlex = flexRatio - leftPanelWidth.value;
+    middlePanelWidth.value = clamp(newMiddleFlex, MIN_PANEL_FLEX, 3 - MIN_PANEL_FLEX - leftPanelWidth.value);
   }
 }
 
-function handleDragEnd() {
-  isDragging.value = null;
-  document.removeEventListener("mousemove", handleDragMove);
-  document.removeEventListener("mouseup", handleDragEnd);
+function stopDrag() {
+  draggingPanel.value = null;
+  document.removeEventListener("mousemove", onDrag);
+  document.removeEventListener("mouseup", stopDrag);
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(value, max));
 }
 
 watch(nodeListTab, (newTab) => {
@@ -1104,7 +1108,7 @@ async function openScreenshot(filePath: string): Promise<void> {
       </div>
     </template>
     <!-- 主内容区域 -->
-    <div ref="leftPanelRef" class="task-layout">
+    <div ref="layoutRef" class="task-layout">
       <!-- 左栏：任务列表 -->
       <div class="task-list" :style="{ flex: leftPanelWidth }">
         <div class="panel-top">
@@ -1180,8 +1184,8 @@ async function openScreenshot(filePath: string): Promise<void> {
       <!-- 拖动条1：左栏与中栏之间 -->
       <div
         class="resize-handle"
-        :class="{ dragging: isDragging === 'left' }"
-        @mousedown="(e) => handleDragStart(e, 'left')"
+        :class="{ dragging: draggingPanel === 'left' }"
+        @mousedown="(e) => startDrag(e, 'left')"
       ></div>
       <!-- 中栏：节点列表 -->
       <div class="node-list" :style="{ flex: middlePanelWidth }">
@@ -1301,8 +1305,8 @@ async function openScreenshot(filePath: string): Promise<void> {
       <!-- 拖动条2：中栏与右栏之间 -->
       <div
         class="resize-handle"
-        :class="{ dragging: isDragging === 'right' }"
-        @mousedown="(e) => handleDragStart(e, 'right')"
+        :class="{ dragging: draggingPanel === 'right' }"
+        @mousedown="(e) => startDrag(e, 'right')"
       ></div>
       <!-- 右栏：节点详情 -->
       <div class="detail-panel" :style="{ flex: rightPanelFlex }">
