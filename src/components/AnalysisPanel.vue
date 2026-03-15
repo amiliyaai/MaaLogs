@@ -133,6 +133,53 @@ const showAIConfirm = ref(false);
 const aiError = ref("");
 const isDesktop = computed(() => isTauriEnv());
 
+const leftPanelWidth = useStorage("analysisLeftPanelWidth", 1);
+const middlePanelWidth = useStorage("analysisMiddlePanelWidth", 1.2);
+const leftPanelRef = ref<HTMLElement | null>(null);
+const isDragging = ref<"left" | "right" | null>(null);
+
+const rightPanelFlex = computed(() => {
+  return 3 - leftPanelWidth.value - middlePanelWidth.value;
+});
+
+function handleDragStart(e: MouseEvent, position: "left" | "right") {
+  isDragging.value = position;
+  document.addEventListener("mousemove", handleDragMove);
+  document.addEventListener("mouseup", handleDragEnd);
+  e.preventDefault();
+}
+
+function handleDragMove(e: MouseEvent) {
+  if (!isDragging.value || !leftPanelRef.value) return;
+  
+  const containerRect = leftPanelRef.value.parentElement?.getBoundingClientRect();
+  if (!containerRect) return;
+  
+  const containerLeft = containerRect.left;
+  const containerWidth = containerRect.width;
+  const minFlex = 0.4;
+  const maxFlex = 1.4;
+  
+  const mouseX = e.clientX;
+  const relativeX = mouseX - containerLeft;
+  
+  if (isDragging.value === "left") {
+    let newLeftFlex = (relativeX / containerWidth) * 3;
+    newLeftFlex = Math.max(minFlex, Math.min(newLeftFlex, maxFlex));
+    leftPanelWidth.value = newLeftFlex;
+  } else if (isDragging.value === "right") {
+    let newMiddleFlex = ((relativeX / containerWidth) * 3) - leftPanelWidth.value;
+    newMiddleFlex = Math.max(minFlex, Math.min(newMiddleFlex, 3 - minFlex - leftPanelWidth.value));
+    middlePanelWidth.value = newMiddleFlex;
+  }
+}
+
+function handleDragEnd() {
+  isDragging.value = null;
+  document.removeEventListener("mousemove", handleDragMove);
+  document.removeEventListener("mouseup", handleDragEnd);
+}
+
 watch(nodeListTab, (newTab) => {
   if (newTab === 'nodes' && props.selectedNodeId && props.selectedTask) {
     const nodeIndex = props.selectedTask.nodes.findIndex(n => n.node_id === props.selectedNodeId);
@@ -1057,9 +1104,9 @@ async function openScreenshot(filePath: string): Promise<void> {
       </div>
     </template>
     <!-- 主内容区域 -->
-    <div class="task-layout">
+    <div ref="leftPanelRef" class="task-layout">
       <!-- 左栏：任务列表 -->
-      <div class="task-list">
+      <div class="task-list" :style="{ flex: leftPanelWidth }">
         <div class="panel-top">
           <div class="node-header">
             <span>任务列表</span>
@@ -1130,8 +1177,14 @@ async function openScreenshot(filePath: string): Promise<void> {
           </DynamicScroller>
         </div>
       </div>
+      <!-- 拖动条1：左栏与中栏之间 -->
+      <div
+        class="resize-handle"
+        :class="{ dragging: isDragging === 'left' }"
+        @mousedown="(e) => handleDragStart(e, 'left')"
+      ></div>
       <!-- 中栏：节点列表 -->
-      <div class="node-list">
+      <div class="node-list" :style="{ flex: middlePanelWidth }">
         <div class="panel-top">
           <n-tabs v-model:value="nodeListTab" type="segment" size="small" class="node-tabs">
             <n-tab name="nodes">节点</n-tab>
@@ -1245,8 +1298,14 @@ async function openScreenshot(filePath: string): Promise<void> {
           <AIResultCard v-else :results="aiResults" :error="aiError" :stats="aiStats" />
         </div>
       </div>
+      <!-- 拖动条2：中栏与右栏之间 -->
+      <div
+        class="resize-handle"
+        :class="{ dragging: isDragging === 'right' }"
+        @mousedown="(e) => handleDragStart(e, 'right')"
+      ></div>
       <!-- 右栏：节点详情 -->
-      <div class="detail-panel">
+      <div class="detail-panel" :style="{ flex: rightPanelFlex }">
         <div class="panel-top">
           <div class="node-header">节点详情</div>
         </div>
@@ -2118,12 +2177,39 @@ async function openScreenshot(filePath: string): Promise<void> {
 }
 
 .task-layout {
-  display: grid;
-  grid-template-columns: 1fr 1.2fr 1.5fr;
-  gap: 16px;
+  display: flex;
+  gap: 0;
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  align-items: stretch;
+}
+
+.resize-handle {
+  width: 8px;
+  cursor: col-resize;
+  background: transparent;
+  transition: background 0.2s;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.resize-handle::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 4px;
+  height: 40px;
+  background: var(--n-border-color);
+  border-radius: 2px;
+  transition: background 0.2s;
+}
+
+.resize-handle:hover::after,
+.resize-handle.dragging::after {
+  background: var(--n-primary-color);
 }
 
 .task-list,
@@ -2137,6 +2223,7 @@ async function openScreenshot(filePath: string): Promise<void> {
   border-radius: 6px;
   padding: 8px;
   background: var(--n-color);
+  margin-right: 8px;
 }
 
 .task-list-content,
