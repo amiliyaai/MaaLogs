@@ -132,25 +132,43 @@ const skipAIConfirm = useStorage("skipAIConfirm", false);
 const showAIConfirm = ref(false);
 const aiError = ref("");
 const isDesktop = computed(() => isTauriEnv());
+
+watch(nodeListTab, (newTab) => {
+  if (newTab === 'nodes' && props.selectedNodeId && props.selectedTask) {
+    const nodeIndex = props.selectedTask.nodes.findIndex(n => n.node_id === props.selectedNodeId);
+    if (nodeIndex >= 0) {
+      nextTick(() => {
+        if (nodeScrollerRef.value) {
+          (nodeScrollerRef.value as unknown as { scrollToItem: (index: number) => void }).scrollToItem(nodeIndex);
+        }
+      });
+    }
+  }
+  if (newTab === 'summary' && summaryContentRef.value) {
+    summaryContentRef.value.scrollTop = 0;
+  }
+});
+
 const diagnosisCount = computed(() => {
   if (!props.selectedTask) return 0;
   const results = diagnoseFailures([props.selectedTask]);
-  const failedNodeIds = new Set<number>();
-  for (const node of props.selectedTask.nodes) {
-    if (node.status === 'failed') {
-      failedNodeIds.add(node.node_id);
+  const criticalNodeIds = new Set<number>();
+  for (const d of results) {
+    if (d.severity === 'critical') {
+      criticalNodeIds.add(d.nodeId);
     }
   }
-  return results.filter(d => failedNodeIds.has(d.nodeId)).length;
+  return criticalNodeIds.size;
 });
 
 function getNodeDuration(node: NodeInfo): number | null {
   const startMs = node.start_time ? parseTimestampToMs(node.start_time) : null;
-  const endMs = node.end_time
-    ? parseTimestampToMs(node.end_time)
-    : node.timestamp
-      ? parseTimestampToMs(node.timestamp)
-      : null;
+  let endMs: number | null = null;
+  if (node.end_time) {
+    endMs = parseTimestampToMs(node.end_time);
+  } else if (node.timestamp) {
+    endMs = parseTimestampToMs(node.timestamp);
+  }
   if (startMs === null || endMs === null) return null;
   return endMs - startMs;
 }
@@ -202,6 +220,7 @@ const nodeScrollerRef = ref<InstanceType<typeof DynamicScroller> | null>(null);
 const taskScrollerRef = ref<InstanceType<typeof DynamicScroller> | null>(null);
 const searchContainerRef = ref<HTMLElement | null>(null);
 const detailContentRef = ref<HTMLElement | null>(null);
+const summaryContentRef = ref<HTMLElement | null>(null);
 const highlightNodeId = ref<number | null>(null);
 const highlightTaskKey = ref<string | null>(null);
 const detailPanelHighlight = ref<boolean>(false);
@@ -646,29 +665,10 @@ async function handleAIAnalyze() {
 function handleSelectFailedNode(nodeId: number) {
   if (!props.selectedTask) return;
   emit('select-node', nodeId);
-  const nodeIndex = props.selectedTask.nodes.findIndex(n => n.node_id === nodeId);
-  if (nodeIndex >= 0) {
-    highlightNodeId.value = nodeId;
-    setTimeout(() => {
-      highlightNodeId.value = null;
-    }, 1500);
-    if (nodeListTab.value === 'nodes') {
-      nextTick(() => {
-        if (nodeScrollerRef.value) {
-          (nodeScrollerRef.value as unknown as { scrollToItem: (index: number) => void }).scrollToItem(nodeIndex);
-        }
-      });
-    } else {
-      nodeListTab.value = 'nodes';
-      nextTick(() => {
-        setTimeout(() => {
-          if (nodeScrollerRef.value) {
-            (nodeScrollerRef.value as unknown as { scrollToItem: (index: number) => void }).scrollToItem(nodeIndex);
-          }
-        }, 300);
-      });
-    }
-  }
+  highlightNodeId.value = nodeId;
+  setTimeout(() => {
+    highlightNodeId.value = null;
+  }, 1500);
 }
 
 async function doAIAnalyze() {
@@ -935,6 +935,15 @@ const emit = defineEmits<{
  * @param payload - 任务选择信息
  */
 const handleTaskSelect = (payload: { taskKey: string; nodeId: number | null }) => {
+  if (nodeScrollerRef.value) {
+    (nodeScrollerRef.value as unknown as { scrollToItem: (index: number) => void }).scrollToItem(0);
+  }
+  if (detailContentRef.value) {
+    detailContentRef.value.scrollTop = 0;
+  }
+  if (summaryContentRef.value) {
+    summaryContentRef.value.scrollTop = 0;
+  }
   if (payload.nodeId === null) {
     const task = props.filteredTasks.find((t) => t.key === payload.taskKey);
     if (task && task.nodes && task.nodes.length > 0) {
@@ -1218,7 +1227,7 @@ async function openScreenshot(filePath: string): Promise<void> {
         </div>
         
         <!-- 摘要 Tab -->
-        <div v-show="nodeListTab === 'summary'" class="diagnosis-content">
+        <div v-show="nodeListTab === 'summary'" ref="summaryContentRef" class="diagnosis-content">
           <PresetAnalysisCard :tasks="selectedTask ? [selectedTask] : []" :duration-display="durationDisplay" @select-node="handleSelectFailedNode" />
         </div>
         

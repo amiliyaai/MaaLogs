@@ -140,109 +140,108 @@ function collectRawLines(allLines: RawLine[], fileName: string, lines: string[])
   }
 }
 
+function categorizeLogEntries(fileLines: FileLineEntry[]): {
+  main: FileLineEntry[];
+  aux: FileLineEntry[];
+  bak: FileLineEntry[];
+} {
+  const main: FileLineEntry[] = [];
+  const aux: FileLineEntry[] = [];
+  const bak: FileLineEntry[] = [];
+
+  for (const entry of fileLines) {
+    if (isMaaBakLog(entry.file.name)) {
+      bak.push(entry);
+    } else if (isMainLog(entry.file.name)) {
+      main.push(entry);
+    } else {
+      aux.push(entry);
+    }
+  }
+  return { main, aux, bak };
+}
+
+function mergeBakLogs(bakEntries: FileLineEntry[], mainEntries: FileLineEntry[]): void {
+  if (bakEntries.length === 0 || mainEntries.length === 0) return;
+
+  const sortedBakLogs = bakEntries.sort((a, b) => {
+    const timeA = extractTimestamp(a.lines[0]) || 0;
+    const timeB = extractTimestamp(b.lines[0]) || 0;
+    return timeA - timeB;
+  });
+
+  const mergedBakLines: string[] = [];
+  const sourceFiles: string[] = [];
+  for (const bak of sortedBakLogs) {
+    mergedBakLines.push(...bak.lines);
+    sourceFiles.push(bak.file.name);
+  }
+
+  for (const entry of mainEntries) {
+    const mergedLines = [...mergedBakLines, ...entry.lines];
+    const mergedContent = mergedLines.join("\n");
+    const mergedFile: SelectedFile = {
+      name: LOG_FILE_NAMES.MAA_LOG,
+      size: mergedContent.length,
+      type: "text/plain",
+      file: new File([mergedContent], LOG_FILE_NAMES.MAA_LOG, { type: "text/plain" }),
+      sourceFiles: [...sourceFiles, entry.file.name],
+    };
+    entry.file = mergedFile;
+    entry.lines = mergedLines;
+    entry.size = mergedFile.size;
+  }
+}
+
+function processMainLogEntry(
+  entry: FileLineEntry,
+  collections: ParseCollections,
+  detectedProjectType: ProjectType
+): ProjectType {
+  collectRawLines(collections.allLines, entry.file.name, entry.lines);
+  const detected = detectProject(entry.lines);
+
+  let resultType = detectedProjectType;
+  if (detected !== "unknown" && resultType === "unknown") {
+    resultType = detected;
+  }
+
+  const projectParser = projectParserRegistry.get(detected);
+  const parser = projectParser || projectParserRegistry.getDefault();
+  if (!parser) return resultType;
+
+  const result = parser.parseMainLog(entry.lines, { fileName: entry.file.name });
+  collections.events.push(...result.events);
+  collections.controllerInfos.push(...result.controllers);
+  for (const [idx, identifier] of result.identifierMap) {
+    collections.eventIdentifierMap.set(idx, identifier);
+  }
+  if (result._logDir) {
+    collections.logDir = result._logDir;
+  }
+  collections.saveOnErrorRawLines.push(...result.saveOnErrorRawLines);
+  for (const [nodeName, expected] of result.expectedParams) {
+    if (!collections.expectedParams.has(nodeName)) {
+      collections.expectedParams.set(nodeName, expected);
+    }
+  }
+  return resultType;
+}
+
 async function processFileEntries(
   collections: ParseCollections,
   fileLines: FileLineEntry[],
   onProgress: (percentage: number) => void
 ): Promise<ProjectType> {
-  const mainLogEntries: FileLineEntry[] = [];
-  const auxLogEntries: FileLineEntry[] = [];
-  const maaBakLogEntries: FileLineEntry[] = [];
-
-  for (const entry of fileLines) {
-    if (isMaaBakLog(entry.file.name)) {
-      maaBakLogEntries.push(entry);
-    } else if (isMainLog(entry.file.name)) {
-      mainLogEntries.push(entry);
-    } else {
-      auxLogEntries.push(entry);
-    }
-  }
-
-  if (maaBakLogEntries.length > 0 && mainLogEntries.length > 0) {
-    const sortedBakLogs = maaBakLogEntries.sort((a, b) => {
-      const timeA = extractTimestamp(a.lines[0]) || 0;
-      const timeB = extractTimestamp(b.lines[0]) || 0;
-      return timeA - timeB;
-    });
-
-    const mergedBakLines: string[] = [];
-    const sourceFiles: string[] = [];
-    for (const bak of sortedBakLogs) {
-      mergedBakLines.push(...bak.lines);
-      sourceFiles.push(bak.file.name);
-    }
-
-    for (const entry of mainLogEntries) {
-      const mergedLines = [...mergedBakLines, ...entry.lines];
-      const mergedContent = mergedLines.join("\n");
-      const mergedFile: SelectedFile = {
-        name: LOG_FILE_NAMES.MAA_LOG,
-        size: mergedContent.length,
-        type: "text/plain",
-        file: new File([mergedContent], LOG_FILE_NAMES.MAA_LOG, { type: "text/plain" }),
-        sourceFiles: [...sourceFiles, entry.file.name],
-      };
-      entry.file = mergedFile;
-      entry.lines = mergedLines;
-      entry.size = mergedFile.size;
-    }
-  }
+  const { main: mainLogEntries, aux: auxLogEntries, bak: maaBakLogEntries } = categorizeLogEntries(fileLines);
+  mergeBakLogs(maaBakLogEntries, mainLogEntries);
 
   const totalLines = fileLines.reduce((sum, e) => sum + e.lines.length, 0);
   let processed = 0;
   let detectedProjectType: ProjectType = "unknown";
 
   for (const entry of mainLogEntries) {
-    collectRawLines(collections.allLines, entry.file.name, entry.lines);
-    const detected = detectProject(entry.lines);
-
-    if (detected !== "unknown" && detectedProjectType === "unknown") {
-      detectedProjectType = detected;
-    }
-
-    const projectParser = projectParserRegistry.get(detected);
-    if (!projectParser) {
-      const defaultParser = projectParserRegistry.getDefault();
-      if (defaultParser) {
-        const result = defaultParser.parseMainLog(entry.lines, {
-          fileName: entry.file.name,
-        });
-        collections.events.push(...result.events);
-        collections.controllerInfos.push(...result.controllers);
-        for (const [idx, identifier] of result.identifierMap) {
-          collections.eventIdentifierMap.set(idx, identifier);
-        }
-        if (result._logDir) {
-          collections.logDir = result._logDir;
-        }
-        collections.saveOnErrorRawLines.push(...result.saveOnErrorRawLines);
-        for (const [nodeName, expected] of result.expectedParams) {
-          if (!collections.expectedParams.has(nodeName)) {
-            collections.expectedParams.set(nodeName, expected);
-          }
-        }
-      }
-    } else {
-      const result = projectParser.parseMainLog(entry.lines, {
-        fileName: entry.file.name,
-      });
-      collections.events.push(...result.events);
-      collections.controllerInfos.push(...result.controllers);
-      for (const [idx, identifier] of result.identifierMap) {
-        collections.eventIdentifierMap.set(idx, identifier);
-      }
-      if (result._logDir) {
-        collections.logDir = result._logDir;
-      }
-      collections.saveOnErrorRawLines.push(...result.saveOnErrorRawLines);
-      for (const [nodeName, expected] of result.expectedParams) {
-        if (!collections.expectedParams.has(nodeName)) {
-          collections.expectedParams.set(nodeName, expected);
-        }
-      }
-    }
-
+    detectedProjectType = processMainLogEntry(entry, collections, detectedProjectType);
     processed += entry.lines.length;
     onProgress(Math.round((processed / totalLines) * 80));
   }
@@ -254,7 +253,6 @@ async function processFileEntries(
       const result = projectParser.parseAuxLog(entry.lines, { fileName: entry.file.name });
       collections.auxEntries.push(...result.entries);
     }
-
     processed += entry.lines.length;
     onProgress(Math.round((processed / totalLines) * 80) + 10);
   }

@@ -2,67 +2,46 @@
  * @fileoverview 失败模式识别器
  *
  * 基于 MAA 框架知识库的自动化失败诊断系统
- * - 自动分类失败类型
- * - 匹配已知问题模式
- * - 生成诊断建议
+ * - 多层诊断：基础诊断 + 深度诊断 + 上下文诊断
+ * - 遍历所有识别尝试，不只是最后一次
+ * - 连锁失败检测
+ * - 智能建议生成
  *
  * @module utils/failureDetector
  */
 
-import type { NodeInfo, TaskInfo, RecognitionDetail, ActionDetail } from '@/types/logTypes';
+import type { NodeInfo, TaskInfo, RecognitionDetail, ActionDetail, RecognitionAttempt, ActionAttempt, JsonValue } from '@/types/logTypes';
 import { failureDetectorConfig } from '@/config/failureDetector';
 
 export type FailureCategory =
   | 'recognition'
   | 'action'
+  | 'flow'
+  | 'performance'
   | 'unknown';
 
-/**
- * 失败严重程度
- * - critical: 需要立即处理的严重问题
- * - warning: 需要关注的警告
- * - info: 信息性提示
- */
 export type FailureSeverity = 'critical' | 'warning' | 'info';
 
-/**
- * 诊断结果
- */
 export interface DiagnosisResult {
-  /** 节点 ID */
   nodeId: number;
-  /** 节点名称 */
   nodeName: string;
-  /** 任务名称 */
   taskName: string;
-  /** 失败类别 */
   category: FailureCategory;
-  /** 严重程度 */
   severity: FailureSeverity;
-  /** Pattern ID */
   patternId: string;
-  /** 失败原因 */
   cause: string;
-  /** 建议操作 */
   suggestions: string[];
-  /** 相关知识链接 */
   relatedKnowledge?: string;
-  /** 识别历史（用于趋势分析） */
   recognitionHistory?: {
     totalAttempts: number;
     failedAttempts: number;
     scores: number[];
     algorithms: string[];
   };
-  /** 识别详情 */
   recognitionDetail?: RecognitionDetail;
-  /** 动作详情 */
   actionDetail?: ActionDetail;
 }
 
-/**
- * Pattern 匹配结果
- */
 interface PatternMatchResult {
   matched: boolean;
   patternId?: string;
@@ -73,15 +52,8 @@ interface PatternMatchResult {
   knowledge?: string;
 }
 
-/**
- * Pattern 匹配函数类型
- */
-type MatchFn = (detail: RecognitionDetail | ActionDetail | Record<string, unknown>, node: NodeInfo) => PatternMatchResult;
+type MatchFn = (detail: RecognitionDetail | ActionDetail | Record<string, unknown>, attempt: RecognitionAttempt | ActionAttempt, node: NodeInfo) => PatternMatchResult;
 
-/**
- * 识别模式 Pattern 列表
- * 用于匹配各种识别失败场景
- */
 const recognitionPatterns: { id: string; match: MatchFn }[] = [
   {
     id: 'template_not_found',
@@ -89,7 +61,8 @@ const recognitionPatterns: { id: string; match: MatchFn }[] = [
       const d = detail as RecognitionDetail;
       if (d.algorithm !== 'TemplateMatch') return { matched: false };
       const detailObj = d.detail as Record<string, unknown> | undefined;
-      const allResults = detailObj?.all_results_ as unknown[] | undefined;
+      const allResults = detailObj?.all as unknown[] | undefined;
+      
       if (!allResults || allResults.length === 0) {
         return {
           matched: true,
@@ -99,13 +72,14 @@ const recognitionPatterns: { id: string; match: MatchFn }[] = [
           cause: '屏幕上未找到与模板相似的区域',
           suggestions: [
             '更新模板图片为当前最新版本',
-            '检查目标界面是否与模板一致',
-            '适当降低匹配阈值（建议 0.7~0.8）',
+            '检查目标界面是否已发生变化',
             '确认 ROI 区域是否正确覆盖目标',
+            '如需快速恢复功能，可适当降低识别阈值作为临时方案',
           ],
           knowledge: 'TemplateMatch',
         };
       }
+      
       return { matched: false };
     },
   },
@@ -141,19 +115,20 @@ const recognitionPatterns: { id: string; match: MatchFn }[] = [
       const d = detail as RecognitionDetail;
       if (d.algorithm !== 'TemplateMatch') return { matched: false };
       const detailObj = d.detail as Record<string, unknown> | undefined;
-      const filtered = detailObj?.filtered_results_ as unknown[] | undefined;
-      const allResults = detailObj?.all_results_ as unknown[] | undefined;
+      const filtered = detailObj?.filtered as unknown[] | undefined;
+      const allResults = detailObj?.all as unknown[] | undefined;
       if (Array.isArray(filtered) && filtered.length === 0 && Array.isArray(allResults) && allResults.length > 0) {
         return {
           matched: true,
           patternId: 'template_all_filtered',
           category: 'recognition',
           severity: 'warning',
-          cause: `找到 ${allResults.length} 个匹配结果，但全部被过滤（可能阈值设置过高）`,
+          cause: `模板匹配找到多个匹配结果，但全部被过滤`,
           suggestions: [
-            '降低匹配阈值参数',
-            '检查 green_mask 蒙版设置',
-            '确认 filter 规则是否过于严格',
+            '检查目标界面是否与模板图片一致',
+            '更新模板图片为最新版本',
+            '检查目标区域是否有遮挡或变化',
+            '如需快速恢复功能，可适当降低识别阈值作为临时方案',
           ],
           knowledge: 'TemplateMatch',
         };
@@ -237,6 +212,60 @@ const recognitionPatterns: { id: string; match: MatchFn }[] = [
     },
   },
   {
+    id: 'ocr_all_filtered',
+    match: (detail) => {
+      const d = detail as RecognitionDetail;
+      if (d.algorithm !== 'OCR') return { matched: false };
+      const detailObj = d.detail as Record<string, unknown> | undefined;
+      const allResults = detailObj?.all as unknown[] | undefined;
+      const filtered = detailObj?.filtered as unknown[] | undefined;
+      if (Array.isArray(allResults) && allResults.length > 0 && Array.isArray(filtered) && filtered.length === 0) {
+        return {
+          matched: true,
+          patternId: 'ocr_all_filtered',
+          category: 'recognition',
+          severity: 'warning',
+          cause: `OCR 识别到结果，但全部被过滤`,
+          suggestions: [
+            '检查 expected 参数是否正确',
+            '确认目标文字是否在屏幕上',
+            '检查识别区域 ROI 是否包含目标文字',
+          ],
+          knowledge: 'OCR',
+        };
+      }
+      return { matched: false };
+    },
+  },
+  {
+    id: 'all_filtered',
+    match: (detail) => {
+      const d = detail as RecognitionDetail;
+      if (!d.algorithm || !d.detail) return { matched: false };
+      if (d.algorithm === 'OCR') return { matched: false };
+      if (d.algorithm === 'TemplateMatch') return { matched: false };
+      const detailObj = d.detail as Record<string, unknown> | undefined;
+      const allResults = detailObj?.all as unknown[] | undefined;
+      const filtered = detailObj?.filtered as unknown[] | undefined;
+      if (Array.isArray(allResults) && allResults.length > 0 && Array.isArray(filtered) && filtered.length === 0) {
+        return {
+          matched: true,
+          patternId: 'all_filtered',
+          category: 'recognition',
+          severity: 'warning',
+          cause: `${d.algorithm} 识别找到结果，但全部被过滤`,
+          suggestions: [
+            '检查识别参数是否正确',
+            '确认目标是否在屏幕上',
+            '检查识别区域 ROI 是否正确',
+          ],
+          knowledge: d.algorithm,
+        };
+      }
+      return { matched: false };
+    },
+  },
+  {
     id: 'color_not_match',
     match: (detail) => {
       const d = detail as RecognitionDetail;
@@ -248,7 +277,7 @@ const recognitionPatterns: { id: string; match: MatchFn }[] = [
           patternId: 'color_not_match',
           category: 'recognition',
           severity: 'critical',
-          cause: `指定颜色范围在屏幕上未找到匹配`,
+          cause: '指定颜色范围在屏幕上未找到匹配',
           suggestions: [
             '检查颜色范围 lower/upper 是否正确',
             '考虑光线变化导致颜色偏差',
@@ -288,7 +317,7 @@ const recognitionPatterns: { id: string; match: MatchFn }[] = [
     id: 'and_or',
     match: (detail) => {
       const d = detail as RecognitionDetail;
-      if (!['And', 'Or', 'DirectHit'].includes(d.algorithm)) return { matched: false };
+      if (!['And', 'Or'].includes(d.algorithm)) return { matched: false };
       const subDetails = d.detail as RecognitionDetail[] | undefined;
       if (!subDetails || subDetails.length === 0) {
         return {
@@ -337,13 +366,46 @@ const recognitionPatterns: { id: string; match: MatchFn }[] = [
         }
       }
       if (failedSubReasons.length > 0) {
+        const suggestions: string[] = [];
+        
+        for (const reason of failedSubReasons) {
+          if (reason.includes('TemplateMatch')) {
+            if (reason.includes('分数过低')) {
+              suggestions.push('降低模板匹配阈值（建议 0.7~0.8）或更新模板图片');
+            } else {
+              suggestions.push('更新模板图片为当前最新版本');
+            }
+          } else if (reason.includes('OCR')) {
+            suggestions.push('检查 OCR 识别的文字是否正确，调整识别参数');
+          } else if (reason.includes('颜色匹配')) {
+            suggestions.push('检查颜色配置是否正确，确认目标区域颜色是否符合预期');
+          } else if (reason.includes('特征匹配')) {
+            suggestions.push('更新特征图片或调整特征匹配参数');
+          } else if (reason.includes('子识别')) {
+            suggestions.push('检查子识别配置是否正确');
+          }
+        }
+        
+        if (d.algorithm === 'And') {
+          suggestions.unshift('And 识别需要所有子识别都成功');
+        } else if (d.algorithm === 'Or') {
+          suggestions.unshift('Or 识别只需任意一个子识别成功');
+        }
+        
+        if (suggestions.length === 0) {
+          suggestions.push('检查子识别配置是否正确');
+          suggestions.push('调整各子识别参数');
+        }
+        
+        const allReasons = failedSubReasons.join('；');
+        
         return {
           matched: true,
           patternId: 'and_or',
           category: 'recognition',
           severity: 'critical',
-          cause: `${d.algorithm} 组合识别失败: ${failedSubReasons.join('; ')}`,
-          suggestions: ['检查子识别配置是否正确', '调整各子识别参数'],
+          cause: `${d.algorithm} 组合识别失败: ${allReasons}`,
+          suggestions,
           knowledge: d.algorithm,
         };
       }
@@ -396,31 +458,98 @@ const recognitionPatterns: { id: string; match: MatchFn }[] = [
     },
   },
   {
-    id: 'neural_network',
+    id: 'neural_network_classify',
     match: (detail) => {
       const d = detail as RecognitionDetail;
-      if (!['NeuralNetworkClassify', 'NeuralNetworkDetect'].includes(d.algorithm)) return { matched: false };
+      if (d.algorithm !== 'NeuralNetworkClassify') return { matched: false };
       const detailObj = d.detail as Record<string, unknown> | undefined;
       if (detailObj?.error) {
         return {
           matched: true,
-          patternId: 'neural_network',
+          patternId: 'neural_network_classify',
           category: 'recognition',
           severity: 'critical',
-          cause: `神经网络识别执行出错: ${detailObj.error}`,
-          suggestions: ['检查神经网络模型是否正确', '确认模型文件是否存在'],
-          knowledge: d.algorithm,
+          cause: `神经网络分类执行出错: ${detailObj.error}`,
+          suggestions: [
+            '检查模型文件是否存在且正确',
+            '确认输入图像是否符合模型要求',
+            '查看 Go Service 日志获取详细错误',
+          ],
+          knowledge: 'NeuralNetworkClassify',
         };
       }
-      if (!detailObj?.result && !detailObj?.output) {
+      if (detailObj?.result === undefined && !detailObj?.output) {
         return {
           matched: true,
-          patternId: 'neural_network',
+          patternId: 'neural_network_classify',
           category: 'recognition',
           severity: 'critical',
-          cause: `${d.algorithm} 未返回有效结果`,
-          suggestions: ['检查神经网络模型是否正确', '确认输入图像是否符合模型要求'],
-          knowledge: d.algorithm,
+          cause: '神经网络分类未返回有效结果',
+          suggestions: [
+            '检查模型文件是否存在',
+            '确认分类阈值设置',
+            '检查输入图像是否包含目标',
+          ],
+          knowledge: 'NeuralNetworkClassify',
+        };
+      }
+      const probs = detailObj?.probs as { index: number; desc: string; prob: number }[] | undefined;
+      if (probs && probs.length > 0) {
+        const topProb = probs[0];
+        if (topProb.prob < 0.7) {
+          return {
+            matched: true,
+            patternId: 'neural_network_classify',
+            category: 'recognition',
+            severity: 'warning',
+            cause: `神经网络分类置信度过低 (${(topProb.prob * 100).toFixed(1)}%)，最高分类: ${topProb.desc}`,
+            suggestions: [
+              '模型可能无法正确区分当前场景',
+              '考虑使用其他分类方案',
+              '检查目标是否在模型支持类别中',
+            ],
+            knowledge: 'NeuralNetworkClassify',
+          };
+        }
+      }
+      return { matched: false };
+    },
+  },
+  {
+    id: 'neural_network_detect',
+    match: (detail) => {
+      const d = detail as RecognitionDetail;
+      if (d.algorithm !== 'NeuralNetworkDetect') return { matched: false };
+      const detailObj = d.detail as Record<string, unknown> | undefined;
+      if (detailObj?.error) {
+        return {
+          matched: true,
+          patternId: 'neural_network_detect',
+          category: 'recognition',
+          severity: 'critical',
+          cause: `神经网络检测执行出错: ${detailObj.error}`,
+          suggestions: [
+            '检查模型文件是否存在且正确',
+            '确认输入图像是否符合模型要求',
+            '查看 Go Service 日志获取详细错误',
+          ],
+          knowledge: 'NeuralNetworkDetect',
+        };
+      }
+      const result = detailObj?.result as unknown[] | undefined;
+      if (!result || result.length === 0) {
+        return {
+          matched: true,
+          patternId: 'neural_network_detect',
+          category: 'recognition',
+          severity: 'critical',
+          cause: '神经网络检测未发现任何目标',
+          suggestions: [
+            '检查目标是否存在于当前画面',
+            '确认检测阈值设置是否过高',
+            '检查模型是否适用于当前场景',
+          ],
+          knowledge: 'NeuralNetworkDetect',
         };
       }
       return { matched: false };
@@ -435,7 +564,7 @@ const recognitionPatterns: { id: string; match: MatchFn }[] = [
           return {
             matched: true,
             patternId: 'recognition_timeout',
-            category: 'action',
+            category: 'performance',
             severity: 'warning',
             cause: '识别操作超时',
             suggestions: [
@@ -452,213 +581,49 @@ const recognitionPatterns: { id: string; match: MatchFn }[] = [
       return { matched: false };
     },
   },
-];
-
-/**
- * 动作模式 Pattern 列表
- * 用于匹配各种动作执行失败场景
- */
-const actionPatterns: { id: string; match: MatchFn }[] = [
   {
-    id: 'click_failed',
+    id: 'directhit_no_result',
     match: (detail) => {
-      const d = detail as ActionDetail;
-      if (d.action !== 'Click') return { matched: false };
-      if (d.success === false) {
-        const detailObj = d.detail as Record<string, unknown> | undefined;
-        const message = detailObj?.message as string | undefined;
-        if (message?.includes('out of range') || message?.includes('超出范围')) {
-          return {
-            matched: true,
-            patternId: 'click_failed',
-            category: 'action',
-            severity: 'critical',
-            cause: `点击坐标超出屏幕范围: ${message}`,
-            suggestions: ['检查点击坐标是否在屏幕范围内', '确认 target 参数的坐标是否正确'],
-            knowledge: 'Click',
-          };
-        }
+      const d = detail as RecognitionDetail;
+      if (d.algorithm !== 'DirectHit') return { matched: false };
+      if (!d.detail) {
         return {
           matched: true,
-          patternId: 'click_failed',
-          category: 'action',
-          severity: 'warning',
-          cause: '点击动作执行但未获得响应',
-          suggestions: ['检查设备连接状态', '确认目标位置是否可点击', '尝试增加点击前后延迟'],
-          knowledge: 'Click',
-        };
-      }
-      return { matched: false };
-    },
-  },
-  {
-    id: 'swipe_failed',
-    match: (detail) => {
-      const d = detail as ActionDetail;
-      if (d.action !== 'Swipe' && d.action !== 'MultiSwipe') return { matched: false };
-      if (d.success === false) {
-        const detailObj = d.detail as Record<string, unknown> | undefined;
-        return {
-          matched: true,
-          patternId: 'swipe_failed',
-          category: 'action',
-          severity: 'warning',
-          cause: `滑动执行失败: ${detailObj?.message || '未知原因'}`,
-          suggestions: ['检查滑动坐标是否在屏幕范围内', '增加滑动持续时间', '确认滑动方向正确'],
-          knowledge: 'Swipe',
-        };
-      }
-      return { matched: false };
-    },
-  },
-  {
-    id: 'input_failed',
-    match: (detail) => {
-      const d = detail as ActionDetail;
-      if (d.action !== 'InputText') return { matched: false };
-      if (d.success === false) {
-        const detailObj = d.detail as Record<string, unknown> | undefined;
-        return {
-          matched: true,
-          patternId: 'input_failed',
-          category: 'action',
+          patternId: 'directhit_no_result',
+          category: 'recognition',
           severity: 'critical',
-          cause: `文本输入失败: ${detailObj?.message || '未知原因'}`,
-          suggestions: ['检查输入框是否获得焦点', '确认文本编码是否正确', '尝试分多次输入长文本'],
-          knowledge: 'InputText',
+          cause: 'DirectHit 识别未返回结果',
+          suggestions: [
+            '检查识别配置是否正确',
+            '确认目标界面是否存在',
+            '检查 ROI 区域是否正确',
+          ],
+          knowledge: 'DirectHit',
         };
       }
       return { matched: false };
     },
   },
   {
-    id: 'start_app_failed',
+    id: 'detector_no_result',
     match: (detail) => {
-      const d = detail as ActionDetail;
-      if (d.action !== 'StartApp') return { matched: false };
-      if (d.success === false) {
-        const detailObj = d.detail as Record<string, unknown> | undefined;
-        return {
-          matched: true,
-          patternId: 'start_app_failed',
-          category: 'action',
-          severity: 'critical',
-          cause: `启动应用失败: ${detailObj?.message || '未知原因'}`,
-          suggestions: ['确认应用包名是否正确', '检查应用是否已安装', '增加启动等待时间'],
-          knowledge: 'StartApp',
-        };
-      }
-      return { matched: false };
-    },
-  },
-  {
-    id: 'custom_action_error',
-    match: (detail) => {
-      const d = detail as ActionDetail;
-      if (d.action !== 'Custom') return { matched: false };
+      const d = detail as RecognitionDetail;
       const detailObj = d.detail as Record<string, unknown> | undefined;
-      if (detailObj?.error) {
+      const allResults = detailObj?.all as unknown[] | undefined;
+      
+      if (!allResults || allResults.length === 0) {
         return {
           matched: true,
-          patternId: 'custom_action_error',
-          category: 'action',
+          patternId: 'detector_no_result',
+          category: 'recognition',
           severity: 'critical',
-          cause: `自定义动作执行出错: ${detailObj.error}`,
-          suggestions: ['检查 Go Service 是否正常运行', '查看自定义动作日志', '确认动作参数格式正确'],
-          knowledge: 'Custom',
-        };
-      }
-      return { matched: false };
-    },
-  },
-  {
-    id: 'touch_action',
-    match: (detail) => {
-      const d = detail as ActionDetail;
-      if (!['LongPress', 'TouchDown', 'TouchMove', 'TouchUp', 'Scroll'].includes(d.action)) return { matched: false };
-      const detailObj = d.detail as Record<string, unknown> | undefined;
-      if (detailObj?.error) {
-        return {
-          matched: true,
-          patternId: 'touch_action',
-          category: 'action',
-          severity: 'critical',
-          cause: `${d.action} 执行出错: ${detailObj.error}`,
-          suggestions: ['检查触控参数是否正确', '确认目标区域是否可点击'],
-          knowledge: d.action,
-        };
-      }
-      if (d.success === false) {
-        return {
-          matched: true,
-          patternId: 'touch_action',
-          category: 'action',
-          severity: 'warning',
-          cause: `${d.action} 执行失败`,
-          suggestions: ['检查触控操作是否成功执行', '确认目标区域是否存在'],
-          knowledge: d.action,
-        };
-      }
-      return { matched: false };
-    },
-  },
-  {
-    id: 'key_action',
-    match: (detail) => {
-      const d = detail as ActionDetail;
-      if (!['ClickKey', 'LongPressKey', 'KeyDown', 'KeyUp'].includes(d.action)) return { matched: false };
-      const detailObj = d.detail as Record<string, unknown> | undefined;
-      if (detailObj?.error) {
-        return {
-          matched: true,
-          patternId: 'key_action',
-          category: 'action',
-          severity: 'critical',
-          cause: `${d.action} 执行出错: ${detailObj.error}`,
-          suggestions: ['检查按键是否有效', '确认目标窗口是否支持按键'],
-          knowledge: d.action,
-        };
-      }
-      if (d.success === false) {
-        return {
-          matched: true,
-          patternId: 'key_action',
-          category: 'action',
-          severity: 'warning',
-          cause: `${d.action} 执行失败`,
-          suggestions: ['检查按键操作是否成功执行'],
-          knowledge: d.action,
-        };
-      }
-      return { matched: false };
-    },
-  },
-  {
-    id: 'system_action',
-    match: (detail) => {
-      const d = detail as ActionDetail;
-      if (!['StopApp', 'StopTask', 'Command', 'Shell', 'Screencap'].includes(d.action)) return { matched: false };
-      const detailObj = d.detail as Record<string, unknown> | undefined;
-      if (detailObj?.error) {
-        return {
-          matched: true,
-          patternId: 'system_action',
-          category: 'action',
-          severity: 'critical',
-          cause: `${d.action} 执行出错: ${detailObj.error}`,
-          suggestions: ['检查系统操作是否正确', '确认权限是否足够'],
-          knowledge: d.action,
-        };
-      }
-      if (d.success === false) {
-        return {
-          matched: true,
-          patternId: 'system_action',
-          category: 'action',
-          severity: 'warning',
-          cause: `${d.action} 执行失败: ${detailObj?.message || '未知原因'}`,
-          suggestions: ['检查系统操作是否正确执行', '确认目标是否存在'],
-          knowledge: d.action,
+          cause: `${d.algorithm} 识别未找到任何结果`,
+          suggestions: [
+            '检查目标界面是否正确',
+            '确认识别参数配置是否正确',
+            '检查模型文件是否存在',
+          ],
+          knowledge: d.algorithm,
         };
       }
       return { matched: false };
@@ -666,83 +631,280 @@ const actionPatterns: { id: string; match: MatchFn }[] = [
   },
 ];
 
-/**
- * 执行 Pattern 匹配
- * 统一执行引擎，遍历 patterns 列表，找到第一个匹配的 pattern
- *
- * @param detail - 识别或动作详情
- * @param node - 节点信息
- * @param patterns - Pattern 列表
- * @returns 匹配结果
- */
 function matchDetail(
   detail: RecognitionDetail | ActionDetail | Record<string, unknown>,
+  attempt: RecognitionAttempt | ActionAttempt,
   node: NodeInfo,
   patterns: { id: string; match: MatchFn }[]
 ): PatternMatchResult {
   for (const pattern of patterns) {
-    try {
-      const result = pattern.match(detail, node);
-      if (result.matched) {
-        return result;
-      }
-    } catch {
-      continue;
+    const result = pattern.match(detail, attempt, node);
+    if (result.matched) {
+      return result;
     }
   }
   return { matched: false };
 }
 
-/**
- * 诊断任务失败
- * 遍历所有任务和节点，根据配置的 pattern 进行匹配诊断
- *
- * @param tasks - 任务列表
- * @returns 诊断结果列表
- */
+function extractScoresFromDetail(detail: JsonValue): number[] {
+  const scores: number[] = [];
+  if (Array.isArray(detail)) {
+    for (const child of detail) {
+      if (child && typeof child === 'object' && 'detail' in child) {
+        const childDetail = (child as { detail?: JsonValue }).detail;
+        if (childDetail && typeof childDetail === 'object' && !Array.isArray(childDetail)) {
+          const obj = childDetail as Record<string, JsonValue>;
+          if (Array.isArray(obj.all)) {
+            for (const r of obj.all) {
+              if (r && typeof r === 'object' && 'score' in r) {
+                const score = (r as { score?: number }).score;
+                if (typeof score === 'number') scores.push(score);
+              }
+            }
+          } else if (typeof obj.score === 'number') {
+            scores.push(obj.score);
+          }
+        }
+      }
+    }
+  } else if (detail && typeof detail === 'object' && !Array.isArray(detail)) {
+    const obj = detail as Record<string, JsonValue>;
+    if (Array.isArray(obj.all)) {
+      for (const r of obj.all) {
+        if (r && typeof r === 'object' && 'score' in r) {
+          const score = (r as { score?: number }).score;
+          if (typeof score === 'number') scores.push(score);
+        }
+      }
+    } else if (typeof obj.score === 'number') {
+      scores.push(obj.score);
+    }
+  }
+  return scores;
+}
+
+function diagnoseRecognitionAttempts(
+  node: NodeInfo,
+  task: TaskInfo
+): DiagnosisResult[] {
+  const results: DiagnosisResult[] = [];
+  const attempts = node.recognition_attempts || [];
+  
+  if (attempts.length === 0) {
+    return results;
+  }
+
+  const failedAttempts = attempts.filter(a => a.status === 'failed');
+  const successAttempts = attempts.filter(a => a.status === 'success');
+
+  for (const attempt of attempts) {
+    if (!attempt.reco_details) continue;
+    
+    const result = matchDetail(attempt.reco_details, attempt, node, recognitionPatterns);
+    if (result.matched && result.patternId) {
+      const attemptScores = extractScoresFromDetail(attempt.reco_details?.detail);
+      
+      results.push({
+        nodeId: node.node_id,
+        nodeName: node.name,
+        taskName: task.entry,
+        category: result.category ?? 'recognition',
+        severity: result.severity ?? 'warning',
+        patternId: result.patternId,
+        cause: result.cause ?? '未知原因',
+        suggestions: result.suggestions ?? [],
+        relatedKnowledge: result.knowledge,
+        recognitionDetail: attempt.reco_details,
+        recognitionHistory: {
+          totalAttempts: attempts.length,
+          failedAttempts: failedAttempts.length,
+          scores: attemptScores,
+          algorithms: [...new Set(attempts.map(a => a.reco_details?.algorithm).filter(Boolean))] as string[],
+        },
+      });
+    }
+  }
+
+  if (failedAttempts.length > 1 && successAttempts.length > 0) {
+    const hasRetryDiagnosis = results.some(r => r.patternId === 'recognition_retry');
+    if (!hasRetryDiagnosis) {
+      const allScores: number[] = [];
+      for (const attempt of attempts) {
+        if (attempt.reco_details?.detail) {
+          allScores.push(...extractScoresFromDetail(attempt.reco_details.detail));
+        }
+      }
+      
+      results.push({
+        nodeId: node.node_id,
+        nodeName: node.name,
+        taskName: task.entry,
+        category: 'performance',
+        severity: 'warning',
+        patternId: 'recognition_retry',
+        cause: '识别重试后成功，建议优化识别参数减少重试',
+        suggestions: [
+          '检查识别配置是否稳定',
+          '考虑优化识别参数提高首次成功率',
+          '增加重试间隔时间避免界面动画干扰',
+          `考虑在 "${node.name}" 前添加中间节点作为缓冲`,
+        ],
+        recognitionHistory: {
+          totalAttempts: attempts.length,
+          failedAttempts: failedAttempts.length,
+          scores: allScores,
+          algorithms: [],
+        },
+      });
+    }
+  }
+
+  if (attempts.length >= 3 && failedAttempts.length === attempts.length) {
+    results.push({
+      nodeId: node.node_id,
+      nodeName: node.name,
+      taskName: task.entry,
+      category: 'recognition',
+      severity: 'critical',
+      patternId: 'recognition_all_failed',
+      cause: '该节点识别连续多次全部失败',
+      suggestions: [
+        '检查识别参数配置是否正确',
+        '确认目标界面是否发生变化',
+        '检查 ROI 区域是否正确',
+      ],
+      recognitionHistory: {
+        totalAttempts: attempts.length,
+        failedAttempts: failedAttempts.length,
+        scores: [],
+        algorithms: [],
+      },
+    });
+  }
+
+  return results;
+}
+
+function diagnoseActionAttempts(
+  node: NodeInfo,
+  task: TaskInfo
+): DiagnosisResult[] {
+  const results: DiagnosisResult[] = [];
+  const actionDetails = node.action_details;
+
+  if (!actionDetails) return results;
+  
+  if (actionDetails.success === false) {
+    const action = actionDetails.action || '未知动作';
+    results.push({
+      nodeId: node.node_id,
+      nodeName: node.name,
+      taskName: task.entry,
+      category: 'action',
+      severity: 'warning',
+      patternId: 'action_failed',
+      cause: `动作 "${action}" 执行失败`,
+      suggestions: [
+        '检查目标界面是否存在',
+        '确认操作是否被其他进程阻挡',
+        '适当增加动作等待时间',
+      ],
+      relatedKnowledge: undefined,
+      actionDetail: actionDetails,
+    });
+  }
+
+  return results;
+}
+
+function detectChainFailures(task: TaskInfo): DiagnosisResult[] {
+  const results: DiagnosisResult[] = [];
+  const nodes = task.nodes || [];
+  
+  let failedBeforeSkipped = false;
+  let failedNodeName = '';
+
+  for (let i = 0; i < nodes.length; i++) {
+    const node = nodes[i];
+    const prevNode = i > 0 ? nodes[i - 1] : null;
+
+    if (prevNode?.status === 'failed') {
+      failedBeforeSkipped = true;
+      failedNodeName = prevNode.name;
+    }
+
+    if (node.status === 'success' && failedBeforeSkipped) {
+      results.push({
+        nodeId: node.node_id,
+        nodeName: node.name,
+        taskName: task.entry,
+        category: 'flow',
+        severity: 'info',
+        patternId: 'flow_resumed',
+        cause: `前置节点 "${failedNodeName}" 失败后，流程已恢复执行`,
+        suggestions: [
+          `建议优先排查节点 "${failedNodeName}" 的问题`,
+          '当前节点执行成功，说明后续流程正常',
+        ],
+      });
+      failedBeforeSkipped = false;
+    }
+  }
+
+  return results;
+}
+
 export function diagnoseFailures(tasks: TaskInfo[]): DiagnosisResult[] {
   const results: DiagnosisResult[] = [];
 
   for (const task of tasks) {
     if (!task.nodes) continue;
 
-    for (const node of task.nodes) {
-      if (node.status !== 'failed') continue;
+    const chainResults = detectChainFailures(task);
+    results.push(...chainResults);
 
-      if (node.reco_details) {
-        const result = matchDetail(node.reco_details, node, recognitionPatterns);
-        if (result.matched && result.patternId) {
-          results.push({
-            nodeId: node.node_id,
-            nodeName: node.name,
-            taskName: task.entry,
-            category: result.category ?? 'recognition',
-            severity: result.severity ?? 'warning',
-            patternId: result.patternId,
-            cause: result.cause ?? '未知原因',
-            suggestions: result.suggestions ?? [],
-            relatedKnowledge: result.knowledge,
-            recognitionDetail: node.reco_details,
-          });
-        }
+    for (const node of task.nodes) {
+      const nodeStatus = (node as { status?: string }).status;
+      if (nodeStatus === 'disabled') {
+        results.push({
+          nodeId: node.node_id,
+          nodeName: node.name,
+          taskName: task.entry,
+          category: 'flow',
+          severity: 'info',
+          patternId: 'node_disabled',
+          cause: `节点 "${node.name}" 已被禁用`,
+          suggestions: [
+            '如需启用，请检查配置文件',
+            '确认该节点是否为条件性跳过',
+          ],
+        });
+        continue;
       }
 
-      if (node.action_details) {
-        const result = matchDetail(node.action_details, node, actionPatterns);
-        if (result.matched && result.patternId) {
-          results.push({
-            nodeId: node.node_id,
-            nodeName: node.name,
-            taskName: task.entry,
-            category: result.category ?? 'action',
-            severity: result.severity ?? 'warning',
-            patternId: result.patternId,
-            cause: result.cause ?? '未知原因',
-            suggestions: result.suggestions ?? [],
-            relatedKnowledge: result.knowledge,
-            actionDetail: node.action_details,
-          });
-        }
+      if (node.status !== 'failed') continue;
+
+      const recognitionResults = diagnoseRecognitionAttempts(node, task);
+      results.push(...recognitionResults);
+
+      const actionResults = diagnoseActionAttempts(node, task);
+      results.push(...actionResults);
+
+      if (recognitionResults.length === 0 && actionResults.length === 0) {
+        results.push({
+          nodeId: node.node_id,
+          nodeName: node.name,
+          taskName: task.entry,
+          category: 'unknown',
+          severity: 'warning',
+          patternId: 'unknown_failure',
+          cause: '节点执行失败，但未能识别出具体原因',
+          suggestions: [
+            '请查看节点详情中的原始日志',
+            '检查是否有截图信息',
+            '如持续出现此问题，请提交日志反馈',
+          ],
+        });
       }
     }
   }
@@ -750,13 +912,6 @@ export function diagnoseFailures(tasks: TaskInfo[]): DiagnosisResult[] {
   return results;
 }
 
-/**
- * 汇总诊断结果
- * 按严重程度和类别分组统计
- *
- * @param diagnoses - 诊断结果列表
- * @returns 汇总统计
- */
 export function summarizeDiagnoses(diagnoses: DiagnosisResult[]) {
   const summary = {
     total: diagnoses.length,

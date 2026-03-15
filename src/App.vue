@@ -1650,10 +1650,6 @@ body,
   background: var(--n-color-modal);
 }
 
-.detail-section-cell:nth-child(odd) {
-  background: var(--n-color);
-}
-
 .detail-section-cell:nth-child(even) {
   border-right: none;
 }
@@ -1677,13 +1673,13 @@ body,
   font-weight: 500;
   font-size: 12px;
   color: var(--n-text-color);
-  background: var(--n-color);
+  background: var(--n-color-modal);
   padding: 2px 6px;
   border-radius: 6px;
 }
 
 .detail-section-collapse {
-  background: var(--n-color);
+  background: var(--n-color-modal);
   border-radius: 10px;
   padding: 4px 8px;
 }
